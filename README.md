@@ -1,13 +1,13 @@
 # Scripting Scripts Collection
 
-这里是 **SylvanRoe** 的 [Scripting app](https://thomfang.com/scripting) 脚本 / 小组件集合。
+这里是 **SylvanRoe** 的 [Scripting app](https://www.scripting.fun/index.html) 脚本 / 小组件集合。
 每一个脚本（或小组件）占一个子目录，自带说明与署名（原作者均已标注）。
 
 ## 脚本 / 小组件
 
 | 子目录 | 说明 | 状态 |
 |---|---|---|
-| [SGCC](SGCC/) | 国家电网电量中号小组件（展示用电量/电费、阶梯、近日用电柱状图；含多账户/多户名）。移植自 Scriptable 脚本 @脑瓜 v2.3.3 | 可用 |
+| [SGCC](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FSGCC%2FSGCC.scripting%22%5D) | 国家电网电量中号小组件（展示用电量/电费、阶梯、近日用电柱状图；含多账户/多户名）。移植自 Scriptable 脚本 @脑瓜 v2.3.3 | 可用 |
 
 > 更多小组件陆续补充中。
 
