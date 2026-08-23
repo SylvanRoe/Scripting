@@ -449,7 +449,7 @@ function demoViewModel(): BillViewModel {
     step: {
       level: 1,
       usage: 1557,
-      percent: 61.79,
+      percent: 32.44,
       remain: 963,
       threshold: 2520,
       step2: 2520,

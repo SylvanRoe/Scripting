@@ -121,11 +121,14 @@ export function buildStepInfo(
   }
   usage = round2(usage)
 
+  // 百分比与横条/滑块同轴：统一按「占第三档上限 step3 的比例」，封顶 100%。
+  const percent = round2(Math.min(usage / step3, 1) * 100)
+
   if (usage < step2) {
     return {
       level: 1,
       usage,
-      percent: round2((usage / step2) * 100),
+      percent,
       remain: round2(step2 - usage),
       threshold: step2,
       step2,
@@ -134,11 +137,11 @@ export function buildStepInfo(
   }
 
   if (usage > step3) {
-    // 第三档展示超出 step3 的部分
+    // 第三档已超过 step3，横条与百分比均已封顶（100%）
     return {
       level: 3,
       usage,
-      percent: round2((usage / step3) * 100 - 100),
+      percent,
       remain: 0,
       threshold: step3,
       step2,
@@ -149,7 +152,7 @@ export function buildStepInfo(
   return {
     level: 2,
     usage,
-    percent: round2((usage / step3) * 100),
+    percent,
     remain: round2(step3 - usage),
     threshold: step3,
     step2,

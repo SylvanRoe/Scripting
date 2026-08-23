@@ -7,11 +7,13 @@ const KEY = 'sgcc.settings'
 
 export function loadSettings(): SGCCSettings {
   const raw = Storage.get<Partial<SGCCSettings>>(KEY)
-  if (!raw || typeof raw !== 'object') {
-    return { ...DEFAULT_SETTINGS }
-  }
   // 与默认值合并，保证新增字段有兜底
-  return { ...DEFAULT_SETTINGS, ...raw }
+  const merged = !raw || typeof raw !== 'object'
+    ? { ...DEFAULT_SETTINGS }
+    : { ...DEFAULT_SETTINGS, ...raw }
+  // 阶梯口径仅保留「按年累计」；临时让旧的按月配置也退回到年度
+  merged.stepMode = '年'
+  return merged
 }
 
 export function saveSettings(settings: SGCCSettings): boolean {

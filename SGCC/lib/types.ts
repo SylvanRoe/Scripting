@@ -108,7 +108,7 @@ export interface StepInfo {
   level: 1 | 2 | 3
   /** 累计用电量（按计算口径） */
   usage: number
-  /** 当前档位内的百分比，第三档为超出部分 */
+  /** 已用电量占第三档上限 step3 的比例（封顶 100%），与横条/滑块同轴 */
   percent: number
   /** 距下一档还剩多少度，已在第三档时为 0 */
   remain: number

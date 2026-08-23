@@ -171,19 +171,11 @@ function SettingsView() {
               </Text>
             ))}
           </Picker>
-          <Picker
-            title="阶梯口径"
-            value={settings.stepMode}
-            onChanged={(v: string) => patch('stepMode', v as SGCCSettings['stepMode'])}
-            pickerStyle="segmented"
-          >
-            <Text key="年" tag="年">
-              按年累计
-            </Text>
-            <Text key="月" tag="月">
-              按月计算
-            </Text>
-          </Picker>
+          <HStack>
+            <Text>阶梯口径</Text>
+            <Spacer />
+            <Text foregroundStyle="secondaryLabel">按年累计</Text>
+          </HStack>
           <ColorPicker
             title="柱状图颜色"
             value={settings.chartColor as Color}
@@ -202,7 +194,7 @@ function SettingsView() {
           header={<Text>阶梯</Text>}
           footer={
             <Text font="caption">
-              按你的实际电表档位填写，单位度。留空表示按山东口径自动（按月 210/400 度、按年 2520/4800 度）。改动后请点右上角「保存」生效。
+              按你的实际电表档位填写，单位度。留空表示按山东口径自动（按年累计 2520/4800 度）。改动后请点右上角「保存」生效。
             </Text>
           }
         >
