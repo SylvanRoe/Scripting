@@ -1,0 +1,45 @@
+{
+  "localizedDescriptions" : {
+    "it" : "",
+    "pt" : "",
+    "zh" : "",
+    "de" : "",
+    "ru" : "",
+    "ja" : "",
+    "en" : "",
+    "es" : "",
+    "fr" : ""
+  },
+  "author" : {
+    "homepage" : "https:\/\/github.com\/SylvanRoe\/Scripting",
+    "email" : "SylvanRoe@gmail.com",
+    "name" : "SylvanRoe"
+  },
+  "iconImage" : null,
+  "version" : "1.0.0",
+  "icon" : "bolt.fill",
+  "permissions" : null,
+  "contributors" : [
+
+  ],
+  "localizedNames" : {
+    "it" : "",
+    "pt" : "",
+    "zh" : "国家电网",
+    "de" : "",
+    "ru" : "",
+    "ja" : "",
+    "en" : "",
+    "es" : "",
+    "fr" : ""
+  },
+  "name" : "SGCC",
+  "intentInputTypes" : [
+
+  ],
+  "color" : "rgba(13, 179, 142, 1)",
+  "runInApp" : true,
+  "entry" : "index.tsx",
+  "description" : "国家电网电费中号小组件，展示年度/月度电费电量与近日用电。移植自 Scriptable 脚本（@脑瓜 v2.3.3）。",
+  "remoteResource" : null
+}
