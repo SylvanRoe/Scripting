@@ -95,7 +95,7 @@ export function resolveAccountIndex(param: string, settings: SGCCSettings): numb
 /**
  * 阶梯用电状态。
  * - 月口径：只看本月累计
- * - 年口径：年度累计（接口 totalYearPq 优先，否则用已结算合计）+ 本月估算
+ * - 年口径：直接用接口的年度累计 totalYearPq（已含当月），不再叠加本月，避免重复计数
  */
 export function buildStepInfo(
   account: RawAccount,
@@ -113,11 +113,11 @@ export function buildStepInfo(
   if (mode === '月') {
     usage = currentMonthEle
   } else {
-    const base = num(
+    // 年口径：接口 totalYearPq（= totalEleNum 已含当月）直接用，避免把当月重复计一次
+    usage = num(
       account.stepElecQuantity?.[0]?.electricParticulars?.totalYearPq,
       totalEleNum,
     )
-    usage = base + Math.round(currentMonthEle)
   }
   usage = round2(usage)
 
@@ -192,8 +192,8 @@ export function buildViewModel(
   const totalEleNum = num(account.monthElecQuantity?.dataInfo?.totalEleNum)
   const totalEleCost = num(account.monthElecQuantity?.dataInfo?.totalEleCost)
 
-  // 年度电量 = 已结算合计 + 本月估算
-  const yearUsage = round2(totalEleNum + currentMonthEle)
+  // 年度电量 = 接口年度累计（已含当月），避免重复计本月
+  const yearUsage = round2(totalEleNum)
   const yearFee = round2(totalEleCost)
 
   // 最近一天用电
