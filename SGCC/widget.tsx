@@ -3,7 +3,8 @@
  *
  * 移植/维护（Scripting 版）：SylvanRoe
  * telegram: @Air_QT
- * 更新: 2026/08/23
+ * 更新: 2026/09/05
+ * 版本: 1.0.1
  *
  * 原作者（原 Scriptable 脚本）声明：
  * @author: 脑瓜
@@ -20,6 +21,18 @@
  *   // Variables used by Scriptable.
  *   // These must be at the very top of the file. Do not edit.
  *   // icon-color: teal; icon-glyph: project-diagram;
+ *
+ * 免责声明：
+ *   1. 本仓库中涉及任何解锁和解密分析的脚本仅用于资源共享和学习研究，不能保证其合法性、准确性、完整性和有效性，请根据情况自行判断。
+ *   2. 本仓库内的任何内容禁止在中华人民共和国境内平台公开传播。
+ *   3. 请勿将本仓库内的任何内容用于商业或非法目的，否则后果自负。
+ *   4. 如果任何单位或个人认为该项目的脚本可能涉嫌侵犯其权利，则应及时通知并提供身份证明、所有权证明，我将在收到认证文件后删除相关脚本。
+ *   5. 对任何本仓库中包含的脚本在使用中可能出现的问题概不负责，包括但不限于由任何脚本错误导致的任何损失或损害。
+ *   6. 您必须在下载后的24小时内从计算机或手机中完全删除以上内容。
+ *   7. 以任何方式查看此项目的人或直接或间接使用该项目的任何脚本的使用者都应仔细阅读此声明。保留随时更改或补充此免责声明的权利。一旦使用并复制了任何本仓库相关脚本或其他内容，则视为您已接受此免责声明。
+ *
+ * 补充说明：
+ *   本仓库内的脚本不允许商业用途，但可以用于学习和研究，转载请保留原作者署名。
  */
 import {
   Widget,
@@ -292,16 +305,22 @@ function LeftPanel({ vm, settings }: { vm: BillViewModel; settings: SGCCSettings
       <Spacer />
 
       <Text font={10} foregroundStyle={labelColor}>
-        {vm.isPostPaid ? '账户余额' : '待缴电费'}
+        {vm.remainFee >= 0 ? '账户余额' : '待缴电费'}
       </Text>
       <HStack alignment="firstTextBaseline" spacing={2}>
         <Text
-          font={24}
+          font={(() => {
+            const s = Math.abs(vm.remainFee).toFixed(2);
+            const len = s.length;
+            if (len <= 5) return 22;
+            if (len === 6) return 20;
+            return 18;
+          })()}
           fontWeight="semibold"
           fontDesign="rounded"
           foregroundStyle={vm.isOverdue ? overdueColor : valueColor}
         >
-          {vm.remainFee.toFixed(2)}
+          {Math.abs(vm.remainFee).toFixed(2)}
         </Text>
         <Text font={11} foregroundStyle={vm.isOverdue ? overdueColor : labelColor}>
           元

@@ -2,7 +2,7 @@
 
 在 iOS 桌面展示国家电网用电量 / 电费的 **systemMedium** 小组件。
 
-> **移植/维护（Scripting 版）**：SylvanRoe · telegram: @Air_QT · 更新: 2026/08/23
+> **移植/维护（Scripting 版）**：SylvanRoe · telegram: @Air_QT · 更新: 2026/09/05
 >
 > **原作者（原 Scriptable 脚本）声明，修改套用请注明来源：**
 >
