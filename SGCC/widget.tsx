@@ -4,7 +4,7 @@
  * 移植/维护（Scripting 版）：SylvanRoe
  * telegram: @Air_QT
  * 更新: 2026/09/05
- * 版本: 1.0.1
+ * 版本: 1.0.2
  *
  * 原作者（原 Scriptable 脚本）声明：
  * @author: 脑瓜
@@ -55,7 +55,7 @@ import {
   shortTime,
   resolveAccountIndex,
 } from './lib/calc'
-import type { BillViewModel, SGCCSettings } from './lib/types'
+import type { BillViewModel, SGCCSettings, MetricKey, RowDisplayMode } from './lib/types'
 
 const settings = loadSettings()
 
@@ -110,7 +110,7 @@ function Metric({
 }) {
   return (
     <VStack alignment={align} spacing={1}>
-      <Text font={11} foregroundStyle={labelColor}>
+      <Text font={11} fontWeight="semibold" foregroundStyle={labelColor}>
         {label}
       </Text>
       <HStack alignment="firstTextBaseline" spacing={1.5}>
@@ -122,7 +122,7 @@ function Metric({
         >
           {value}
         </Text>
-        <Text font={9} foregroundStyle={labelColor}>
+        <Text font={9} fontWeight="semibold" foregroundStyle={labelColor}>
           {unit}
         </Text>
       </HStack>
@@ -130,8 +130,8 @@ function Metric({
   )
 }
 
-/** 近日用电柱状图：固定宽度 90pt，自适应柱宽 + 动态间距，n>=10 时收紧避免溢出 */
-const CHART_WIDTH = 90
+/** 近日用电柱状图：固定宽度 96pt，自适应柱宽 + 动态间距，n>=11 时收紧避免溢出 */
+const CHART_WIDTH = 96
 
 // 柱状图盒子高度与柱子 max 等高，避免与底部 metric 对齐时上下留白
 const CHART_BOX_HEIGHT = 22
@@ -143,7 +143,7 @@ function DayChart({ data }: { data: BillViewModel['dayElePq'] }) {
   const bars = recentDays(data, settings.dayAmount)
   if (bars.length === 0) {
     return (
-      <Text font={11} foregroundStyle={labelColor} frame={{ width: CHART_WIDTH }}>
+      <Text font={11} fontWeight="semibold" foregroundStyle={labelColor} frame={{ width: CHART_WIDTH }}>
         暂无用电数据
       </Text>
     )
@@ -152,8 +152,8 @@ function DayChart({ data }: { data: BillViewModel['dayElePq'] }) {
   const max = Math.max(...bars.map(b => b.elePq), 0.01)
   const chartHeight = 22
   const n = bars.length
-  // 柱子间距拉大 3→4pt，让每天之间的空隙更明显；n>=10 时收紧避免溢出
-  const spacing = n >= 10 ? 4 : 5
+  // 柱子间距：天数少时间距更大（6pt），9-10 天用 5pt，11-12 天收紧到 3pt 避免溢出
+  const spacing = n >= 11 ? 3 : n >= 9 ? 5 : 6
   const barWidth = Math.max(
     5,
     Math.min(12, Math.floor((CHART_WIDTH - spacing * (n - 1)) / n)),
@@ -228,11 +228,11 @@ function StepRow({ step }: { step: BillViewModel['step'] }) {
     <VStack alignment="leading" spacing={2}>
       {/* 上方文字标注 */}
       <HStack alignment="firstTextBaseline">
-        <Text font={11} foregroundStyle={labelColor}>
+        <Text font={11} fontWeight="semibold" foregroundStyle={labelColor}>
           阶梯电量
         </Text>
         <Spacer />
-        <Text font={11} fontWeight="medium" foregroundStyle={labelColor}>
+        <Text font={11} fontWeight="semibold" foregroundStyle={labelColor}>
           {`第${tierText}阶梯·${step.percent.toFixed(2)}%`}
         </Text>
       </HStack>
@@ -284,7 +284,124 @@ function StepRow({ step }: { step: BillViewModel['step'] }) {
   )
 }
 
-/** 左侧：户名 + 余额 */
+/** 近日用电：大号数值 + 度，与柱状图并排时视觉醒目 */
+function DayFeeMetric({ vm, align = 'leading' }: { vm: BillViewModel; align?: 'leading' | 'trailing' }) {
+  return (
+    <VStack alignment={align} spacing={1}>
+      <Text font={10} fontWeight="semibold" foregroundStyle={labelColor} lineLimit={1}>
+        近日用电
+      </Text>
+      <HStack alignment="firstTextBaseline" spacing={1}>
+        <Text
+          font={20}
+          fontWeight="semibold"
+          fontDesign="rounded"
+          foregroundStyle={chartColor}
+          lineLimit={1}
+        >
+          {vm.dayFee.toFixed(2)}
+        </Text>
+        <Text font={10} fontWeight="semibold" foregroundStyle={labelColor}>
+          度
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+/** 按 MetricKey 渲染对应的内容块 */
+function MetricItem({
+  vm,
+  metricKey,
+  align = 'leading',
+}: {
+  vm: BillViewModel
+  metricKey: MetricKey
+  align?: 'leading' | 'trailing'
+}) {
+  switch (metricKey) {
+    case 'monthFee':
+      return <Metric label="上期电费" value={vm.monthFee.toFixed(2)} unit="元" align={align} />
+    case 'monthUsage':
+      return <Metric label="上月电量" value={vm.monthUsage.toFixed(0)} unit="度" align={align} />
+    case 'yearFee':
+      return <Metric label="年度电费" value={vm.yearFee.toFixed(2)} unit="元" align={align} />
+    case 'yearUsage':
+      return <Metric label="年度电量" value={vm.yearUsage.toFixed(0)} unit="度" align={align} />
+    case 'currentMonthEle':
+      return <Metric label="本月电量" value={vm.currentMonthEle.toFixed(0)} unit="度" align={align} />
+    case 'dayFee':
+      return <DayFeeMetric vm={vm} align={align} />
+    case 'remainFee':
+      return (
+        <Metric
+          label="电费余额"
+          value={Math.abs(vm.remainFee).toFixed(2)}
+          unit="元"
+          align={align}
+          highlight={vm.isOverdue}
+        />
+      )
+    case 'dayChart':
+      return <DayChart data={vm.dayElePq} />
+    case 'none':
+      return null
+  }
+}
+
+/** 组合行：左侧 + Spacer + 右侧，各自独立选择指标 */
+function GroupRow({
+  vm,
+  settings,
+  groupNum,
+}: {
+  vm: BillViewModel
+  settings: SGCCSettings
+  groupNum: 1 | 2 | 3
+}) {
+  const leftKey: MetricKey =
+    groupNum === 1 ? settings.group1Left : groupNum === 2 ? settings.group2Left : settings.group3Left
+  const rightKey: MetricKey =
+    groupNum === 1 ? settings.group1Right : groupNum === 2 ? settings.group2Right : settings.group3Right
+
+  const hasChart = leftKey === 'dayChart' || rightKey === 'dayChart'
+
+  // 两侧都不显示时返回 Spacer 保持布局
+  if (leftKey === 'none' && rightKey === 'none') {
+    return <Spacer />
+  }
+
+  return (
+    <HStack alignment={hasChart ? 'bottom' : 'firstTextBaseline'} spacing={6}>
+      <MetricItem vm={vm} metricKey={leftKey} />
+      <Spacer />
+      <MetricItem vm={vm} metricKey={rightKey} align="trailing" />
+    </HStack>
+  )
+}
+
+/** 按 rowNum 读取行模式，渲染对应的组合行或阶梯行 */
+function RowRenderer({
+  vm,
+  settings,
+  rowNum,
+}: {
+  vm: BillViewModel
+  settings: SGCCSettings
+  rowNum: 1 | 2 | 3
+}) {
+  const mode: RowDisplayMode =
+    rowNum === 1 ? settings.row1Display : rowNum === 2 ? settings.row2Display : settings.row3Display
+
+  if (mode === 'step') {
+    return <StepRow step={vm.step} />
+  }
+
+  const groupNum = mode === 'group1' ? 1 : mode === 'group2' ? 2 : 3
+  return <GroupRow vm={vm} settings={settings} groupNum={groupNum} />
+}
+
+/** 左侧：户名 + 上期电费（待缴时优先显示待缴电费） */
 function LeftPanel({ vm, settings }: { vm: BillViewModel; settings: SGCCSettings }) {
   const title = settings.showConsName && vm.consName ? vm.consName : '国家电网'
   return (
@@ -304,13 +421,13 @@ function LeftPanel({ vm, settings }: { vm: BillViewModel; settings: SGCCSettings
 
       <Spacer />
 
-      <Text font={10} foregroundStyle={labelColor}>
-        {vm.remainFee >= 0 ? '账户余额' : '待缴电费'}
+      <Text font={10} fontWeight="semibold" foregroundStyle={labelColor}>
+        {vm.isOverdue ? '待缴电费' : '上期电费'}
       </Text>
       <HStack alignment="firstTextBaseline" spacing={2}>
         <Text
           font={(() => {
-            const s = Math.abs(vm.remainFee).toFixed(2);
+            const s = (vm.isOverdue ? Math.abs(vm.remainFee) : vm.monthFee).toFixed(2);
             const len = s.length;
             if (len <= 5) return 22;
             if (len === 6) return 20;
@@ -320,9 +437,9 @@ function LeftPanel({ vm, settings }: { vm: BillViewModel; settings: SGCCSettings
           fontDesign="rounded"
           foregroundStyle={vm.isOverdue ? overdueColor : valueColor}
         >
-          {Math.abs(vm.remainFee).toFixed(2)}
+          {(vm.isOverdue ? Math.abs(vm.remainFee) : vm.monthFee).toFixed(2)}
         </Text>
-        <Text font={11} foregroundStyle={vm.isOverdue ? overdueColor : labelColor}>
+        <Text font={11} fontWeight="semibold" foregroundStyle={vm.isOverdue ? overdueColor : labelColor}>
           元
         </Text>
       </HStack>
@@ -350,54 +467,26 @@ function ThinLine({ color = sepGray, height = 0.5 }: { color?: ShapeStyle | Dyna
   return <Rectangle fill={color} frame={{ height }} />
 }
 
-/** 右侧：右面板 + 阶梯电量 + 近日用电柱状图（右对齐） */
+/** 右侧：三栏自由定制（第一栏 + 第二栏 + 第三栏），由设置页配置 */
 function RightPanel({ vm, settings }: { vm: BillViewModel; settings: SGCCSettings }) {
   return (
     <VStack alignment="leading" spacing={0} padding={{ leading: 14, trailing: 16, vertical: 22 }}>
-      <HStack>
-        <Metric label="年度电量" value={vm.yearUsage.toFixed(0)} unit="度" />
-        <Spacer />
-        <Metric label="月度电量" value={vm.monthUsage.toFixed(0)} unit="度" align="trailing" />
-      </HStack>
+      {/* 第一栏 */}
+      <RowRenderer vm={vm} settings={settings} rowNum={1} />
 
       <Spacer />
-
       <ThinLine />
-
       <Spacer />
 
-      <StepRow step={vm.step} />
+      {/* 第二栏 */}
+      <RowRenderer vm={vm} settings={settings} rowNum={2} />
 
       <Spacer />
-
       <ThinLine />
-
       <Spacer />
 
-      {/* 底部一行：左侧柱状图 + 右侧近日用电数值（贴近右边） */}
-      <HStack alignment="bottom" spacing={6}>
-        <DayChart data={vm.dayElePq} />
-        <Spacer />
-        <VStack alignment="trailing" spacing={1}>
-          <Text font={10} foregroundStyle={labelColor} lineLimit={1}>
-            近日用电
-          </Text>
-          <HStack alignment="firstTextBaseline" spacing={1}>
-            <Text
-              font={20}
-              fontWeight="semibold"
-              fontDesign="rounded"
-              foregroundStyle={chartColor}
-              lineLimit={1}
-            >
-              {vm.dayFee.toFixed(2)}
-            </Text>
-            <Text font={10} foregroundStyle={labelColor}>
-              度
-            </Text>
-          </HStack>
-        </VStack>
-      </HStack>
+      {/* 第三栏 */}
+      <RowRenderer vm={vm} settings={settings} rowNum={3} />
     </VStack>
   )
 }

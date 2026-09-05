@@ -1,45 +1,45 @@
 {
-  "runInApp" : true,
-  "color" : "rgba(13, 179, 142, 1)",
-  "author" : {
-    "homepage" : "https:\/\/github.com\/SylvanRoe\/Scripting",
-    "email" : "SylvanRoe@gmail.com",
-    "name" : "SylvanRoe"
-  },
-  "localizedNames" : {
-    "ja" : "",
-    "en" : "",
-    "pt" : "",
-    "ru" : "",
-    "fr" : "",
-    "zh" : "国家电网",
-    "it" : "",
-    "de" : "",
-    "es" : ""
-  },
-  "icon" : "bolt.fill",
-  "remoteResource" : null,
-  "version" : "1.0.1",
-  "localizedDescriptions" : {
-    "pt" : "",
-    "es" : "",
-    "ja" : "",
-    "zh" : "",
-    "ru" : "",
-    "fr" : "",
-    "en" : "",
-    "de" : "",
-    "it" : ""
-  },
-  "iconImage" : "",
-  "description" : "国家电网电费中号小组件，展示年度\/月度电费电量与近日用电。移植自 Scriptable 脚本（@脑瓜 v2.3.3）。\nhttps:\/\/github.com\/SylvanRoe\/Scripting",
-  "permissions" : null,
-  "entry" : "index.tsx",
   "name" : "SGCC",
+  "author" : {
+    "email" : "SylvanRoe@gmail.com",
+    "name" : "SylvanRoe",
+    "homepage" : "https:\/\/github.com\/SylvanRoe\/Scripting"
+  },
+  "entry" : "index.tsx",
+  "color" : "rgba(13, 179, 142, 1)",
+  "version" : "1.0.1",
+  "permissions" : null,
+  "iconImage" : "",
+  "localizedDescriptions" : {
+    "ru" : "",
+    "pt" : "",
+    "de" : "",
+    "en" : "",
+    "ja" : "",
+    "es" : "",
+    "fr" : "",
+    "it" : "",
+    "zh" : ""
+  },
   "intentInputTypes" : [
 
   ],
+  "localizedNames" : {
+    "es" : "",
+    "ru" : "",
+    "fr" : "",
+    "de" : "",
+    "pt" : "",
+    "it" : "",
+    "ja" : "",
+    "en" : "",
+    "zh" : "国家电网"
+  },
+  "icon" : "bolt.fill",
   "contributors" : [
 
-  ]
+  ],
+  "remoteResource" : null,
+  "description" : "国家电网电费中号小组件，展示年度\/月度电费电量与近日用电。移植自 Scriptable 脚本（@脑瓜 v2.3.3）。\nhttps:\/\/github.com\/SylvanRoe\/Scripting",
+  "runInApp" : true
 }

@@ -38,9 +38,109 @@ import {
 import { loadSettings, saveSettings, resetSettings } from './lib/store'
 import { listAccounts } from './lib/api'
 import { clearCache } from './lib/cache'
-import { DEFAULT_SETTINGS, type SGCCSettings } from './lib/types'
+import { DEFAULT_SETTINGS, type SGCCSettings, type MetricKey, type RowDisplayMode } from './lib/types'
 
 type Account = { index: number; consNo: string; consName: string }
+
+type PatchFn = <K extends keyof SGCCSettings>(key: K, value: SGCCSettings[K]) => void
+
+/** 行显示模式选项 */
+const ROW_MODES = [
+  { tag: 0, value: 'group1' as const, label: '组合一' },
+  { tag: 1, value: 'group2' as const, label: '组合二' },
+  { tag: 2, value: 'group3' as const, label: '组合三' },
+  { tag: 3, value: 'step' as const, label: '阶梯电量' },
+]
+
+/** 指标项选项 */
+const METRIC_OPTIONS = [
+  { tag: 0, value: 'monthFee' as const, label: '上期电费' },
+  { tag: 1, value: 'monthUsage' as const, label: '上月电量' },
+  { tag: 2, value: 'yearFee' as const, label: '年度电费' },
+  { tag: 3, value: 'yearUsage' as const, label: '年度电量' },
+  { tag: 4, value: 'currentMonthEle' as const, label: '本月电量' },
+  { tag: 5, value: 'dayFee' as const, label: '近日用电' },
+  { tag: 6, value: 'remainFee' as const, label: '电费余额' },
+  { tag: 7, value: 'dayChart' as const, label: '日用电图表' },
+  { tag: 8, value: 'none' as const, label: '不显示' },
+]
+
+const rowModeTag = (mode: RowDisplayMode) => ROW_MODES.find(r => r.value === mode)?.tag ?? 0
+const metricKeyTag = (key: MetricKey) => METRIC_OPTIONS.find(m => m.value === key)?.tag ?? 0
+
+/** 渲染三栏模式选择器（第一栏/第二栏/第三栏），排列在上方 */
+function rowModePickers(settings: SGCCSettings, patch: PatchFn): JSX.Element[] {
+  const rows: Array<{ rowNum: 1 | 2 | 3; label: string }> = [
+    { rowNum: 1, label: '第一栏' },
+    { rowNum: 2, label: '第二栏' },
+    { rowNum: 3, label: '第三栏' },
+  ]
+  return rows.map(({ rowNum, label }) => {
+    const displayKey = rowNum === 1 ? 'row1Display' : rowNum === 2 ? 'row2Display' : 'row3Display'
+    const mode = settings[displayKey]
+    return (
+      <Picker
+        key={`row${rowNum}-mode`}
+        title={label}
+        value={rowModeTag(mode)}
+        onChanged={(v: number) => {
+          const m = ROW_MODES.find(r => r.tag === v)
+          if (m) patch(displayKey, m.value)
+        }}
+        pickerStyle="menu"
+      >
+        {ROW_MODES.map(r => (
+          <Text key={r.tag} tag={r.tag}>{r.label}</Text>
+        ))}
+      </Picker>
+    )
+  })
+}
+
+/** 渲染三组合内容选择器（组合一/二/三 的左栏+右栏），排列在下方 */
+function groupContentPickers(settings: SGCCSettings, patch: PatchFn): JSX.Element[] {
+  const groups: Array<{ gn: 1 | 2 | 3; label: string }> = [
+    { gn: 1, label: '组合一' },
+    { gn: 2, label: '组合二' },
+    { gn: 3, label: '组合三' },
+  ]
+  const items: JSX.Element[] = []
+  for (const { gn, label } of groups) {
+    const leftKey = `group${gn}Left` as 'group1Left' | 'group2Left' | 'group3Left'
+    const rightKey = `group${gn}Right` as 'group1Right' | 'group2Right' | 'group3Right'
+    items.push(
+      <Picker
+        key={`group${gn}-left`}
+        title={`${label} · 左栏`}
+        value={metricKeyTag(settings[leftKey])}
+        onChanged={(v: number) => {
+          const m = METRIC_OPTIONS.find(o => o.tag === v)
+          if (m) patch(leftKey, m.value)
+        }}
+        pickerStyle="menu"
+      >
+        {METRIC_OPTIONS.map(o => (
+          <Text key={o.tag} tag={o.tag}>{o.label}</Text>
+        ))}
+      </Picker>,
+      <Picker
+        key={`group${gn}-right`}
+        title={`${label} · 右栏`}
+        value={metricKeyTag(settings[rightKey])}
+        onChanged={(v: number) => {
+          const m = METRIC_OPTIONS.find(o => o.tag === v)
+          if (m) patch(rightKey, m.value)
+        }}
+        pickerStyle="menu"
+      >
+        {METRIC_OPTIONS.map(o => (
+          <Text key={o.tag} tag={o.tag}>{o.label}</Text>
+        ))}
+      </Picker>,
+    )
+  }
+  return items
+}
 
 function SettingsView() {
   const dismiss = Navigation.useDismiss()
@@ -153,7 +253,7 @@ function SettingsView() {
 
         <Section
           header={<Text>显示</Text>}
-          footer={<Text font="caption">柱状图展示最近若干天的用电量。改动后请点右上角「保存」生效。</Text>}
+          footer={<Text font="caption">柱状图展示最近若干天的用电量。右侧三栏的显示模式和组合内容请在下方「三栏模式」和「组合内容」中配置。改动后请点右上角「保存」生效。</Text>}
         >
           <Toggle
             title="显示户名"
@@ -166,7 +266,7 @@ function SettingsView() {
             onChanged={(v: number) => patch('dayAmount', v)}
             pickerStyle="menu"
           >
-            {[5, 6, 7, 8, 9, 10].map(n => (
+            {[5, 6, 7, 8, 9, 10, 11, 12].map(n => (
               <Text key={String(n)} tag={n}>
                 {`${n} 天`}
               </Text>
@@ -189,6 +289,20 @@ function SettingsView() {
             onChanged={v => patch('accentColor', v as string)}
             supportsOpacity={false}
           />
+        </Section>
+
+        <Section
+          header={<Text>三栏模式</Text>}
+          footer={<Text font="caption">第一栏/第二栏/第三栏分别选择显示「组合一/二/三」或「阶梯电量」。改动后请点右上角「保存」生效。</Text>}
+        >
+          {rowModePickers(settings, patch)}
+        </Section>
+
+        <Section
+          header={<Text>组合内容</Text>}
+          footer={<Text font="caption">为组合一/二/三分别配置左栏和右栏的显示内容。当某栏选择了对应组合时，将使用这里的配置。改动后请点右上角「保存」生效。</Text>}
+        >
+          {groupContentPickers(settings, patch)}
         </Section>
 
         <Section

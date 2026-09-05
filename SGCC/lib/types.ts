@@ -120,6 +120,21 @@ export interface StepInfo {
   step3: number
 }
 
+/** 右侧面板可选择的指标项 */
+export type MetricKey =
+  | 'monthFee'
+  | 'monthUsage'
+  | 'yearFee'
+  | 'yearUsage'
+  | 'currentMonthEle'
+  | 'dayFee'
+  | 'remainFee'
+  | 'dayChart'
+  | 'none'
+
+/** 每行显示模式：组合一/二/三 或 阶梯电量 */
+export type RowDisplayMode = 'group1' | 'group2' | 'group3' | 'step'
+
 /** 组件可配置项 */
 export interface SGCCSettings {
   /** 账户下标，多户时选择第几户 */
@@ -134,6 +149,25 @@ export interface SGCCSettings {
   accentColor: string
   /** 是否显示户名（关闭则显示"国家电网"） */
   showConsName: boolean
+
+  /** 中号组件第一栏显示模式 */
+  row1Display: RowDisplayMode
+  /** 中号组件第二栏显示模式 */
+  row2Display: RowDisplayMode
+  /** 中号组件第三栏显示模式 */
+  row3Display: RowDisplayMode
+  /** 组合一左侧内容 */
+  group1Left: MetricKey
+  /** 组合一右侧内容 */
+  group1Right: MetricKey
+  /** 组合二左侧内容 */
+  group2Left: MetricKey
+  /** 组合二右侧内容 */
+  group2Right: MetricKey
+  /** 组合三左侧内容 */
+  group3Left: MetricKey
+  /** 组合三右侧内容 */
+  group3Right: MetricKey
   /** 阶梯计量口径：按月 / 按年累计 */
   stepMode: '月' | '年'
   /** 阶梯第二档阈值（度）。0 表示按月份自动 */
@@ -151,6 +185,15 @@ export const DEFAULT_SETTINGS: SGCCSettings = {
   chartColor: '#0db38e',
   accentColor: '#3A9690',
   showConsName: true,
+  row1Display: 'group1',
+  row2Display: 'step',
+  row3Display: 'group3',
+  group1Left: 'yearFee',
+  group1Right: 'monthUsage',
+  group2Left: 'yearUsage',
+  group2Right: 'currentMonthEle',
+  group3Left: 'dayChart',
+  group3Right: 'dayFee',
   stepMode: '年',
   step2: 0,
   step3: 0,
