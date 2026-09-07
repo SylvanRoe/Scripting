@@ -8,6 +8,7 @@
 | 子目录 | 说明 | 状态 |
 |---|---|---|
 | [SGCC](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FSGCC%2FSGCC.scripting%22%5D) | 国家电网电量中号小组件（展示用电量/电费、阶梯、近日用电柱状图；含多账户/多户名）。移植自 Scriptable 脚本 @脑瓜 v2.3.3 | 可用 |
+| [SGCC_Mod](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FSGCC_Mod%2FSGCC_Mod.scripting%22%5D) | 网上国网电费中号小组件增强版（三栏显示定制、后付费余额、5–15日柱状图等）。维护：@jpcnmm | 可用 |
 | [喝水记录](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2F%E5%96%9D%E6%B0%B4%E8%AE%B0%E5%BD%95%2F%E5%96%9D%E6%B0%B4%E8%AE%B0%E5%BD%95.scripting%22%5D) | 轻量饮水 / 饮品记录工具，配套可交互桌面小组件（systemSmall / systemMedium / systemLarge），支持将「水」记录一键同步到 Apple 健康；小组件 1–2 个常用饮品快捷按钮一键打卡。原创 | 可用 |
 
 > 更多小组件陆续补充中。

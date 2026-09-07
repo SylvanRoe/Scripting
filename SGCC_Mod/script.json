@@ -1,0 +1,53 @@
+{
+  "permissions" : null,
+  "intentInputTypes" : [
+
+  ],
+  "runInApp" : true,
+  "description" : "网上国网电费中号小组件，全面复刻三栏显示内容自由定制功能，可展示年度\/月度电费电量与近日用电\/账户余额。移植自 Scriptable 脚本（@脑瓜 v2.3.3）。\nhttps:\/\/github.com\/SylvanRoe\/Scripting",
+  "localizedDescriptions" : {
+    "pt" : "",
+    "it" : "",
+    "es" : "",
+    "fr" : "",
+    "de" : "",
+    "en" : "",
+    "zh" : "",
+    "ja" : "",
+    "ru" : ""
+  },
+  "color" : "rgba(0, 112, 107, 1)",
+  "name" : "SGCC_Mod",
+  "entry" : "index.tsx",
+  "remoteResource" : {
+    "url" : "https:\/\/github.com\/SylvanRoe\/Scripting\/tree\/main\/SGCC_Mod",
+    "hash" : "40324d6833171e8397ab56588f00dbaa",
+    "autoUpdateInterval" : 600
+  },
+  "icon" : "bolt.fill",
+  "contributors" : [
+    {
+      "name" : "@jpcnmm",
+      "email" : null,
+      "homepage" : null
+    }
+  ],
+  "author" : {
+    "name" : "SylvanRoe",
+    "homepage" : "https:\/\/github.com\/SylvanRoe\/Scripting",
+    "email" : "SylvanRoe@gmail.com"
+  },
+  "iconImage" : "https:\/\/raw.githubusercontent.com\/Honye\/scriptable-scripts\/master\/static\/sgcc.png",
+  "version" : "1.2.1",
+  "localizedNames" : {
+    "ja" : "",
+    "it" : "",
+    "ru" : "",
+    "pt" : "",
+    "de" : "",
+    "en" : "",
+    "es" : "",
+    "fr" : "",
+    "zh" : "网上电网"
+  }
+}
