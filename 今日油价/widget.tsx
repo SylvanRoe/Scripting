@@ -66,7 +66,7 @@ function SecondaryOilCapsule({
   theme,
   price,
 }: {
-  theme: typeof OIL_THEMES["oil92"];
+  theme: (typeof OIL_THEMES)[keyof typeof OIL_THEMES];
   price: string;
 }) {
   return (
@@ -380,7 +380,7 @@ function MediumTickerView({
       {/* 左半区：调价全景看板 + 周期微进度条 */}
       <VStack
         alignment="leading"
-        spacing={4}
+        spacing={0}
         padding={{ top: 8.5, bottom: 8.5, leading: 9.5, trailing: 9.5 }}
         background={trendCardBg}
         clipShape={{ type: "rect", cornerRadius: 13 }}
@@ -499,53 +499,55 @@ function MediumTickerView({
       {/* 右半区：无框高密度精密行情卡片 */}
       <VStack
         alignment="leading"
-        spacing={2}
-        padding={{ top: 7, bottom: 7, leading: 9, trailing: 9 }}
+        spacing={0}
+        padding={{ top: 8.5, bottom: 8.5, leading: 9.5, trailing: 9.5 }}
         background="rgba(255, 255, 255, 0.05)"
         clipShape={{ type: "rect", cornerRadius: 13 }}
         frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
       >
-        {oilList.map((item) => (
-          <HStack
-            key={item.key}
-            alignment="center"
-            padding={{ top: 3.5, bottom: 3.5 }}
-            frame={{ maxWidth: "infinity" }}
-          >
+        {oilList.map((item, index) => (
+          <VStack key={item.key} frame={{ maxWidth: "infinity" }}>
+            {index > 0 ? <Spacer /> : null}
             <HStack
               alignment="center"
-              padding={{ top: 1, bottom: 1, leading: 4, trailing: 4 }}
-              background={item.tagBg}
-              clipShape={{ type: "rect", cornerRadius: 3.5 }}
+              padding={{ top: 2, bottom: 2 }}
+              frame={{ maxWidth: "infinity" }}
             >
-              <Text
-                font="caption2"
-                fontWeight="bold"
-                foregroundStyle={item.tint}
+              <HStack
+                alignment="center"
+                padding={{ top: 1, bottom: 1, leading: 4, trailing: 4 }}
+                background={item.tagBg}
+                clipShape={{ type: "rect", cornerRadius: 3.5 }}
               >
-                {item.name}
-              </Text>
-            </HStack>
+                <Text
+                  font="caption2"
+                  fontWeight="bold"
+                  foregroundStyle={item.tint}
+                >
+                  {item.name}
+                </Text>
+              </HStack>
 
-            <Spacer />
+              <Spacer />
 
-            <HStack alignment="lastTextBaseline" spacing={1}>
-              <Text
-                font="caption2"
-                fontWeight="regular"
-                foregroundStyle="rgba(255, 255, 255, 0.4)"
-              >
-                ¥
-              </Text>
-              <Text
-                font="subheadline"
-                fontWeight="bold"
-                foregroundStyle="#FFFFFF"
-              >
-                {data.prices[item.key]}
-              </Text>
+              <HStack alignment="lastTextBaseline" spacing={1}>
+                <Text
+                  font="caption2"
+                  fontWeight="regular"
+                  foregroundStyle="rgba(255, 255, 255, 0.4)"
+                >
+                  ¥
+                </Text>
+                <Text
+                  font="subheadline"
+                  fontWeight="bold"
+                  foregroundStyle="#FFFFFF"
+                >
+                  {data.prices[item.key]}
+                </Text>
+              </HStack>
             </HStack>
-          </HStack>
+          </VStack>
         ))}
       </VStack>
     </HStack>
