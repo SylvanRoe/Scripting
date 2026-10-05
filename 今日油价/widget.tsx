@@ -200,7 +200,10 @@ function MediumFocusView({ data }: any) {
       alignment="leading"
       padding={{ top: 12, bottom: 10, leading: 10, trailing: 10 }}
       frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
-      widgetBackground={"#161719" as const}
+      widgetBackground={{
+        light: "#FFFFFF",
+        dark: "#161719",
+      }}
     >
       {/* 顶部 Header：左侧省份靠最左，右侧时间靠最右，字号更小巧精致 */}
       <HStack alignment="center">
@@ -213,7 +216,10 @@ function MediumFocusView({ data }: any) {
           <Text
             font="caption"
             fontWeight="bold"
-            foregroundStyle="#FFFFFF"
+            foregroundStyle={{
+              light: "#1C1C1E",
+              dark: "#FFFFFF",
+            }}
           >
             {data.province}实时油价
           </Text>
@@ -222,7 +228,10 @@ function MediumFocusView({ data }: any) {
         <Text
           font="caption2"
           fontWeight="medium"
-          foregroundStyle="rgba(255, 255, 255, 0.85)"
+          foregroundStyle={{
+            light: "rgba(60, 60, 67, 0.85)",
+            dark: "rgba(255, 255, 255, 0.85)",
+          }}
         >
           {mediumForecast}
         </Text>
@@ -230,7 +239,7 @@ function MediumFocusView({ data }: any) {
 
       <Spacer />
 
-      {/* 中部 4 联卡片：更宽、更扁平，顶部彩色底框更宽更饱满 */}
+      {/* 中部 4 联卡片：更宽更扁平，中间标号色块根据字宽多留一点内边距，深浅双模自适应 */}
       <HStack spacing={6} frame={{ maxWidth: "infinity" }}>
         {cardItems.map((item) => (
           <VStack
@@ -238,17 +247,19 @@ function MediumFocusView({ data }: any) {
             alignment="center"
             spacing={6}
             padding={{ top: 7.5, bottom: 7.5, leading: 2, trailing: 2 }}
-            background="rgba(255, 255, 255, 0.08)"
+            background={{
+              light: "rgba(0, 0, 0, 0.04)",
+              dark: "rgba(255, 255, 255, 0.08)",
+            }}
             clipShape={{ type: "rect", cornerRadius: 10 }}
             frame={{ maxWidth: "infinity" }}
           >
             <HStack
               alignment="center"
-              frame={{ width: 58, height: 21 }}
+              padding={{ top: 2, bottom: 2, leading: 7, trailing: 7 }}
               background={item.tagBg}
-              clipShape={{ type: "rect", cornerRadius: 5.5 }}
+              clipShape={{ type: "rect", cornerRadius: 5 }}
             >
-              <Spacer />
               <Text
                 font="caption2"
                 fontWeight="bold"
@@ -258,12 +269,14 @@ function MediumFocusView({ data }: any) {
               >
                 {item.name}
               </Text>
-              <Spacer />
             </HStack>
             <Text
               font="headline"
               fontWeight="bold"
-              foregroundStyle="#FFFFFF"
+              foregroundStyle={{
+                light: "#000000",
+                dark: "#FFFFFF",
+              }}
               lineLimit={1}
               allowsTightening={true}
               minScaleFactor={0.8}
@@ -281,7 +294,10 @@ function MediumFocusView({ data }: any) {
         <Text
           font="caption2"
           fontWeight="regular"
-          foregroundStyle="rgba(255, 255, 255, 0.45)"
+          foregroundStyle={{
+            light: "rgba(60, 60, 67, 0.45)",
+            dark: "rgba(255, 255, 255, 0.45)",
+          }}
         >
           {data.updateTime} 更新
         </Text>
@@ -289,7 +305,10 @@ function MediumFocusView({ data }: any) {
         <Text
           font="caption2"
           fontWeight="regular"
-          foregroundStyle="rgba(255, 255, 255, 0.45)"
+          foregroundStyle={{
+            light: "rgba(60, 60, 67, 0.45)",
+            dark: "rgba(255, 255, 255, 0.45)",
+          }}
         >
           元/升
         </Text>
@@ -665,7 +684,10 @@ function SmallShellFocusView({
     <ZStack
       alignment="topLeading"
       frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
-      widgetBackground={"#FFFFFF" as const}
+      widgetBackground={{
+        light: "#FFFFFF",
+        dark: "#161719",
+      }}
     >
       {/* 底层左上角贝壳水印：放大并超出边框，更靠左上偏置，清爽淡雅防重叠 */}
       <HStack alignment="top">
@@ -674,7 +696,7 @@ function SmallShellFocusView({
             filePath={logoPath}
             resizable={true}
             scaleToFit={true}
-            opacity={0.16}
+            opacity={0.18}
             frame={{ width: 150, height: 150 }}
             offset={{ x: -40, y: -30 }}
           />
@@ -682,7 +704,7 @@ function SmallShellFocusView({
           <Image
             systemName="fuelpump.fill"
             font={85}
-            opacity={0.08}
+            opacity={0.09}
             foregroundStyle="#F59E0B"
             offset={{ x: -25, y: -20 }}
           />
@@ -717,7 +739,10 @@ function SmallShellFocusView({
             <Text
               font="title3"
               fontWeight="heavy"
-              foregroundStyle="#000000"
+              foregroundStyle={{
+                light: "#000000",
+                dark: "#FFFFFF",
+              }}
             >
               {oilName}
             </Text>
@@ -727,7 +752,10 @@ function SmallShellFocusView({
           <Text
             font="caption2"
             fontWeight="medium"
-            foregroundStyle="#8E8E93"
+            foregroundStyle={{
+              light: "#8E8E93",
+              dark: "rgba(255, 255, 255, 0.55)",
+            }}
             padding={{ top: 1.5 }}
           >
             {subTitle}
@@ -749,14 +777,20 @@ function SmallShellFocusView({
             <Text
               font="subheadline"
               fontWeight="bold"
-              foregroundStyle="#000000"
+              foregroundStyle={{
+                light: "#000000",
+                dark: "#FFFFFF",
+              }}
             >
               ¥
             </Text>
             <Text
               font="title"
               fontWeight="heavy"
-              foregroundStyle="#000000"
+              foregroundStyle={{
+                light: "#000000",
+                dark: "#FFFFFF",
+              }}
             >
               {focusPrice}
             </Text>
@@ -768,7 +802,10 @@ function SmallShellFocusView({
           <Text
             font="caption2"
             fontWeight="medium"
-            foregroundStyle="#8E8E93"
+            foregroundStyle={{
+              light: "#8E8E93",
+              dark: "rgba(255, 255, 255, 0.45)",
+            }}
           >
             {cleanDateText}
           </Text>
