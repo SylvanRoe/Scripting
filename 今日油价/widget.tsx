@@ -8,6 +8,7 @@ import {
   Spacer,
   Image,
   Notification,
+  Script,
 } from "scripting";
 import {
   fetchOilData,
@@ -113,237 +114,183 @@ function SecondaryOilCapsule({
   );
 }
 
+// 解析用于紧凑显示的调价升降幅和描述
+function parseCleanForecast(
+  rawForecast: string,
+  trendType: "down" | "up" | "flat",
+  nextAdjustDate: string
+) {
+  let cleanLiter = "";
+  const rangeLiterMatch = rawForecast.match(
+    /([0-9.]+)\s*元\/升\s*[-~至到]\s*([0-9.]+)\s*元\/升/
+  );
+  if (rangeLiterMatch) {
+    cleanLiter = `${rangeLiterMatch[1]}-${rangeLiterMatch[2]}`;
+  } else {
+    const singleLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升/);
+    if (singleLiterMatch) {
+      cleanLiter = singleLiterMatch[1];
+    }
+  }
+
+  const arrow = trendType === "down" ? "↓" : trendType === "up" ? "↑" : "-";
+  const sign = trendType === "down" ? "-" : trendType === "up" ? "+" : "";
+  const cleanDate = (nextAdjustDate || "近期").replace(/调整.*$/, "").trim();
+
+  let mediumForecast = `${cleanDate}调整`;
+  if (cleanLiter) {
+    mediumForecast = `${cleanDate}调整 ${arrow} ${cleanLiter}`;
+  } else if (trendType === "flat") {
+    mediumForecast = `${cleanDate}调整 预计搁浅`;
+  } else {
+    mediumForecast = `${cleanDate}调整 ${arrow}`;
+  }
+
+  let smallTrend = "";
+  if (cleanLiter) {
+    smallTrend = `预计${sign}${cleanLiter}`;
+  } else if (trendType === "flat") {
+    smallTrend = "预计搁浅";
+  } else {
+    smallTrend = trendType === "down" ? "预计下调" : "预计上调";
+  }
+
+  return { cleanLiter, mediumForecast, smallTrend, cleanDate };
+}
+
 // =========================================================================
-// 风格 1：主力高光聚焦 (Focus - 默认经典，严格 8pt 垂直节奏)
+// 风格 2：经典 4 联卡片与深色极简行情 (MediumFocusView - 参考全新设计)
 // =========================================================================
-function MediumFocusView({
-  data,
-  focusOilKey,
-  trendColor,
-  trendCardBg,
-  trendIcon,
-  tonNum,
-  cleanDate,
-}: any) {
-  const focusTheme = OIL_THEMES[focusOilKey as keyof typeof OIL_THEMES] || OIL_THEMES.oil92;
-  const focusPrice = data.prices[focusOilKey as keyof typeof OIL_THEMES] || data.prices.oil92;
-  const secondaryThemes = (
-    Object.keys(OIL_THEMES) as Array<keyof typeof OIL_THEMES>
-  ).filter((k) => k !== focusOilKey);
+function MediumFocusView({ data }: any) {
+  const { mediumForecast } = parseCleanForecast(
+    data.rawForecast || "",
+    data.trendType,
+    data.nextAdjustDate || "近期"
+  );
+
+  const cardItems = [
+    {
+      name: "92 号",
+      price: data.prices.oil92,
+      textColor: "#E5933A",
+      tagBg: "rgba(229, 147, 58, 0.18)",
+    },
+    {
+      name: "95 号",
+      price: data.prices.oil95,
+      textColor: "#E6674E",
+      tagBg: "rgba(230, 103, 78, 0.18)",
+    },
+    {
+      name: "98 号",
+      price: data.prices.oil98,
+      textColor: "#E05268",
+      tagBg: "rgba(224, 82, 104, 0.18)",
+    },
+    {
+      name: "柴油",
+      price: data.prices.oil0,
+      textColor: "#34C759",
+      tagBg: "rgba(52, 199, 89, 0.18)",
+    },
+  ];
 
   return (
     <VStack
       alignment="leading"
-      spacing={8}
-      padding={{ top: 11, bottom: 11, leading: 13, trailing: 13 }}
+      padding={{ top: 13, bottom: 11, leading: 14, trailing: 14 }}
       frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
-      widgetBackground={WIDGET_BG}
+      widgetBackground={"#161719" as const}
     >
       {/* 顶部 Header */}
       <HStack alignment="center">
-        <HStack alignment="center" spacing={6}>
-          <HStack
-            alignment="center"
-            padding={{ top: 3.5, bottom: 3.5, leading: 5, trailing: 5 }}
-            background="rgba(255, 255, 255, 0.09)"
-            clipShape={{ type: "rect", cornerRadius: 6 }}
-          >
-            <Image
-              systemName="fuelpump.fill"
-              font="caption2"
-              foregroundStyle="#FFFFFF"
-            />
-          </HStack>
-
-          <HStack alignment="firstTextBaseline" spacing={3.5}>
-            <Text
-              font="subheadline"
-              fontWeight="bold"
-              foregroundStyle="#FFFFFF"
-            >
-              {data.province}
-            </Text>
-            <Text
-              font="caption2"
-              fontWeight="medium"
-              foregroundStyle="rgba(255, 255, 255, 0.45)"
-            >
-              今日油价
-            </Text>
-          </HStack>
-        </HStack>
-
-        <Spacer />
-
-        <HStack
-          alignment="center"
-          spacing={4}
-          padding={{ top: 3, bottom: 3, leading: 8, trailing: 8 }}
-          background="rgba(255, 255, 255, 0.07)"
-          clipShape={{ type: "rect", cornerRadius: 8 }}
-        >
+        <HStack alignment="center" spacing={5}>
           <Image
-            systemName="clock.fill"
-            font="caption2"
-            foregroundStyle="rgba(255, 255, 255, 0.45)"
+            systemName="fuelpump.fill"
+            font="subheadline"
+            foregroundStyle="#F59E0B"
           />
           <Text
-            font="caption2"
-            fontWeight="medium"
-            foregroundStyle="rgba(255, 255, 255, 0.85)"
+            font="subheadline"
+            fontWeight="bold"
+            foregroundStyle="#FFFFFF"
           >
-            {cleanDate}
+            {data.province}实时油价
           </Text>
-          {data.adjustDaysDesc ? (
-            <HStack alignment="center" spacing={2.5}>
-              <Text
-                font="caption2"
-                foregroundStyle="rgba(255, 255, 255, 0.3)"
-              >
-                ·
-              </Text>
-              <Text
-                font="caption2"
-                fontWeight="semibold"
-                foregroundStyle={trendColor}
-              >
-                {data.adjustDaysDesc}
-              </Text>
-            </HStack>
-          ) : null}
         </HStack>
+        <Spacer />
+        <Text
+          font="footnote"
+          fontWeight="medium"
+          foregroundStyle="rgba(255, 255, 255, 0.9)"
+        >
+          {mediumForecast}
+        </Text>
       </HStack>
 
-      {/* 中部核心区：左 60% 看板 + 右 40% 特写 */}
-      <HStack spacing={7} frame={{ maxWidth: "infinity" }}>
-        <VStack
-          alignment="leading"
-          spacing={3.5}
-          padding={{ top: 6.5, bottom: 6.5, leading: 9.5, trailing: 9.5 }}
-          background={trendCardBg}
-          clipShape={{ type: "rect", cornerRadius: 10 }}
-          frame={{ maxWidth: "infinity" }}
-        >
-          <HStack alignment="center">
-            <HStack alignment="center" spacing={3}>
-              <Image
-                systemName={trendIcon}
-                font="caption2"
-                fontWeight="bold"
-                foregroundStyle={trendColor}
-              />
-              <Text
-                font="caption2"
-                fontWeight="semibold"
-                foregroundStyle={trendColor}
-              >
-                {data.trendDesc}
-              </Text>
-            </HStack>
-            <Spacer />
+      <Spacer />
+
+      {/* 中部 4 联卡片 */}
+      <HStack spacing={8} frame={{ maxWidth: "infinity" }}>
+        {cardItems.map((item) => (
+          <VStack
+            key={item.name}
+            alignment="center"
+            spacing={10}
+            padding={{ top: 12, bottom: 12, leading: 2, trailing: 2 }}
+            background="rgba(255, 255, 255, 0.08)"
+            clipShape={{ type: "rect", cornerRadius: 13 }}
+            frame={{ maxWidth: "infinity" }}
+          >
             <HStack
               alignment="center"
-              padding={{ top: 1, bottom: 1, leading: 4.5, trailing: 4.5 }}
-              background="rgba(255, 255, 255, 0.08)"
-              clipShape={{ type: "rect", cornerRadius: 3.5 }}
+              padding={{ top: 3.5, bottom: 3.5, leading: 8, trailing: 8 }}
+              background={item.tagBg}
+              clipShape={{ type: "rect", cornerRadius: 6 }}
             >
               <Text
-                font="caption2"
-                fontWeight="medium"
-                foregroundStyle="rgba(255, 255, 255, 0.75)"
+                font="caption"
+                fontWeight="bold"
+                foregroundStyle={item.textColor}
+                lineLimit={1}
+                allowsTightening={true}
               >
-                {data.advice}
+                {item.name}
               </Text>
             </HStack>
-          </HStack>
-
-          <HStack alignment="lastTextBaseline" spacing={2}>
             <Text
               font="title3"
               fontWeight="bold"
               foregroundStyle="#FFFFFF"
+              lineLimit={1}
+              allowsTightening={true}
+              minScaleFactor={0.8}
             >
-              {tonNum}
+              {item.price}
             </Text>
-            <Text
-              font="caption2"
-              fontWeight="medium"
-              foregroundStyle="rgba(255, 255, 255, 0.65)"
-            >
-              元/吨
-            </Text>
-          </HStack>
-
-          {data.valPerLiter ? (
-            <Text
-              font="caption2"
-              fontWeight="regular"
-              foregroundStyle="rgba(255, 255, 255, 0.5)"
-            >
-              约 {data.valPerLiter}
-            </Text>
-          ) : null}
-        </VStack>
-
-        <VStack
-          alignment="leading"
-          spacing={2.5}
-          padding={{ top: 6.5, bottom: 6.5, leading: 10, trailing: 10 }}
-          background="rgba(255, 255, 255, 0.06)"
-          clipShape={{ type: "rect", cornerRadius: 10 }}
-          frame={{ width: 122 }}
-        >
-          <HStack alignment="center" spacing={3}>
-            <Image
-              systemName="drop.fill"
-              font="caption2"
-              foregroundStyle={focusTheme.tint}
-            />
-            <Text
-              font="caption2"
-              fontWeight="bold"
-              foregroundStyle={focusTheme.tint}
-            >
-              {focusTheme.fullName}
-            </Text>
-          </HStack>
-
-          <HStack alignment="lastTextBaseline" spacing={1}>
-            <Text
-              font="caption"
-              fontWeight="semibold"
-              foregroundStyle="rgba(255, 255, 255, 0.45)"
-            >
-              ¥
-            </Text>
-            <Text
-              font="title2"
-              fontWeight="bold"
-              foregroundStyle="#FFFFFF"
-            >
-              {focusPrice}
-            </Text>
-          </HStack>
-
-          <Text
-            font="caption2"
-            fontWeight="regular"
-            foregroundStyle="rgba(255, 255, 255, 0.35)"
-          >
-            元/升
-          </Text>
-        </VStack>
+          </VStack>
+        ))}
       </HStack>
 
-      {/* 底部次要油品 */}
-      <HStack spacing={6} frame={{ maxWidth: "infinity" }}>
-        {secondaryThemes.map((key) => (
-          <SecondaryOilCapsule
-            key={key}
-            theme={OIL_THEMES[key]}
-            price={data.prices[key]}
-          />
-        ))}
+      <Spacer />
+
+      {/* 底部 Footer */}
+      <HStack alignment="center">
+        <Text
+          font="footnote"
+          fontWeight="regular"
+          foregroundStyle="rgba(255, 255, 255, 0.45)"
+        >
+          {data.updateTime} 更新
+        </Text>
+        <Spacer />
+        <Text
+          font="footnote"
+          fontWeight="regular"
+          foregroundStyle="rgba(255, 255, 255, 0.45)"
+        >
+          元/升
+        </Text>
       </HStack>
     </VStack>
   );
@@ -670,9 +617,166 @@ function MediumCapsuleView({
 }
 
 // =========================================================================
-// 小尺寸小组件 (systemSmall)
+// 小尺寸小组件 - 风格 2：白底 Shell 贝壳高光小组件 (参考图 1 全新设计)
 // =========================================================================
-function SmallWidgetView({
+function SmallShellFocusView({
+  data,
+  focusOilKey,
+}: any) {
+  const focusTheme =
+    OIL_THEMES[focusOilKey as keyof typeof OIL_THEMES] || OIL_THEMES.oil92;
+  const focusPrice =
+    data.prices[focusOilKey as keyof typeof OIL_THEMES] || data.prices.oil92;
+
+  const { smallTrend } = parseCleanForecast(
+    data.rawForecast || "",
+    data.trendType,
+    data.nextAdjustDate || "近期"
+  );
+
+  const trendColor =
+    data.trendType === "down"
+      ? "#2FB350"
+      : data.trendType === "up"
+      ? "#FF3B30"
+      : "#8E8E93";
+
+  // 贝壳标志本地图片路径
+  const logoPath = `${Script.directory}/shell_logo.png`;
+  const hasLogoFile = FileManager.existsSync(logoPath);
+
+  // 油品显示名与副标题，例如 "92#" 与 "湖南 92 号汽油"
+  const oilName = focusTheme.name;
+  const oilFullName =
+    focusOilKey === "oil0"
+      ? "0 号柴油"
+      : `${focusTheme.name.replace("#", "")} 号汽油`;
+  const subTitle = `${data.province} ${oilFullName}`;
+
+  // 底部调价时间文本
+  const cleanDateText = `${(data.nextAdjustDate || "近期")
+    .replace(/调整.*$/, "")
+    .replace(/调价.*$/, "")
+    .trim()}调价`;
+
+  return (
+    <ZStack
+      alignment="topLeading"
+      frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+      widgetBackground={"#FFFFFF" as const}
+    >
+      {/* 底层左上角贝壳水印 */}
+      <HStack alignment="top" padding={{ top: 8, leading: 8 }}>
+        {hasLogoFile ? (
+          <Image
+            filePath={logoPath}
+            resizable={true}
+            scaleToFit={true}
+            opacity={0.45}
+            frame={{ width: 105, height: 105 }}
+          />
+        ) : (
+          <Image
+            systemName="fuelpump.fill"
+            font="largeTitle"
+            opacity={0.12}
+            foregroundStyle="#F59E0B"
+            frame={{ width: 75, height: 75 }}
+          />
+        )}
+        <Spacer />
+      </HStack>
+
+      {/* 前景层：右对齐排版 */}
+      <VStack
+        alignment="trailing"
+        spacing={0}
+        padding={{ top: 12, bottom: 12, leading: 12, trailing: 14 }}
+        frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+      >
+        {/* 顶部标签 + 油品名 */}
+        <HStack alignment="center" spacing={4}>
+          <HStack
+            alignment="center"
+            padding={{ top: 2, bottom: 2, leading: 4.5, trailing: 4.5 }}
+            background="rgba(245, 158, 11, 0.16)"
+            clipShape={{ type: "rect", cornerRadius: 4 }}
+          >
+            <Text
+              font="caption2"
+              fontWeight="bold"
+              foregroundStyle="#D97706"
+            >
+              OIL
+            </Text>
+          </HStack>
+          <Text
+            font="title"
+            fontWeight="heavy"
+            foregroundStyle="#000000"
+          >
+            {oilName}
+          </Text>
+        </HStack>
+
+        {/* 省份油品全称 */}
+        <Text
+          font="caption"
+          fontWeight="medium"
+          foregroundStyle="#8E8E93"
+          padding={{ top: 2 }}
+        >
+          {subTitle}
+        </Text>
+
+        <Spacer />
+
+        {/* 调价预测 */}
+        <Text
+          font="subheadline"
+          fontWeight="bold"
+          foregroundStyle={trendColor}
+        >
+          {smallTrend}
+        </Text>
+
+        {/* 现价大字 */}
+        <HStack alignment="lastTextBaseline" spacing={2} padding={{ top: 2 }}>
+          <Text
+            font="title2"
+            fontWeight="bold"
+            foregroundStyle="#000000"
+          >
+            ¥
+          </Text>
+          <Text
+            font="largeTitle"
+            fontWeight="heavy"
+            foregroundStyle="#000000"
+          >
+            {focusPrice}
+          </Text>
+        </HStack>
+
+        <Spacer />
+
+        {/* 调价日期 */}
+        <Text
+          font="caption2"
+          fontWeight="medium"
+          foregroundStyle="#8E8E93"
+        >
+          {cleanDateText}
+        </Text>
+      </VStack>
+    </ZStack>
+  );
+}
+
+// =========================================================================
+// 小尺寸小组件 - 风格 1：深色胶囊经典矩阵 (原 SmallWidgetView)
+// =========================================================================
+function SmallCapsuleView({
   data,
   focusOilKey,
   trendColor,
@@ -923,7 +1027,12 @@ function ErrorWidgetView({ message }: { message: string }) {
         },
       });
     } else {
-      Widget.present(<SmallWidgetView {...sharedProps} />, {
+      let renderSmallView = <SmallCapsuleView {...sharedProps} />;
+      if (widgetStyle === "focus") {
+        renderSmallView = <SmallShellFocusView {...sharedProps} />;
+      }
+
+      Widget.present(renderSmallView, {
         reloadPolicy: {
           policy: "after",
           date: new Date(Date.now() + 1000 * 60 * 60 * 2),
