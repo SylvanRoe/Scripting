@@ -1,6 +1,6 @@
 {
   "name": "今日油价",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "实时全国各省市汽柴油价格监控与调价预测桌面小组件，支持系统定位与自定义省份。",
   "icon": "fuelpump.fill",
   "color": "rgba(239, 68, 68, 1)",

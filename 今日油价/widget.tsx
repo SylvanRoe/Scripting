@@ -230,24 +230,25 @@ function MediumFocusView({ data }: any) {
 
       <Spacer />
 
-      {/* 中部 4 联卡片：更宽、更扁平（左右更宽，上下不长） */}
+      {/* 中部 4 联卡片：更宽、更扁平，顶部彩色底框更宽更饱满 */}
       <HStack spacing={6} frame={{ maxWidth: "infinity" }}>
         {cardItems.map((item) => (
           <VStack
             key={item.name}
             alignment="center"
             spacing={6}
-            padding={{ top: 8, bottom: 8, leading: 2, trailing: 2 }}
+            padding={{ top: 7.5, bottom: 7.5, leading: 2, trailing: 2 }}
             background="rgba(255, 255, 255, 0.08)"
             clipShape={{ type: "rect", cornerRadius: 10 }}
             frame={{ maxWidth: "infinity" }}
           >
             <HStack
               alignment="center"
-              padding={{ top: 2.5, bottom: 2.5, leading: 7, trailing: 7 }}
+              frame={{ width: 58, height: 21 }}
               background={item.tagBg}
-              clipShape={{ type: "rect", cornerRadius: 5 }}
+              clipShape={{ type: "rect", cornerRadius: 5.5 }}
             >
+              <Spacer />
               <Text
                 font="caption2"
                 fontWeight="bold"
@@ -257,6 +258,7 @@ function MediumFocusView({ data }: any) {
               >
                 {item.name}
               </Text>
+              <Spacer />
             </HStack>
             <Text
               font="headline"
@@ -665,34 +667,34 @@ function SmallShellFocusView({
       frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
       widgetBackground={"#FFFFFF" as const}
     >
-      {/* 底层左上角贝壳水印：放大并超出边框 */}
+      {/* 底层左上角贝壳水印：放大并超出边框，柔和半透明防重叠 */}
       <HStack alignment="top">
         {hasLogoFile ? (
           <Image
             filePath={logoPath}
             resizable={true}
             scaleToFit={true}
-            opacity={0.35}
-            frame={{ width: 155, height: 155 }}
-            offset={{ x: -28, y: -28 }}
+            opacity={0.22}
+            frame={{ width: 160, height: 160 }}
+            offset={{ x: -36, y: -34 }}
           />
         ) : (
           <Image
             systemName="fuelpump.fill"
             font={85}
-            opacity={0.12}
+            opacity={0.09}
             foregroundStyle="#F59E0B"
-            offset={{ x: -15, y: -15 }}
+            offset={{ x: -20, y: -20 }}
           />
         )}
         <Spacer />
       </HStack>
 
-      {/* 前景层：右对齐排版，整体文字缩小一号，紧密右对齐原版 */}
+      {/* 前景层：整体文字往右贴靠（trailing: 6），避免与背景水印重叠干扰 */}
       <VStack
         alignment="trailing"
         spacing={0}
-        padding={{ top: 11, bottom: 10, leading: 8, trailing: 10 }}
+        padding={{ top: 11, bottom: 10, leading: 2, trailing: 6 }}
         frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
       >
         {/* 顶部标签 + 油品名 */}
