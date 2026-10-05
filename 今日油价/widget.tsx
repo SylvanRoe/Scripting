@@ -239,24 +239,19 @@ function MediumFocusView({ data }: any) {
 
       <Spacer />
 
-      {/* 中部 4 联卡片：底部整卡背景色块更宽、卡片间距适度缩紧（spacing: 5），卡片内更舒展 */}
-      <HStack spacing={5} frame={{ maxWidth: "infinity" }}>
+      {/* 中部 4 联卡片：油号色块根据字宽自然包裹，底下的价格底块横向加宽，形成清晰的上下区分与层次 */}
+      <HStack spacing={6} frame={{ maxWidth: "infinity" }}>
         {cardItems.map((item) => (
           <VStack
             key={item.name}
             alignment="center"
             spacing={6}
-            padding={{ top: 7.5, bottom: 7.5, leading: 2, trailing: 2 }}
-            background={{
-              light: "rgba(0, 0, 0, 0.04)",
-              dark: "rgba(255, 255, 255, 0.08)",
-            }}
-            clipShape={{ type: "rect", cornerRadius: 10 }}
             frame={{ maxWidth: "infinity" }}
           >
+            {/* 上层：油号色块（紧凑精致，按文字宽度留一点边距） */}
             <HStack
               alignment="center"
-              padding={{ top: 2, bottom: 2, leading: 7, trailing: 7 }}
+              padding={{ top: 2.5, bottom: 2.5, leading: 7, trailing: 7 }}
               background={item.tagBg}
               clipShape={{ type: "rect", cornerRadius: 5 }}
             >
@@ -270,19 +265,34 @@ function MediumFocusView({ data }: any) {
                 {item.name}
               </Text>
             </HStack>
-            <Text
-              font="headline"
-              fontWeight="bold"
-              foregroundStyle={{
-                light: "#000000",
-                dark: "#FFFFFF",
+
+            {/* 下层：价格底块（横向撑开更宽，与上方小标签形成鲜明反差，深浅自适应） */}
+            <HStack
+              alignment="center"
+              padding={{ top: 6, bottom: 6, leading: 4, trailing: 4 }}
+              background={{
+                light: "rgba(0, 0, 0, 0.05)",
+                dark: "rgba(255, 255, 255, 0.09)",
               }}
-              lineLimit={1}
-              allowsTightening={true}
-              minScaleFactor={0.8}
+              clipShape={{ type: "rect", cornerRadius: 8 }}
+              frame={{ maxWidth: "infinity" }}
             >
-              {item.price}
-            </Text>
+              <Spacer />
+              <Text
+                font="headline"
+                fontWeight="bold"
+                foregroundStyle={{
+                  light: "#000000",
+                  dark: "#FFFFFF",
+                }}
+                lineLimit={1}
+                allowsTightening={true}
+                minScaleFactor={0.8}
+              >
+                {item.price}
+              </Text>
+              <Spacer />
+            </HStack>
           </VStack>
         ))}
       </HStack>
