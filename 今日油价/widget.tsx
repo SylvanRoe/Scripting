@@ -667,111 +667,114 @@ function SmallShellFocusView({
       frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
       widgetBackground={"#FFFFFF" as const}
     >
-      {/* 底层左上角贝壳水印：放大并超出边框，柔和半透明防重叠 */}
+      {/* 底层左上角贝壳水印：放大并超出边框，更靠左上偏置，清爽淡雅防重叠 */}
       <HStack alignment="top">
         {hasLogoFile ? (
           <Image
             filePath={logoPath}
             resizable={true}
             scaleToFit={true}
-            opacity={0.22}
-            frame={{ width: 160, height: 160 }}
-            offset={{ x: -36, y: -34 }}
+            opacity={0.16}
+            frame={{ width: 150, height: 150 }}
+            offset={{ x: -40, y: -30 }}
           />
         ) : (
           <Image
             systemName="fuelpump.fill"
             font={85}
-            opacity={0.09}
+            opacity={0.08}
             foregroundStyle="#F59E0B"
-            offset={{ x: -20, y: -20 }}
+            offset={{ x: -25, y: -20 }}
           />
         )}
         <Spacer />
       </HStack>
 
-      {/* 前景层：整体文字往右贴靠（trailing: 6），避免与背景水印重叠干扰 */}
-      <VStack
-        alignment="trailing"
-        spacing={0}
-        padding={{ top: 11, bottom: 10, leading: 2, trailing: 6 }}
-        frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
-      >
-        {/* 顶部标签 + 油品名 */}
-        <HStack alignment="center" spacing={3}>
-          <HStack
-            alignment="center"
-            padding={{ top: 1.5, bottom: 1.5, leading: 4, trailing: 4 }}
-            background="rgba(245, 158, 11, 0.16)"
-            clipShape={{ type: "rect", cornerRadius: 3.5 }}
-          >
-            <Text
-              font="caption2"
-              fontWeight="bold"
-              foregroundStyle="#D97706"
+      {/* 前景层：通过 HStack + Spacer 顶到最右侧，并右偏移 offset 紧密贴靠右边缘 */}
+      <HStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
+        <Spacer />
+        <VStack
+          alignment="trailing"
+          spacing={0}
+          padding={{ top: 11, bottom: 10, trailing: 2 }}
+          offset={{ x: 6, y: 0 }}
+        >
+          {/* 顶部标签 + 油品名 */}
+          <HStack alignment="center" spacing={3}>
+            <HStack
+              alignment="center"
+              padding={{ top: 1.5, bottom: 1.5, leading: 4, trailing: 4 }}
+              background="rgba(245, 158, 11, 0.16)"
+              clipShape={{ type: "rect", cornerRadius: 3.5 }}
             >
-              OIL
+              <Text
+                font="caption2"
+                fontWeight="bold"
+                foregroundStyle="#D97706"
+              >
+                OIL
+              </Text>
+            </HStack>
+            <Text
+              font="title3"
+              fontWeight="heavy"
+              foregroundStyle="#000000"
+            >
+              {oilName}
             </Text>
           </HStack>
+
+          {/* 省份油品全称 */}
           <Text
-            font="title3"
-            fontWeight="heavy"
-            foregroundStyle="#000000"
+            font="caption2"
+            fontWeight="medium"
+            foregroundStyle="#8E8E93"
+            padding={{ top: 1.5 }}
           >
-            {oilName}
+            {subTitle}
           </Text>
-        </HStack>
 
-        {/* 省份油品全称 */}
-        <Text
-          font="caption2"
-          fontWeight="medium"
-          foregroundStyle="#8E8E93"
-          padding={{ top: 1.5 }}
-        >
-          {subTitle}
-        </Text>
+          <Spacer />
 
-        <Spacer />
-
-        {/* 调价预测 */}
-        <Text
-          font="footnote"
-          fontWeight="bold"
-          foregroundStyle={trendColor}
-        >
-          {smallTrend}
-        </Text>
-
-        {/* 现价大字 */}
-        <HStack alignment="lastTextBaseline" spacing={1.5} padding={{ top: 1 }}>
+          {/* 调价预测 */}
           <Text
-            font="subheadline"
+            font="footnote"
             fontWeight="bold"
-            foregroundStyle="#000000"
+            foregroundStyle={trendColor}
           >
-            ¥
+            {smallTrend}
           </Text>
+
+          {/* 现价大字 */}
+          <HStack alignment="lastTextBaseline" spacing={1.5} padding={{ top: 1 }}>
+            <Text
+              font="subheadline"
+              fontWeight="bold"
+              foregroundStyle="#000000"
+            >
+              ¥
+            </Text>
+            <Text
+              font="title"
+              fontWeight="heavy"
+              foregroundStyle="#000000"
+            >
+              {focusPrice}
+            </Text>
+          </HStack>
+
+          <Spacer />
+
+          {/* 调价日期 */}
           <Text
-            font="title"
-            fontWeight="heavy"
-            foregroundStyle="#000000"
+            font="caption2"
+            fontWeight="medium"
+            foregroundStyle="#8E8E93"
           >
-            {focusPrice}
+            {cleanDateText}
           </Text>
-        </HStack>
-
-        <Spacer />
-
-        {/* 调价日期 */}
-        <Text
-          font="caption2"
-          fontWeight="medium"
-          foregroundStyle="#8E8E93"
-        >
-          {cleanDateText}
-        </Text>
-      </VStack>
+        </VStack>
+      </HStack>
     </ZStack>
   );
 }
