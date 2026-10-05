@@ -1,5 +1,7 @@
 # 今日油价 (Scripting 原生小组件与配置 App)
 
+> **一键导入安装**：[点击安装到 Scripting](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2F%E4%BB%8A%E6%97%A5%E6%B2%B9%E4%BB%B7%2F%E4%BB%8A%E6%97%A5%E6%B2%B9%E4%BB%B7.scripting%22%5D)
+
 基于现代 iOS 原生视觉规范与高级深色玻璃拟态（Glassmorphism）重塑的桌面油价小组件。
 
 ## 视觉与设计特色 (v1.2.0 主次聚焦精细化版本)
