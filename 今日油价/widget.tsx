@@ -198,7 +198,7 @@ function MediumFocusView({ data }: any) {
   return (
     <VStack
       alignment="leading"
-      padding={{ top: 12, bottom: 10, leading: 10, trailing: 10 }}
+      padding={{ top: 12, bottom: 10, leading: 6, trailing: 6 }}
       frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
       widgetBackground={{
         light: "#FFFFFF",
@@ -206,7 +206,7 @@ function MediumFocusView({ data }: any) {
       }}
     >
       {/* 顶部 Header：左侧省份靠最左，右侧时间靠最右，字号更小巧精致 */}
-      <HStack alignment="center">
+      <HStack alignment="center" padding={{ leading: 4, trailing: 4 }}>
         <HStack alignment="center" spacing={4}>
           <Image
             systemName="fuelpump.fill"
@@ -239,8 +239,8 @@ function MediumFocusView({ data }: any) {
 
       <Spacer />
 
-      {/* 中部 4 联卡片：更宽更扁平，中间标号色块根据字宽多留一点内边距，深浅双模自适应 */}
-      <HStack spacing={6} frame={{ maxWidth: "infinity" }}>
+      {/* 中部 4 联卡片：底部整卡背景色块更宽、卡片间距适度缩紧（spacing: 5），卡片内更舒展 */}
+      <HStack spacing={5} frame={{ maxWidth: "infinity" }}>
         {cardItems.map((item) => (
           <VStack
             key={item.name}
@@ -290,7 +290,7 @@ function MediumFocusView({ data }: any) {
       <Spacer />
 
       {/* 底部 Footer */}
-      <HStack alignment="center">
+      <HStack alignment="center" padding={{ leading: 4, trailing: 4 }}>
         <Text
           font="caption2"
           fontWeight="regular"
