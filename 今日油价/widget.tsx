@@ -51,9 +51,8 @@ export const OIL_THEMES = {
 };
 
 const WIDGET_BG = {
-  colors: ["#161920", "#0D0E12"],
-  startPoint: "top" as const,
-  endPoint: "bottom" as const,
+  light: "#FFFFFF",
+  dark: "#161719",
 };
 
 // 提取剩余天数用于计算进度
@@ -353,7 +352,10 @@ function MediumTickerView({
       spacing={9}
       padding={{ top: 11, bottom: 11, leading: 12, trailing: 12 }}
       frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
-      widgetBackground={WIDGET_BG}
+      widgetBackground={{
+        light: "#FFFFFF",
+        dark: "#161719",
+      }}
     >
       {/* 左半区：调价全景看板 + 周期微进度条 */}
       <VStack
@@ -369,9 +371,16 @@ function MediumTickerView({
             <Image
               systemName="fuelpump.fill"
               font="caption2"
-              foregroundStyle="#FFFFFF"
+              foregroundStyle="#F59E0B"
             />
-            <Text font="caption" fontWeight="bold" foregroundStyle="#FFFFFF">
+            <Text
+              font="caption"
+              fontWeight="bold"
+              foregroundStyle={{
+                light: "#1C1C1E",
+                dark: "#FFFFFF",
+              }}
+            >
               {data.province}
             </Text>
           </HStack>
@@ -379,13 +388,19 @@ function MediumTickerView({
           <HStack
             alignment="center"
             padding={{ top: 1, bottom: 1, leading: 4.5, trailing: 4.5 }}
-            background="rgba(255, 255, 255, 0.12)"
+            background={{
+              light: "rgba(0, 0, 0, 0.06)",
+              dark: "rgba(255, 255, 255, 0.12)",
+            }}
             clipShape={{ type: "rect", cornerRadius: 4 }}
           >
             <Text
               font="caption2"
               fontWeight="semibold"
-              foregroundStyle="#FFFFFF"
+              foregroundStyle={{
+                light: "#1C1C1E",
+                dark: "#FFFFFF",
+              }}
             >
               {data.advice}
             </Text>
@@ -415,14 +430,20 @@ function MediumTickerView({
             <Text
               font="title2"
               fontWeight="bold"
-              foregroundStyle="#FFFFFF"
+              foregroundStyle={{
+                light: "#000000",
+                dark: "#FFFFFF",
+              }}
             >
               {tonNum}
             </Text>
             <Text
               font="caption2"
               fontWeight="medium"
-              foregroundStyle="rgba(255, 255, 255, 0.65)"
+              foregroundStyle={{
+                light: "rgba(60, 60, 67, 0.65)",
+                dark: "rgba(255, 255, 255, 0.65)",
+              }}
             >
               元/吨
             </Text>
@@ -432,7 +453,10 @@ function MediumTickerView({
             <Text
               font="caption2"
               fontWeight="regular"
-              foregroundStyle="rgba(255, 255, 255, 0.5)"
+              foregroundStyle={{
+                light: "rgba(60, 60, 67, 0.55)",
+                dark: "rgba(255, 255, 255, 0.5)",
+              }}
             >
               约 {data.valPerLiter}
             </Text>
@@ -445,7 +469,10 @@ function MediumTickerView({
           <HStack alignment="center">
             <Text
               font="caption2"
-              foregroundStyle="rgba(255, 255, 255, 0.55)"
+              foregroundStyle={{
+                light: "rgba(60, 60, 67, 0.6)",
+                dark: "rgba(255, 255, 255, 0.55)",
+              }}
             >
               {cleanDate}
             </Text>
@@ -462,11 +489,14 @@ function MediumTickerView({
           <HStack
             alignment="center"
             frame={{ maxWidth: "infinity", height: 3.5 }}
-            background="rgba(255, 255, 255, 0.1)"
+            background={{
+              light: "rgba(0, 0, 0, 0.08)",
+              dark: "rgba(255, 255, 255, 0.12)",
+            }}
             clipShape={{ type: "rect", cornerRadius: 2 }}
           >
             <HStack
-              frame={{ width: `${progressPercent}%`, height: 3.5 }}
+              frame={{ width: Math.max(0, Math.min(100, progressPercent)), height: 3.5 }}
               background={trendColor}
               clipShape={{ type: "rect", cornerRadius: 2 }}
             />
@@ -479,7 +509,10 @@ function MediumTickerView({
         alignment="leading"
         spacing={0}
         padding={{ top: 8.5, bottom: 8.5, leading: 9.5, trailing: 9.5 }}
-        background="rgba(255, 255, 255, 0.05)"
+        background={{
+          light: "rgba(0, 0, 0, 0.035)",
+          dark: "rgba(255, 255, 255, 0.06)",
+        }}
         clipShape={{ type: "rect", cornerRadius: 13 }}
         frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
       >
@@ -512,14 +545,20 @@ function MediumTickerView({
                 <Text
                   font="caption2"
                   fontWeight="regular"
-                  foregroundStyle="rgba(255, 255, 255, 0.4)"
+                  foregroundStyle={{
+                    light: "rgba(60, 60, 67, 0.45)",
+                    dark: "rgba(255, 255, 255, 0.4)",
+                  }}
                 >
                   ¥
                 </Text>
                 <Text
                   font="subheadline"
                   fontWeight="bold"
-                  foregroundStyle="#FFFFFF"
+                  foregroundStyle={{
+                    light: "#000000",
+                    dark: "#FFFFFF",
+                  }}
                 >
                   {data.prices[item.key]}
                 </Text>
@@ -556,9 +595,18 @@ function MediumCapsuleView({
     Widget.isTransparentBackground;
 
   const bgGradient = {
-    colors: ["#C6DCEB", "#D6E5F2"],
-    startPoint: "top" as const,
-    endPoint: "bottom" as const,
+    light: {
+      type: "linear" as const,
+      colors: ["#C6DCEB", "#D6E5F2"],
+      startPoint: "top" as const,
+      endPoint: "bottom" as const,
+    },
+    dark: {
+      type: "linear" as const,
+      colors: ["#1B2228", "#12161A"],
+      startPoint: "top" as const,
+      endPoint: "bottom" as const,
+    },
   };
 
   return (
@@ -567,21 +615,26 @@ function MediumCapsuleView({
       spacing={8}
       padding={{ top: 12, bottom: 12, leading: 14, trailing: 14 }}
       frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
-      background={isTransparent ? undefined : bgGradient}
       widgetBackground={isTransparent ? undefined : bgGradient}
     >
-      {/* 1. 顶部 Header：bell.circle 黑色图标 (28x28) + 5pt 间距 + 黑色胶囊标题 (130x28, cornerRadius 14) */}
+      {/* 1. 顶部 Header：bell.circle 图标 (28x28) + 5pt 间距 + 胶囊标题 (130x28, cornerRadius 14)，深浅色自适应 */}
       <HStack alignment="center" spacing={5}>
         <Image
           systemName="bell.circle"
           font={28}
-          foregroundStyle="#000000"
+          foregroundStyle={{
+            light: "#000000",
+            dark: "#FFFFFF",
+          }}
           frame={{ width: 28, height: 28 }}
         />
         <HStack
           alignment="center"
           frame={{ width: 130, height: 28 }}
-          background="rgba(0, 0, 0, 0.85)"
+          background={{
+            light: "rgba(0, 0, 0, 0.85)",
+            dark: "rgba(255, 255, 255, 0.16)",
+          }}
           clipShape={{ type: "rect", cornerRadius: 14 }}
         >
           <Spacer />
@@ -596,19 +649,22 @@ function MediumCapsuleView({
         </HStack>
       </HStack>
 
-      {/* 2. 中间通报卡片：308x62，cornerRadius 10，精准红色圆角描边，内部三行文字完整对齐 */}
+      {/* 2. 中间通报卡片：308x62，cornerRadius 10，精准红色圆角描边，内部三行文字完整对齐，深浅色自适应 */}
       <ZStack alignment="center" frame={{ width: 308, height: 62 }}>
         <RoundedRectangle
           cornerRadius={10}
           stroke={{
-            shapeStyle: "rgba(213, 0, 0, 0.75)",
+            shapeStyle: "rgba(213, 0, 0, 0.85)",
             strokeStyle: { lineWidth: 2.5 },
           }}
         />
         <Text
           font={12}
           fontWeight="bold"
-          foregroundStyle="#000000"
+          foregroundStyle={{
+            light: "#000000",
+            dark: "#FFFFFF",
+          }}
           multilineTextAlignment="center"
           lineLimit={3}
           lineSpacing={2}
@@ -849,35 +905,54 @@ function SmallCapsuleView({
       spacing={6}
       padding={{ top: 9.5, bottom: 9.5, leading: 10, trailing: 10 }}
       frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
-      widgetBackground={WIDGET_BG}
+      widgetBackground={{
+        light: "#FFFFFF",
+        dark: "#161719",
+      }}
     >
       <HStack alignment="center" spacing={4}>
         <HStack
           alignment="center"
           padding={3}
-          background="rgba(255, 255, 255, 0.09)"
+          background={{
+            light: "rgba(0, 0, 0, 0.05)",
+            dark: "rgba(255, 255, 255, 0.09)",
+          }}
           clipShape={{ type: "rect", cornerRadius: 5 }}
         >
           <Image
             systemName="fuelpump.fill"
             font="caption2"
-            foregroundStyle="#FFFFFF"
+            foregroundStyle="#F59E0B"
           />
         </HStack>
-        <Text font="caption" fontWeight="bold" foregroundStyle="#FFFFFF">
+        <Text
+          font="caption"
+          fontWeight="bold"
+          foregroundStyle={{
+            light: "#1C1C1E",
+            dark: "#FFFFFF",
+          }}
+        >
           {data.province}
         </Text>
         <Spacer />
         <HStack
           alignment="center"
           padding={{ top: 1.5, bottom: 1.5, leading: 5, trailing: 5 }}
-          background="rgba(255, 255, 255, 0.08)"
+          background={{
+            light: "rgba(0, 0, 0, 0.05)",
+            dark: "rgba(255, 255, 255, 0.08)",
+          }}
           clipShape={{ type: "rect", cornerRadius: 5 }}
         >
           <Text
             font="caption2"
             fontWeight="semibold"
-            foregroundStyle="rgba(255, 255, 255, 0.85)"
+            foregroundStyle={{
+              light: "rgba(60, 60, 67, 0.85)",
+              dark: "rgba(255, 255, 255, 0.85)",
+            }}
           >
             {data.adjustDaysDesc || cleanDate}
           </Text>
@@ -906,13 +981,23 @@ function SmallCapsuleView({
           {data.trendDesc}
         </Text>
         <Spacer />
-        <Text font="caption" fontWeight="bold" foregroundStyle="#FFFFFF">
+        <Text
+          font="caption"
+          fontWeight="bold"
+          foregroundStyle={{
+            light: "#1C1C1E",
+            dark: "#FFFFFF",
+          }}
+        >
           {tonNum}
         </Text>
         <Text
           font="caption2"
           fontWeight="medium"
-          foregroundStyle="rgba(255, 255, 255, 0.6)"
+          foregroundStyle={{
+            light: "rgba(60, 60, 67, 0.65)",
+            dark: "rgba(255, 255, 255, 0.6)",
+          }}
         >
           元/吨
         </Text>
@@ -921,7 +1006,10 @@ function SmallCapsuleView({
       <HStack
         alignment="center"
         padding={{ top: 4, bottom: 4, leading: 7, trailing: 7 }}
-        background="rgba(255, 255, 255, 0.06)"
+        background={{
+          light: "rgba(0, 0, 0, 0.04)",
+          dark: "rgba(255, 255, 255, 0.06)",
+        }}
         clipShape={{ type: "rect", cornerRadius: 7 }}
         frame={{ maxWidth: "infinity" }}
       >
@@ -944,11 +1032,21 @@ function SmallCapsuleView({
           <Text
             font="caption2"
             fontWeight="medium"
-            foregroundStyle="rgba(255, 255, 255, 0.45)"
+            foregroundStyle={{
+              light: "rgba(60, 60, 67, 0.45)",
+              dark: "rgba(255, 255, 255, 0.45)",
+            }}
           >
             ¥
           </Text>
-          <Text font="headline" fontWeight="bold" foregroundStyle="#FFFFFF">
+          <Text
+            font="headline"
+            fontWeight="bold"
+            foregroundStyle={{
+              light: "#000000",
+              dark: "#FFFFFF",
+            }}
+          >
             {focusPrice}
           </Text>
         </HStack>
@@ -963,7 +1061,10 @@ function SmallCapsuleView({
             alignment="center"
             spacing={1}
             padding={{ top: 3, bottom: 3, leading: 1, trailing: 1 }}
-            background="rgba(255, 255, 255, 0.04)"
+            background={{
+              light: "rgba(0, 0, 0, 0.04)",
+              dark: "rgba(255, 255, 255, 0.04)",
+            }}
             clipShape={{ type: "rect", cornerRadius: 5 }}
             frame={{ maxWidth: "infinity" }}
           >
@@ -974,7 +1075,14 @@ function SmallCapsuleView({
             >
               {OIL_THEMES[key].name}
             </Text>
-            <Text font="caption2" fontWeight="bold" foregroundStyle="#FFFFFF">
+            <Text
+              font="caption2"
+              fontWeight="bold"
+              foregroundStyle={{
+                light: "#000000",
+                dark: "#FFFFFF",
+              }}
+            >
               {data.prices[key]}
             </Text>
           </VStack>
@@ -992,19 +1100,32 @@ function ErrorWidgetView({ message }: { message: string }) {
       spacing={8}
       padding={12}
       frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
-      widgetBackground={WIDGET_BG}
+      widgetBackground={{
+        light: "#FFFFFF",
+        dark: "#161719",
+      }}
     >
       <Image
         systemName="exclamationmark.triangle.fill"
         font="title2"
         foregroundStyle="#FF453A"
       />
-      <Text font="headline" fontWeight="bold" foregroundStyle="#FFFFFF">
+      <Text
+        font="headline"
+        fontWeight="bold"
+        foregroundStyle={{
+          light: "#000000",
+          dark: "#FFFFFF",
+        }}
+      >
         油价数据获取失败
       </Text>
       <Text
         font="caption"
-        foregroundStyle="rgba(255, 255, 255, 0.6)"
+        foregroundStyle={{
+          light: "rgba(60, 60, 67, 0.6)",
+          dark: "rgba(255, 255, 255, 0.6)",
+        }}
         lineLimit={2}
       >
         {message}
@@ -1044,11 +1165,18 @@ function ErrorWidgetView({ message }: { message: string }) {
     const isDown = data.trendType === "down";
     const isUp = data.trendType === "up";
     const trendColor = isDown ? "#34C759" : isUp ? "#FF453A" : "#FF9F0A";
-    const trendCardBg = isDown
-      ? "rgba(52, 199, 89, 0.08)"
-      : isUp
-      ? "rgba(255, 69, 58, 0.08)"
-      : "rgba(255, 159, 10, 0.08)";
+    const trendCardBg = {
+      light: isDown
+        ? "rgba(52, 199, 89, 0.12)"
+        : isUp
+        ? "rgba(255, 59, 48, 0.1)"
+        : "rgba(255, 159, 10, 0.12)",
+      dark: isDown
+        ? "rgba(52, 199, 89, 0.16)"
+        : isUp
+        ? "rgba(255, 69, 58, 0.16)"
+        : "rgba(255, 159, 10, 0.16)",
+    };
     const trendIcon = isDown ? "arrow.down" : isUp ? "arrow.up" : "minus";
     const tonNum = data.valPerTon.replace(/元\/吨/, "").trim() || "--";
     const cleanDate = data.nextAdjustDate.replace(/24时/, "").trim();
