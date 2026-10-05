@@ -1,0 +1,17 @@
+{
+  "name": "今日油价",
+  "version": "1.3.1",
+  "description": "实时全国各省市汽柴油价格监控与调价预测桌面小组件，支持系统定位与自定义省份。",
+  "icon": "fuelpump.fill",
+  "color": "rgba(239, 68, 68, 1)",
+  "entry": "index.tsx",
+  "runInApp": false,
+  "localizedNames": {
+    "zh": "今日油价",
+    "en": "Fuel Price"
+  },
+  "localizedDescriptions": {
+    "zh": "实时全国各省市汽柴油价格监控与调价预测桌面小组件，支持系统定位与自定义省份。",
+    "en": "Real-time national fuel price monitoring and price adjustment forecast widget."
+  }
+}

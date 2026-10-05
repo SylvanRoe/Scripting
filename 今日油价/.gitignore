@@ -1,0 +1,12 @@
+# 备份 / 临时
+*.bak
+_tmp_*
+*.tmp
+_*.ts
+_*.tsx
+
+# 系统
+.DS_Store
+
+# 缓存
+.cache/

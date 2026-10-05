@@ -4,7 +4,7 @@
  * 移植/维护（Scripting 版）：SylvanRoe
  * telegram: @Air_QT
  * 更新: 2026/09/05
- * 版本: 1.0.1
+ * 版本: 1.0.2
  *
  * 原作者（原 Scriptable 脚本）声明：
  * @author: 脑瓜
