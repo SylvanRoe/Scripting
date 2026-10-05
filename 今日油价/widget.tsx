@@ -198,20 +198,20 @@ function MediumFocusView({ data }: any) {
   return (
     <VStack
       alignment="leading"
-      padding={{ top: 13, bottom: 11, leading: 14, trailing: 14 }}
+      padding={{ top: 12, bottom: 10, leading: 10, trailing: 10 }}
       frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
       widgetBackground={"#161719" as const}
     >
-      {/* 顶部 Header */}
+      {/* 顶部 Header：左侧省份靠最左，右侧时间靠最右，字号更小巧精致 */}
       <HStack alignment="center">
-        <HStack alignment="center" spacing={5}>
+        <HStack alignment="center" spacing={4}>
           <Image
             systemName="fuelpump.fill"
-            font="subheadline"
+            font="caption"
             foregroundStyle="#F59E0B"
           />
           <Text
-            font="subheadline"
+            font="caption"
             fontWeight="bold"
             foregroundStyle="#FFFFFF"
           >
@@ -220,9 +220,9 @@ function MediumFocusView({ data }: any) {
         </HStack>
         <Spacer />
         <Text
-          font="footnote"
+          font="caption2"
           fontWeight="medium"
-          foregroundStyle="rgba(255, 255, 255, 0.9)"
+          foregroundStyle="rgba(255, 255, 255, 0.85)"
         >
           {mediumForecast}
         </Text>
@@ -230,26 +230,26 @@ function MediumFocusView({ data }: any) {
 
       <Spacer />
 
-      {/* 中部 4 联卡片 */}
-      <HStack spacing={8} frame={{ maxWidth: "infinity" }}>
+      {/* 中部 4 联卡片：更宽、更扁平（左右更宽，上下不长） */}
+      <HStack spacing={6} frame={{ maxWidth: "infinity" }}>
         {cardItems.map((item) => (
           <VStack
             key={item.name}
             alignment="center"
-            spacing={10}
-            padding={{ top: 12, bottom: 12, leading: 2, trailing: 2 }}
+            spacing={6}
+            padding={{ top: 8, bottom: 8, leading: 2, trailing: 2 }}
             background="rgba(255, 255, 255, 0.08)"
-            clipShape={{ type: "rect", cornerRadius: 13 }}
+            clipShape={{ type: "rect", cornerRadius: 10 }}
             frame={{ maxWidth: "infinity" }}
           >
             <HStack
               alignment="center"
-              padding={{ top: 3.5, bottom: 3.5, leading: 8, trailing: 8 }}
+              padding={{ top: 2.5, bottom: 2.5, leading: 7, trailing: 7 }}
               background={item.tagBg}
-              clipShape={{ type: "rect", cornerRadius: 6 }}
+              clipShape={{ type: "rect", cornerRadius: 5 }}
             >
               <Text
-                font="caption"
+                font="caption2"
                 fontWeight="bold"
                 foregroundStyle={item.textColor}
                 lineLimit={1}
@@ -259,7 +259,7 @@ function MediumFocusView({ data }: any) {
               </Text>
             </HStack>
             <Text
-              font="title3"
+              font="headline"
               fontWeight="bold"
               foregroundStyle="#FFFFFF"
               lineLimit={1}
@@ -277,7 +277,7 @@ function MediumFocusView({ data }: any) {
       {/* 底部 Footer */}
       <HStack alignment="center">
         <Text
-          font="footnote"
+          font="caption2"
           fontWeight="regular"
           foregroundStyle="rgba(255, 255, 255, 0.45)"
         >
@@ -285,7 +285,7 @@ function MediumFocusView({ data }: any) {
         </Text>
         <Spacer />
         <Text
-          font="footnote"
+          font="caption2"
           fontWeight="regular"
           foregroundStyle="rgba(255, 255, 255, 0.45)"
         >
@@ -665,42 +665,43 @@ function SmallShellFocusView({
       frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
       widgetBackground={"#FFFFFF" as const}
     >
-      {/* 底层左上角贝壳水印 */}
-      <HStack alignment="top" padding={{ top: 8, leading: 8 }}>
+      {/* 底层左上角贝壳水印：放大并超出边框 */}
+      <HStack alignment="top">
         {hasLogoFile ? (
           <Image
             filePath={logoPath}
             resizable={true}
             scaleToFit={true}
-            opacity={0.45}
-            frame={{ width: 105, height: 105 }}
+            opacity={0.35}
+            frame={{ width: 155, height: 155 }}
+            offset={{ x: -28, y: -28 }}
           />
         ) : (
           <Image
             systemName="fuelpump.fill"
-            font="largeTitle"
+            font={85}
             opacity={0.12}
             foregroundStyle="#F59E0B"
-            frame={{ width: 75, height: 75 }}
+            offset={{ x: -15, y: -15 }}
           />
         )}
         <Spacer />
       </HStack>
 
-      {/* 前景层：右对齐排版 */}
+      {/* 前景层：右对齐排版，整体文字缩小一号，紧密右对齐原版 */}
       <VStack
         alignment="trailing"
         spacing={0}
-        padding={{ top: 12, bottom: 12, leading: 12, trailing: 14 }}
+        padding={{ top: 11, bottom: 10, leading: 8, trailing: 10 }}
         frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
       >
         {/* 顶部标签 + 油品名 */}
-        <HStack alignment="center" spacing={4}>
+        <HStack alignment="center" spacing={3}>
           <HStack
             alignment="center"
-            padding={{ top: 2, bottom: 2, leading: 4.5, trailing: 4.5 }}
+            padding={{ top: 1.5, bottom: 1.5, leading: 4, trailing: 4 }}
             background="rgba(245, 158, 11, 0.16)"
-            clipShape={{ type: "rect", cornerRadius: 4 }}
+            clipShape={{ type: "rect", cornerRadius: 3.5 }}
           >
             <Text
               font="caption2"
@@ -711,7 +712,7 @@ function SmallShellFocusView({
             </Text>
           </HStack>
           <Text
-            font="title"
+            font="title3"
             fontWeight="heavy"
             foregroundStyle="#000000"
           >
@@ -721,10 +722,10 @@ function SmallShellFocusView({
 
         {/* 省份油品全称 */}
         <Text
-          font="caption"
+          font="caption2"
           fontWeight="medium"
           foregroundStyle="#8E8E93"
-          padding={{ top: 2 }}
+          padding={{ top: 1.5 }}
         >
           {subTitle}
         </Text>
@@ -733,7 +734,7 @@ function SmallShellFocusView({
 
         {/* 调价预测 */}
         <Text
-          font="subheadline"
+          font="footnote"
           fontWeight="bold"
           foregroundStyle={trendColor}
         >
@@ -741,16 +742,16 @@ function SmallShellFocusView({
         </Text>
 
         {/* 现价大字 */}
-        <HStack alignment="lastTextBaseline" spacing={2} padding={{ top: 2 }}>
+        <HStack alignment="lastTextBaseline" spacing={1.5} padding={{ top: 1 }}>
           <Text
-            font="title2"
+            font="subheadline"
             fontWeight="bold"
             foregroundStyle="#000000"
           >
             ¥
           </Text>
           <Text
-            font="largeTitle"
+            font="title"
             fontWeight="heavy"
             foregroundStyle="#000000"
           >
