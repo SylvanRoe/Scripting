@@ -690,14 +690,13 @@ function SmallShellFocusView({
         <Spacer />
       </HStack>
 
-      {/* 前景层：通过 HStack + Spacer 顶到最右侧，并右偏移 offset 紧密贴靠右边缘 */}
+      {/* 前景层：自然靠右，保留合适内边距避免超出边界 */}
       <HStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
         <Spacer />
         <VStack
           alignment="trailing"
           spacing={0}
-          padding={{ top: 11, bottom: 10, trailing: 2 }}
-          offset={{ x: 6, y: 0 }}
+          padding={{ top: 12, bottom: 12, trailing: 10 }}
         >
           {/* 顶部标签 + 油品名 */}
           <HStack alignment="center" spacing={3}>
