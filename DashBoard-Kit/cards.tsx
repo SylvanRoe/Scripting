@@ -561,20 +561,20 @@ export function DualQuotaCard({ data }: { data: DualQuotaData }) {
 
       {/* 底部指标项：Antigravity 与 Codex 精确分流 */}
       {isAntigravity ? (
-        <HStack spacing={4} alignment="center">
-          <Text font={9} foregroundStyle={THEME.dim} lineLimit={1}>
+        <HStack spacing={2} alignment="center" frame={{ maxWidth: "infinity" }}>
+          <Text font={8} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
             {data.stat1.label}
           </Text>
-          <Text font={9.5} fontWeight="bold" foregroundStyle={cStat1} monospacedDigit lineLimit={1}>
+          <Text font={8.5} fontWeight="bold" foregroundStyle={cStat1} monospacedDigit lineLimit={1}>
             {data.stat1.value}
           </Text>
-          <Text font={9} foregroundStyle={THEME.dim} lineLimit={1}>
-            {" · "}
+          <Text font={8} foregroundStyle={THEME.dim} lineLimit={1}>
+            {"·"}
           </Text>
-          <Text font={9} foregroundStyle={THEME.dim} lineLimit={1}>
+          <Text font={8} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
             {data.stat2.label}
           </Text>
-          <Text font={9.5} fontWeight="bold" foregroundStyle={cStat2} monospacedDigit lineLimit={1}>
+          <Text font={8.5} fontWeight="bold" foregroundStyle={cStat2} monospacedDigit lineLimit={1}>
             {data.stat2.value}
           </Text>
           <Spacer />
