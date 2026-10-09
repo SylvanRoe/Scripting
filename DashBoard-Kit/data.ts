@@ -7,7 +7,9 @@ import {
   DEFAULT_MEDIA_NEXUS,
   DEFAULT_VPN,
   DEFAULT_WORKBUDDY,
+  DEFAULT_FUEL,
   DualQuotaData,
+  FuelCardData,
   MediaNexusData,
   MetricBalanceData,
   VpnNodeData,
@@ -56,6 +58,10 @@ export const ANTIGRAVITY_REFRESH_KEY = "dashboard_kit_antigravity_refresh_token"
 export const ANTIGRAVITY_EXPIRES_KEY = "dashboard_kit_antigravity_expires_at"
 export const ANTIGRAVITY_PROJECT_KEY = "dashboard_kit_antigravity_project"
 export const ANTIGRAVITY_CACHE_KEY = "dashboard_kit_antigravity_cache_v1"
+const ANTIGRAVITY_FILE_CACHE_PATH =
+  FileManager.appGroupDocumentsDirectory + "/dashboard_kit_antigravity_cache.json"
+const CODEX_FILE_CACHE_PATH =
+  FileManager.appGroupDocumentsDirectory + "/dashboard_kit_codex_cache.json"
 
 // 6. CPAMP (CPA-Manager-Plus) 常量
 export const CPAMP_ENDPOINT_KEY = "dashboard_kit_cpamp_endpoint"
@@ -527,12 +533,25 @@ function formatCountdown(targetIsoOrMs: string | number | null): string {
 
 export function getCodexData(): DualQuotaData {
   try {
-    // 1. 优先读取本机直连缓存
-    const local =
-      Storage.get<DualQuotaData>(CODEX_CACHE_KEY, { shared: true }) ||
-      Storage.get<DualQuotaData>(CODEX_CACHE_KEY)
-    if (local && local.serviceId === "codex" && local.item1) {
-      return local
+    // 1. 优先读取本机直连缓存（支持 Storage 与 App Group 文件双通道）
+    let local =
+      Storage.get<any>(CODEX_CACHE_KEY, { shared: true }) ||
+      Storage.get<any>(CODEX_CACHE_KEY)
+
+    if (!local && FileManager.existsSync(CODEX_FILE_CACHE_PATH)) {
+      try {
+        const raw = FileManager.readAsStringSync(CODEX_FILE_CACHE_PATH)
+        if (raw) local = JSON.parse(raw)
+      } catch {}
+    }
+
+    if (local && (local.item1 || local.stat1)) {
+      return {
+        ...DEFAULT_CODEX,
+        ...local,
+        serviceId: "codex",
+        iconImage: DEFAULT_CODEX.iconImage,
+      }
     }
 
     // 2. 桥接兼容读取 AI Usage 的缓存（若有）
@@ -768,6 +787,7 @@ export async function refreshCodexData(): Promise<DualQuotaData | null> {
     try {
       Storage.set(CODEX_CACHE_KEY, data, { shared: true })
       Storage.set(CODEX_CACHE_KEY, data)
+      FileManager.writeAsStringSync(CODEX_FILE_CACHE_PATH, JSON.stringify(data))
     } catch {}
     return data
   } catch (e) {
@@ -778,12 +798,25 @@ export async function refreshCodexData(): Promise<DualQuotaData | null> {
 
 export function getAntigravityData(): DualQuotaData {
   try {
-    // 1. 优先读取本机直连缓存
-    const local =
-      Storage.get<DualQuotaData>(ANTIGRAVITY_CACHE_KEY, { shared: true }) ||
-      Storage.get<DualQuotaData>(ANTIGRAVITY_CACHE_KEY)
-    if (local && local.serviceId === "antigravity" && local.item1) {
-      return local
+    // 1. 优先读取本机直连缓存（支持 Storage 与 App Group 文件双通道）
+    let local =
+      Storage.get<any>(ANTIGRAVITY_CACHE_KEY, { shared: true }) ||
+      Storage.get<any>(ANTIGRAVITY_CACHE_KEY)
+
+    if (!local && FileManager.existsSync(ANTIGRAVITY_FILE_CACHE_PATH)) {
+      try {
+        const raw = FileManager.readAsStringSync(ANTIGRAVITY_FILE_CACHE_PATH)
+        if (raw) local = JSON.parse(raw)
+      } catch {}
+    }
+
+    if (local && (local.item1 || local.stat1)) {
+      return {
+        ...DEFAULT_ANTIGRAVITY,
+        ...local,
+        serviceId: "antigravity",
+        iconImage: DEFAULT_ANTIGRAVITY.iconImage,
+      }
     }
 
     // 2. 桥接兼容读取 AI Usage 的缓存（若有）
@@ -959,13 +992,14 @@ export async function refreshAntigravityData(): Promise<DualQuotaData | null> {
                   label: "C/G 周",
                   value: claudeWeekPct != null ? `${claudeWeekPct}%` : "100%",
                 },
-                footerStatus: `最低 ${Math.min(p1, p2)}%`,
+                footerStatus: `最紧 ${Math.min(p1, p2)}%`,
                 updatedAt: new Date().toISOString(),
               }
 
               try {
                 Storage.set(ANTIGRAVITY_CACHE_KEY, data, { shared: true })
                 Storage.set(ANTIGRAVITY_CACHE_KEY, data)
+                FileManager.writeAsStringSync(ANTIGRAVITY_FILE_CACHE_PATH, JSON.stringify(data))
               } catch {}
               return data
             }
@@ -1031,12 +1065,21 @@ export async function refreshAntigravityData(): Promise<DualQuotaData | null> {
                 timer: formatCountdown(claudeReset),
                 pct: p2,
               },
-              footerStatus: `最低 ${Math.min(p1, p2)}%`,
+              stat1: {
+                label: "Gem 周",
+                value: "100%",
+              },
+              stat2: {
+                label: "C/G 周",
+                value: "100%",
+              },
+              footerStatus: `最紧 ${Math.min(p1, p2)}%`,
               updatedAt: new Date().toISOString(),
             }
             try {
               Storage.set(ANTIGRAVITY_CACHE_KEY, data, { shared: true })
               Storage.set(ANTIGRAVITY_CACHE_KEY, data)
+              FileManager.writeAsStringSync(ANTIGRAVITY_FILE_CACHE_PATH, JSON.stringify(data))
             } catch {}
             return data
           }
@@ -1577,13 +1620,13 @@ export async function refreshVpnData(): Promise<VpnNodeData | null> {
     let vpnScore = 0
     let statusTitle = "未连接代理"
     if (isSplitProxy) {
-      statusTitle = "分流代理已连接"
+      statusTitle = "VPN 已连接"
       vpnScore += 50
     } else if (hasVpnInterface) {
       statusTitle = "VPN 已连接"
       vpnScore += 40
     } else if (isOverseas) {
-      statusTitle = "代理已连接"
+      statusTitle = "VPN 已连接"
       vpnScore += 40
     }
 
@@ -1626,4 +1669,211 @@ export async function refreshVpnData(): Promise<VpnNodeData | null> {
     return null
   }
 }
+
+// ============================================================
+// 8. 今日油价（风格 2：Shell 贝壳高光小组件）数据抓取与缓存
+// ============================================================
+export const FUEL_CACHE_KEY = "dashboard_kit_fuel_cache_v1"
+export const FUEL_PROVINCE_KEY = "dashboard_kit_fuel_province"
+export const FUEL_OIL_KEY = "dashboard_kit_fuel_oil"
+const FUEL_FILE_CACHE_PATH =
+  FileManager.appGroupDocumentsDirectory + "/dashboard_kit_fuel_cache.json"
+const FUEL_SETTINGS_FILE =
+  FileManager.appGroupDocumentsDirectory + "/fuel_price_settings.json"
+
+export const FUEL_PROVINCE_MAP: Record<string, string> = {
+  北京: "/beijing.shtml",
+  上海: "/shanghai.shtml",
+  天津: "/tianjin.shtml",
+  重庆: "/chongqing.shtml",
+  广东: "/guangdong.shtml",
+  浙江: "/zhejiang.shtml",
+  江苏: "/jiangsu.shtml",
+  山东: "/shandong.shtml",
+  福建: "/fujian.shtml",
+  四川: "/sichuan.shtml",
+  湖北: "/hubei.shtml",
+  湖南: "/hunan.shtml",
+  河南: "/henan.shtml",
+  河北: "/hebei.shtml",
+  安徽: "/anhui.shtml",
+  江西: "/jiangxi.shtml",
+  辽宁: "/liaoning.shtml",
+  吉林: "/jilin.shtml",
+  黑龙江: "/heilongjiang.shtml",
+  内蒙古: "/neimenggu.shtml",
+  广西: "/guangxi.shtml",
+  海南: "/hainan.shtml",
+  贵州: "/guizhou.shtml",
+  云南: "/yunnan.shtml",
+  西藏: "/xizang.shtml",
+  陕西: "/shanxi-3.shtml",
+  山西: "/shanxi.shtml",
+  甘肃: "/gansu.shtml",
+  青海: "/qinghai.shtml",
+  宁夏: "/ningxia.shtml",
+  新疆: "/xinjiang.shtml",
+}
+
+export function getFuelData(): FuelCardData {
+  try {
+    let local =
+      Storage.get<FuelCardData>(FUEL_CACHE_KEY, { shared: true }) ||
+      Storage.get<FuelCardData>(FUEL_CACHE_KEY)
+
+    if (!local && FileManager.existsSync(FUEL_FILE_CACHE_PATH)) {
+      try {
+        const raw = FileManager.readAsStringSync(FUEL_FILE_CACHE_PATH)
+        if (raw) local = JSON.parse(raw)
+      } catch {}
+    }
+
+    if (local && local.focusPrice) {
+      return {
+        ...DEFAULT_FUEL,
+        ...local,
+        serviceId: "fuel",
+      }
+    }
+  } catch {}
+  return DEFAULT_FUEL
+}
+
+export async function refreshFuelData(): Promise<FuelCardData | null> {
+  try {
+    let targetProvince =
+      Storage.get<string>(FUEL_PROVINCE_KEY, { shared: true }) ||
+      Storage.get<string>(FUEL_PROVINCE_KEY) ||
+      ""
+    let focusOilKey: "oil92" | "oil95" | "oil98" | "oil0" =
+      (Storage.get<any>(FUEL_OIL_KEY, { shared: true }) ||
+        Storage.get<any>(FUEL_OIL_KEY) ||
+        "") as any
+
+    // 若本地未配置，尝试兼容读取「今日油价」独立脚本已有的配置
+    if ((!targetProvince || !focusOilKey) && FileManager.existsSync(FUEL_SETTINGS_FILE)) {
+      try {
+        const s = JSON.parse(FileManager.readAsStringSync(FUEL_SETTINGS_FILE))
+        if (!targetProvince && s.selectedProvince && s.selectedProvince !== "auto") {
+          targetProvince = s.selectedProvince.replace(/(省|壮族自治区|回族自治区|自治州|维吾尔自治区|自治区|市)$/, "").trim()
+        }
+        if (!focusOilKey && s.focusOil) {
+          focusOilKey = s.focusOil
+        }
+      } catch {}
+    }
+
+    if (!targetProvince) targetProvince = "北京"
+    if (!focusOilKey) focusOilKey = "oil92"
+
+    let path = FUEL_PROVINCE_MAP[targetProvince] || "/beijing.shtml"
+    const targetUrl = `http://m.qiyoujiage.com${path.startsWith("/") ? path : `/${path}`}`
+    const res = await fetch(targetUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)" },
+    })
+    const html = await res.text()
+
+    const ddMatches = [...html.matchAll(/<dd>([0-9.]+)/g)].map((m) => m[1])
+    const prices: Record<string, string> = {
+      oil92: ddMatches[0] || "7.88",
+      oil95: ddMatches[1] || "8.39",
+      oil98: ddMatches[2] || "9.89",
+      oil0: ddMatches[3] || "7.59",
+    }
+
+    let rawForecast = "暂无调价预测信息"
+    const tishiMatch = html.match(/var tishiContent\s*=\s*"([^"]+)"/)
+    if (tishiMatch && tishiMatch[1]) {
+      rawForecast = tishiMatch[1].replace(/<br\s*\/?>/gi, "，").replace(/&nbsp;/gi, "").trim()
+    }
+
+    let nextAdjustDate = "近期调价"
+    const dateMatch = rawForecast.match(/下次油价\s*([0-9]+月[0-9]+日(?:[0-9]+时)?)\s*调整/)
+    if (dateMatch) {
+      nextAdjustDate = dateMatch[1]
+    }
+
+    const isDown = rawForecast.includes("下调") || rawForecast.includes("跌")
+    const isUp = rawForecast.includes("上调") || rawForecast.includes("涨")
+    const trendType: "down" | "up" | "flat" = isDown ? "down" : isUp ? "up" : "flat"
+
+    let cleanLiter = ""
+    const rangeLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升\s*[-~至到]\s*([0-9.]+)\s*元\/升/)
+    if (rangeLiterMatch) {
+      cleanLiter = `${rangeLiterMatch[1]}-${rangeLiterMatch[2]}`
+    } else {
+      const singleLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升/)
+      if (singleLiterMatch) cleanLiter = singleLiterMatch[1]
+    }
+
+    const sign = trendType === "down" ? "-" : trendType === "up" ? "+" : ""
+    let smallTrend = ""
+    if (cleanLiter) {
+      smallTrend = `预计${sign}${cleanLiter}`
+    } else if (trendType === "flat") {
+      smallTrend = "预计搁浅"
+    } else {
+      smallTrend = trendType === "down" ? "预计下调" : "预计上调"
+    }
+
+    const trendColor = trendType === "down" ? "#2FB350" : trendType === "up" ? "#FF3B30" : "#8E8E93"
+
+    const oilThemeNames: Record<string, string> = {
+      oil92: "92#",
+      oil95: "95#",
+      oil98: "98#",
+      oil0: "0#",
+    }
+    const oilName = oilThemeNames[focusOilKey] || "92#"
+    const oilFullName = focusOilKey === "oil0" ? "0 号柴油" : `${oilName.replace("#", "")} 号汽油`
+    const subTitle = `${targetProvince} ${oilFullName}`
+    const cleanDateText = `${(nextAdjustDate || "近期").replace(/调整.*$/, "").replace(/调价.*$/, "").trim()}调价`
+    const focusPrice = prices[focusOilKey] || prices.oil92 || "--"
+
+    let cleanDate = (nextAdjustDate || "近期").replace(/调整.*$/, "").replace(/调价.*$/, "").trim()
+    let mediumForecast = `${cleanDate}调价`
+    const arrow = trendType === "down" ? "↓" : trendType === "up" ? "↑" : "-"
+    if (cleanLiter) {
+      mediumForecast = `${cleanDate}调价 ${arrow} ${cleanLiter}`
+    } else if (trendType === "flat") {
+      mediumForecast = `${cleanDate}调价 预计搁浅`
+    } else {
+      mediumForecast = `${cleanDate}调价 ${arrow}`
+    }
+
+    const data: FuelCardData = {
+      serviceId: "fuel",
+      province: targetProvince,
+      focusOilKey,
+      oilName,
+      oilFullName,
+      subTitle,
+      focusPrice,
+      prices: {
+        oil92: prices.oil92 || "--",
+        oil95: prices.oil95 || "--",
+        oil98: prices.oil98 || "--",
+        oil0: prices.oil0 || "--",
+      },
+      cleanDateText,
+      smallTrend,
+      mediumForecast,
+      trendType,
+      trendColor,
+      rawForecast,
+      updatedAt: new Date().toISOString(),
+    }
+
+    try {
+      Storage.set(FUEL_CACHE_KEY, data, { shared: true })
+      Storage.set(FUEL_CACHE_KEY, data)
+      FileManager.writeAsStringSync(FUEL_FILE_CACHE_PATH, JSON.stringify(data))
+    } catch {}
+    return data
+  } catch (e) {
+    console.log("拉取油价数据异常:", e)
+    return null
+  }
+}
+
 

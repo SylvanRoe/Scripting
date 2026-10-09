@@ -78,17 +78,14 @@ export interface DualQuotaData {
 // 默认内置的精美 Mock 数据，与截图完全对齐
 export const DEFAULT_MEDIA_NEXUS: MediaNexusData = {
   title: "Media Nexus",
-  statusText: "当前空闲",
-  recent7Days: 272,
-  todayAdded: 20,
-  movies: 1616,
-  shows: 125,
-  episodes: 2761,
-  recentItems: [
-    { id: "01", title: "奥本海默", year: "2023" },
-    { id: "02", title: "沙丘 2", year: "2024" },
-  ],
-  footerTag: "Emby 4.10.1.0 · 让收藏癖有处安放！",
+  statusText: "就绪",
+  recent7Days: 0,
+  todayAdded: 0,
+  movies: 0,
+  shows: 0,
+  episodes: 0,
+  recentItems: [],
+  footerTag: "未连接媒体库",
   updatedAt: new Date().toISOString(),
 }
 
@@ -97,16 +94,16 @@ export const DEFAULT_DEEPSEEK: MetricBalanceData = {
   brandTitle: "deepseek",
   brandTitleColor: "#4D6BFE",
   svgCode: DEEPSEEK_WHALE_SVG,
-  statusText: "账户活跃",
+  statusText: "就绪",
   mainLabel: "账户余额",
-  mainValue: "12.36",
+  mainValue: "0.00",
   prefix: "¥",
-  progressPct: 25,
+  progressPct: 0,
   subLabel1: "可用模型",
-  subValue1: "2",
+  subValue1: "--",
   subLabel2: "响应延迟",
-  subValue2: "271ms",
-  footerLeft: "账户活跃",
+  subValue2: "--",
+  footerLeft: "未配置",
   updatedAt: new Date().toISOString(),
 }
 
@@ -116,13 +113,13 @@ export const DEFAULT_WORKBUDDY: MetricBalanceData = {
   wordmarkImage: loadIcon("assets/workbuddy.png", "assets/workbuddy-dark.png"),
   statusText: "就绪",
   mainLabel: "积分剩余",
-  mainValue: "65,604",
-  progressPct: 67,
+  mainValue: "0",
+  progressPct: 0,
   subLabel1: "已签",
-  subValue1: "13/13",
+  subValue1: "--",
   subLabel2: "已用",
-  subValue2: "32,776",
-  footerLeft: "模型 17 · 请求 478",
+  subValue2: "--",
+  footerLeft: "未配置",
   updatedAt: new Date().toISOString(),
 }
 
@@ -130,17 +127,17 @@ export const DEFAULT_CPAMP: MetricBalanceData = {
   serviceId: "cpamp",
   brandTitle: "CPAMP",
   svgCode: CPAMP_LOGO_SVG,
-  statusText: "正常",
+  statusText: "就绪",
   mainLabel: "今日调用",
-  mainValue: "956",
+  mainValue: "0",
   prefix: "",
-  costStr: "$85.06",
-  progressPct: 93.4,
+  costStr: "$0.00",
+  progressPct: 0,
   subLabel1: "成功",
-  subValue1: "893",
+  subValue1: "--",
   subLabel2: "失败",
-  subValue2: "63",
-  footerLeft: "148.6M tok",
+  subValue2: "--",
+  footerLeft: "未配置",
   updatedAt: new Date().toISOString(),
 }
 
@@ -148,11 +145,11 @@ export const DEFAULT_CODEX: DualQuotaData = {
   serviceId: "codex",
   brandTitle: "Codex",
   iconImage: loadIcon("assets/codex-light.png", "assets/codex-dark.png"),
-  item1: { label: "5 小时额度", timer: "4h59m", pct: 100 },
-  item2: { label: "周额度", timer: "5d18h", pct: 78 },
-  stat1: { label: "可重置次数", value: "3 次" },
-  stat2: { label: "到期", value: "2026/10/24" },
-  footerStatus: "到期 2026/10/24",
+  item1: { label: "5 小时额度", timer: "--", pct: 0 },
+  item2: { label: "周额度", timer: "--", pct: 0 },
+  stat1: { label: "可重置次数", value: "0" },
+  stat2: { label: "到期", value: "--" },
+  footerStatus: "等待更新",
   updatedAt: new Date().toISOString(),
 }
 
@@ -160,11 +157,11 @@ export const DEFAULT_ANTIGRAVITY: DualQuotaData = {
   serviceId: "antigravity",
   brandTitle: "Antigravity",
   iconImage: loadIcon("assets/antigravity-light.png", "assets/antigravity-dark.png"),
-  item1: { label: "Gemini 5h", timer: "3h03m", pct: 35 },
-  item2: { label: "Claude/GPT 5h", timer: "4h59m", pct: 100 },
-  stat1: { label: "Gem 周", value: "88%" },
-  stat2: { label: "C/G 周", value: "100%" },
-  footerStatus: "最低 35%",
+  item1: { label: "Gemini 5h", timer: "--", pct: 0 },
+  item2: { label: "Claude/GPT 5h", timer: "--", pct: 0 },
+  stat1: { label: "Gem 周", value: "0%" },
+  stat2: { label: "C/G 周", value: "0%" },
+  footerStatus: "等待更新",
   updatedAt: new Date().toISOString(),
 }
 
@@ -182,13 +179,58 @@ export interface VpnNodeData {
 
 export const DEFAULT_VPN: VpnNodeData = {
   serviceId: "vpn",
-  statusTitle: "VPN 已连接",
-  ip: "185.217.5.16",
-  location: "日本 千葉縣 船橋市",
-  isp: "Dodo K.K.",
-  riskPct: 48,
-  tag1: "原生",
-  tag2: "非家宽",
+  statusTitle: "待检测",
+  ip: "--",
+  location: "未连接",
+  isp: "--",
+  riskPct: 0,
+  tag1: "--",
+  tag2: "--",
+  updatedAt: new Date().toISOString(),
+}
+
+export interface FuelCardData {
+  serviceId: "fuel"
+  province: string
+  focusOilKey: "oil92" | "oil95" | "oil98" | "oil0"
+  oilName: string
+  oilFullName: string
+  subTitle: string
+  focusPrice: string
+  prices: {
+    oil92: string
+    oil95: string
+    oil98: string
+    oil0: string
+  }
+  cleanDateText: string
+  smallTrend: string
+  mediumForecast?: string
+  trendType: "down" | "up" | "flat"
+  trendColor: string
+  rawForecast?: string
+  updatedAt: string
+}
+
+export const DEFAULT_FUEL: FuelCardData = {
+  serviceId: "fuel",
+  province: "北京",
+  focusOilKey: "oil92",
+  oilName: "92#",
+  oilFullName: "92 号汽油",
+  subTitle: "北京 92 号汽油",
+  focusPrice: "7.88",
+  prices: {
+    oil92: "7.88",
+    oil95: "8.39",
+    oil98: "9.89",
+    oil0: "7.59",
+  },
+  cleanDateText: "近期调价",
+  smallTrend: "预计下调",
+  mediumForecast: "近期调价 预计下调",
+  trendType: "down",
+  trendColor: "#2FB350",
   updatedAt: new Date().toISOString(),
 }
 
@@ -201,4 +243,5 @@ export const WIDGET_OPTIONS = [
   { id: "workbuddy", name: "WorkBuddy", desc: "小号账号池积分剩余看板", defaultFamily: "systemSmall" },
   { id: "cpamp", name: "CPAMP", desc: "小号今日调用与 Token 看板", defaultFamily: "systemSmall" },
   { id: "vpn", name: "VPN 节点", desc: "小号出口 IP 与风险检测看板", defaultFamily: "systemSmall" },
+  { id: "fuel", name: "今日油价", desc: "自适应油价行情（小号 Shell 高光 / 中号 4联卡片）", defaultFamily: "systemSmall" },
 ]

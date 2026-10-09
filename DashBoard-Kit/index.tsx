@@ -37,6 +37,9 @@ import {
   MEDIA_API_KEY,
   MEDIA_ENDPOINT_KEY,
   MEDIA_TYPE_KEY,
+  FUEL_OIL_KEY,
+  FUEL_PROVINCE_KEY,
+  FUEL_PROVINCE_MAP,
   VPN_CACHE_KEY,
   WB_API_KEY,
   WB_ENDPOINT_KEY,
@@ -53,6 +56,7 @@ import {
   refreshCpampData,
   refreshDeepSeekData,
   refreshEmbyData,
+  refreshFuelData,
   refreshMediaData,
   refreshVpnData,
   refreshWorkBuddyData,
@@ -77,6 +81,16 @@ import {
 const gPrompt = (options: any) => Dialog.prompt(options)
 const gAlert = (message: string) => Dialog.alert(message)
 const gConfirm = (message: string) => Dialog.confirm(message)
+const gActionSheet = async (title: string, options: string[]) => {
+  const actions = options.filter((o) => o !== "取消").map((o) => ({ label: o }))
+  const idx = await Dialog.actionSheet({
+    title,
+    actions,
+    cancelButton: true,
+  })
+  if (idx === -1 || idx === undefined || idx === null || idx >= actions.length) return "取消"
+  return actions[idx].label
+}
 
 const COLOR_SUCCESS = THEME.green
 const COLOR_WARN = THEME.yellow
@@ -153,6 +167,15 @@ function OptionBrandIcon({ id }: { id: string }) {
         systemName="antenna.radiowaves.left.and.right"
         font={{ name: "system", size: 16 }}
         foregroundStyle="#10B981"
+      />
+    )
+  }
+  if (id === "fuel") {
+    return (
+      <Image
+        systemName="fuelpump.fill"
+        font={{ name: "system", size: 16 }}
+        foregroundStyle="#F59E0B"
       />
     )
   }
@@ -409,17 +432,41 @@ async function clearDeepSeekConfig() {
 
 /** 引导配置 Codex (支持官方网页 OAuth 授权 或 手动粘贴 Token) */
 async function configureCodex() {
+  const hasConfig = hasCodexConfigured()
+  const actions = hasConfig
+    ? [
+        { label: "⚡️ 重新测试并拉取最新用量" },
+        { label: "🌐 重新进行网页授权" },
+        { label: "🔑 手动粘贴 Access Token" },
+      ]
+    : [
+        { label: "🌐 网页授权" },
+        { label: "🔑 手动粘贴 Access Token" },
+      ]
+
   const choice = await Dialog.actionSheet({
     title: "配置 Codex (ChatGPT)",
     message: "选择获取凭证的方式（网页授权支持 Token 自动续期）",
-    actions: [
-      { label: "🌐 网页授权" },
-      { label: "🔑 手动粘贴 Access Token" },
-    ],
+    actions,
   })
   if (choice === null) return
 
-  if (choice === 0) {
+  if (hasConfig && choice === 0) {
+    const res = await refreshCodexData()
+    if (res) {
+      Widget.reloadAll()
+      await gAlert(
+        `✓ 用量更新成功！\n\n5 小时额度：${res.item1.pct}% (${res.item1.timer})\n周额度：${res.item2.pct}% (${res.item2.timer})\n可重置次数：${res.stat1.value}\n\n小组件已同步生效！`
+      )
+    } else {
+      await gAlert("未能拉取到最新用量。\n请确认当前网络/VPN 节点是否在 OpenAI 支持的可用地区。")
+    }
+    return
+  }
+
+  const selectedWebAuth = (!hasConfig && choice === 0) || (hasConfig && choice === 1)
+
+  if (selectedWebAuth) {
     // 官方网页授权流程
     try {
       const authUrl = await startCodexOAuth()
@@ -529,17 +576,42 @@ async function clearCodexConfig() {
 
 /** 引导配置 Antigravity (支持官方网页 Google OAuth 授权 或 手动粘贴 Token) */
 async function configureAntigravity() {
+  const hasConfig = hasAntigravityConfigured()
+  const actions = hasConfig
+    ? [
+        { label: "⚡️ 重新测试并拉取最新配额" },
+        { label: "🌐 重新进行网页授权" },
+        { label: "🔑 手动粘贴 Access Token" },
+      ]
+    : [
+        { label: "🌐 网页授权" },
+        { label: "🔑 手动粘贴 Access Token" },
+      ]
+
   const choice = await Dialog.actionSheet({
     title: "配置 Antigravity (Google)",
     message: "选择获取凭证的方式（网页授权支持 Token 自动续期）",
-    actions: [
-      { label: "🌐 网页授权" },
-      { label: "🔑 手动粘贴 Access Token" },
-    ],
+    actions,
   })
   if (choice === null) return
 
-  if (choice === 0) {
+  // 如果已有配置且选择了第一个选项：立即重新拉取
+  if (hasConfig && choice === 0) {
+    const res = await refreshAntigravityData()
+    if (res) {
+      Widget.reloadAll()
+      await gAlert(
+        `✓ 配额更新成功！\n\nGemini 5h：${res.item1.pct}% (${res.item1.timer})\nClaude/GPT 5h：${res.item2.pct}% (${res.item2.timer})\nGem 周：${res.stat1.value} · C/G 周：${res.stat2.value}\n\n小组件已同步刷新！`
+      )
+    } else {
+      await gAlert("未能拉取到最新配额。\n请检查当前设备是否已连接代理/VPN 并能正常访问 Google 接口。")
+    }
+    return
+  }
+
+  const selectedWebAuth = (!hasConfig && choice === 0) || (hasConfig && choice === 1)
+
+  if (selectedWebAuth) {
     // 官方网页授权流程
     try {
       const authUrl = await startAntigravityOAuth()
@@ -729,6 +801,71 @@ async function triggerVpnDetection() {
   }
 }
 
+/** 配置今日油价监测省份与主力关注油品 */
+async function configureFuelSettings() {
+  const currentProv =
+    Storage.get<string>(FUEL_PROVINCE_KEY, { shared: true }) ||
+    Storage.get<string>(FUEL_PROVINCE_KEY) ||
+    "北京"
+  const currentOil =
+    Storage.get<string>(FUEL_OIL_KEY, { shared: true }) ||
+    Storage.get<string>(FUEL_OIL_KEY) ||
+    "oil92"
+
+  const provList = Object.keys(FUEL_PROVINCE_MAP)
+  const selectedProv = await gActionSheet("请选择油价监测省份", [
+    ...provList.map((p) => (p === currentProv ? `${p} (当前)` : p)),
+    "取消",
+  ])
+  if (!selectedProv || selectedProv === "取消") return
+
+  const cleanProv = selectedProv.replace(" (当前)", "").trim()
+
+  const oilOptions = [
+    { label: "92# 汽油", key: "oil92" },
+    { label: "95# 汽油", key: "oil95" },
+    { label: "98# 汽油", key: "oil98" },
+    { label: "0# 柴油", key: "oil0" },
+  ]
+  const selectedOilLabel = await gActionSheet("请选择主力关注油品（小号组件高光展示）", [
+    ...oilOptions.map((o) => (o.key === currentOil ? `${o.label} (当前)` : o.label)),
+    "取消",
+  ])
+  if (!selectedOilLabel || selectedOilLabel === "取消") return
+
+  const cleanOilKey =
+    oilOptions.find((o) => selectedOilLabel.startsWith(o.label))?.key || "oil92"
+
+  Storage.set(FUEL_PROVINCE_KEY, cleanProv, { shared: true })
+  Storage.set(FUEL_PROVINCE_KEY, cleanProv)
+  Storage.set(FUEL_OIL_KEY, cleanOilKey, { shared: true })
+  Storage.set(FUEL_OIL_KEY, cleanOilKey)
+
+  // 同时也写入独立脚本使用的 fuel_price_settings.json，实现双向兼容
+  try {
+    const fuelSettingsPath = `${FileManager.appGroupDocumentsDirectory}/fuel_price_settings.json`
+    let s: any = {}
+    if (FileManager.existsSync(fuelSettingsPath)) {
+      try {
+        s = JSON.parse(FileManager.readAsStringSync(fuelSettingsPath))
+      } catch {}
+    }
+    s.selectedProvince = cleanProv
+    s.focusOil = cleanOilKey
+    FileManager.writeAsStringSync(fuelSettingsPath, JSON.stringify(s))
+  } catch {}
+
+  const res = await refreshFuelData()
+  if (res) {
+    Widget.reloadAll()
+    await gAlert(
+      `✓ 今日油价配置成功！\n\n省份：${res.province}\n主力油品：${res.oilFullName} (现价 ¥${res.focusPrice})\n预测：${res.smallTrend}\n\n桌面小组件已同步刷新最新油价！`
+    )
+  } else {
+    await gAlert("已保存设置，但拉取油价数据超时，请检查网络后重试。")
+  }
+}
+
 export default function ConfigView() {
   const dismiss = Navigation.useDismiss()
   const hasMedia = hasMediaConfigured()
@@ -757,33 +894,12 @@ export default function ConfigView() {
         navigationTitle="DashBoard-Kit"
         navigationBarTitleDisplayMode="large"
         toolbar={{
-          cancellationAction: (
-            <Button
-              title="完成"
-              action={() => {
-                dismiss()
-              }}
-            />
-          ),
           confirmationAction: (
             <Button
-              title="刷新桌面"
-              action={async () => {
-                try {
-                  await Promise.all([
-                    refreshWorkBuddyData().catch(() => null),
-                    refreshEmbyData().catch(() => null),
-                    refreshDeepSeekData().catch(() => null),
-                    refreshCodexData().catch(() => null),
-                    refreshAntigravityData().catch(() => null),
-                    refreshCpampData().catch(() => null),
-                    refreshVpnData().catch(() => null),
-                  ])
-                  Widget.reloadAll()
-                  await gAlert("✓ 桌面小组件刷新指令已触发！\n已同步更新本机缓存并通知 iOS 桌面重新渲染。")
-                } catch (e: any) {
-                  await gAlert(`刷新异常：${e?.message || e}`)
-                }
+              title="保存"
+              action={() => {
+                Widget.reloadAll()
+                dismiss()
               }}
             />
           ),
@@ -976,6 +1092,23 @@ export default function ConfigView() {
               }}
             />
           </HStack>
+          <HStack spacing={10} alignment="center">
+            <Image
+              systemName="circle.fill"
+              font={{ name: "system", size: 8 }}
+              foregroundStyle="#10B981"
+            />
+            <Text font={14} fontWeight="medium">今日油价 (省份/油品)</Text>
+            <Spacer />
+            <Button
+              title="设置省份"
+              buttonStyle="bordered"
+              controlSize="mini"
+              action={async () => {
+                await configureFuelSettings()
+              }}
+            />
+          </HStack>
           <HStack spacing={10} alignment="center" padding={{ top: 4 }}>
             <Image
               systemName="arrow.clockwise.circle.fill"
@@ -993,17 +1126,19 @@ export default function ConfigView() {
               controlSize="small"
               action={async () => {
                 try {
-                  await Promise.all([
-                    refreshWorkBuddyData().catch(() => null),
-                    refreshEmbyData().catch(() => null),
-                    refreshDeepSeekData().catch(() => null),
-                    refreshCodexData().catch(() => null),
-                    refreshAntigravityData().catch(() => null),
-                    refreshCpampData().catch(() => null),
-                    refreshVpnData().catch(() => null),
-                  ])
+                  const tasks: Promise<any>[] = []
+                  if (hasWb) tasks.push(refreshWorkBuddyData().catch((e) => console.log("wb err:", e)))
+                  if (hasMedia) tasks.push(refreshEmbyData().catch((e) => console.log("media err:", e)))
+                  if (hasDeepSeek) tasks.push(refreshDeepSeekData().catch((e) => console.log("ds err:", e)))
+                  if (hasCodex) tasks.push(refreshCodexData().catch((e) => console.log("codex err:", e)))
+                  if (hasAntigravity) tasks.push(refreshAntigravityData().catch((e) => console.log("ag err:", e)))
+                  if (hasCpamp) tasks.push(refreshCpampData().catch((e) => console.log("cpamp err:", e)))
+                  tasks.push(refreshVpnData().catch((e) => console.log("vpn err:", e)))
+                  tasks.push(refreshFuelData().catch((e) => console.log("fuel err:", e)))
+
+                  await Promise.all(tasks)
                   Widget.reloadAll()
-                  await gAlert("✓ 桌面小组件已全部刷新！\n已更新全部数据源缓存并通知 iOS 桌面。")
+                  await gAlert("✓ 桌面小组件刷新完成！\n已同步更新数据源缓存并通知 iOS 桌面重新渲染。")
                 } catch (e: any) {
                   await gAlert(`刷新异常：${e?.message || e}`)
                 }
@@ -1077,8 +1212,48 @@ export default function ConfigView() {
                   const paramOptions = Object.fromEntries(
                     WIDGET_OPTIONS.map((o) => [o.name, o.id])
                   )
+                  // 针对带账号的在线看板，在启动预览前触发一次数据准备
+                  if (opt.id === "antigravity") {
+                    await refreshAntigravityData().catch(() => null)
+                  } else if (opt.id === "codex") {
+                    await refreshCodexData().catch(() => null)
+                  } else if (opt.id === "deepseek") {
+                    await refreshDeepSeekData().catch(() => null)
+                  } else if (opt.id === "workbuddy") {
+                    await refreshWorkBuddyData().catch(() => null)
+                  } else if (opt.id === "cpamp") {
+                    await refreshCpampData().catch(() => null)
+                  } else if (opt.id === "vpn") {
+                    await refreshVpnData().catch(() => null)
+                  } else if (opt.id === "fuel") {
+                    await refreshFuelData().catch(() => null)
+                  } else if (opt.id === "media") {
+                    await refreshMediaData().catch(() => null)
+                  }
+
+                  // 保存当前预览卡片 ID 供预览渲染时优先读取
+                  try {
+                    Storage.set("dashboard_kit_preview_active_id", opt.id, { shared: true })
+                    Storage.set("dashboard_kit_preview_active_id", opt.id)
+                    FileManager.writeAsStringSync(
+                      FileManager.appGroupDocumentsDirectory + "/dashboard_kit_preview_active.txt",
+                      opt.id
+                    )
+                  } catch {}
+
+                  let previewFamily = opt.defaultFamily as any
+                  if (opt.id === "fuel") {
+                    const chosen = await gActionSheet("请选择油价小组件预览尺寸", [
+                      "小号组件 (Shell 贝壳高光)",
+                      "中号组件 (4联卡片极简行情)",
+                      "取消",
+                    ])
+                    if (!chosen || chosen === "取消") return
+                    previewFamily = chosen.includes("中号") ? "systemMedium" : "systemSmall"
+                  }
+
                   await Widget.preview({
-                    family: opt.defaultFamily as any,
+                    family: previewFamily,
                     parameters: {
                       options: paramOptions,
                       default: opt.name,

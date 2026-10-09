@@ -1,10 +1,11 @@
 import { Widget } from "scripting"
-import { DualQuotaCard, MediaNexusCard, MetricBalanceCard, VpnNodeCard } from "./cards"
+import { DualQuotaCard, FuelPriceCard, MediaNexusCard, MetricBalanceCard, VpnNodeCard } from "./cards"
 import {
   getAntigravityData,
   getCodexData,
   getCpampData,
   getDeepSeekData,
+  getFuelData,
   getMediaNexusData,
   getVpnData,
   getWorkBuddyData,
@@ -12,6 +13,7 @@ import {
   refreshCodexData,
   refreshCpampData,
   refreshDeepSeekData,
+  refreshFuelData,
   refreshMediaData,
   refreshVpnData,
   refreshWorkBuddyData,
@@ -24,18 +26,53 @@ import {
  * 若设置为 "deepseek" / "codex" / "antigravity" / "workbuddy" / "cpamp" 则渲染对应卡片。
  */
 export function getWidgetView(paramOverride?: string, familyOverride?: string) {
-  const p = (paramOverride || Widget.parameter || "").trim().toLowerCase()
+  let p = (paramOverride || Widget.parameter || "").trim().toLowerCase()
+
+  // 尝试解析 Widget.parameter（如果是 JSON 字符串）
+  if (p.startsWith("{") && p.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(p)
+      const val = String(parsed.id || parsed.name || parsed.default || Object.values(parsed)[0] || "").toLowerCase()
+      if (val) p = val
+    } catch {}
+  }
+
+  // 若仍为空，读取最近一次点击预览激活的组件 ID
+  if (!p) {
+    p = (
+      Storage.get<string>("dashboard_kit_preview_active_id", { shared: true }) ||
+      Storage.get<string>("dashboard_kit_preview_active_id") ||
+      ""
+    ).trim().toLowerCase()
+  }
+
+  const activePath = FileManager.appGroupDocumentsDirectory + "/dashboard_kit_preview_active.txt"
+  if (!p && FileManager.existsSync(activePath)) {
+    try {
+      p = (FileManager.readAsStringSync(activePath) || "").trim().toLowerCase()
+    } catch {}
+  }
   const family = familyOverride || Widget.family
 
-  // 支持通过参数名称或 id 匹配（兼容中英文与大小写）
   let param = p
-  if (p.includes("workbuddy")) param = "workbuddy"
-  else if (p.includes("deepseek")) param = "deepseek"
-  else if (p.includes("codex")) param = "codex"
-  else if (p.includes("antigravity")) param = "antigravity"
-  else if (p.includes("media")) param = "media"
-  else if (p.includes("cpamp")) param = "cpamp"
-  else if (p.includes("vpn")) param = "vpn"
+  if (param.startsWith("{") && param.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(param)
+      const val = String(parsed.id || parsed.name || parsed.default || Object.values(parsed)[0] || "").toLowerCase()
+      if (val) param = val
+    } catch {}
+  }
+
+  // 0. 支持直接匹配 ID 或中文名称
+  const target = param || p
+  if (target.includes("antigravity") || target === "ag" || target.includes("anti-gravity")) param = "antigravity"
+  else if (target.includes("codex")) param = "codex"
+  else if (target.includes("workbuddy") || target === "wb") param = "workbuddy"
+  else if (target.includes("deepseek") || target === "ds") param = "deepseek"
+  else if (target.includes("media") || target.includes("moviepilot") || target.includes("emby") || target.includes("jellyfin")) param = "media"
+  else if (target.includes("cpamp") || target.includes("cpa")) param = "cpamp"
+  else if (target.includes("vpn") || target.includes("node") || target.includes("ip") || target.includes("节点")) param = "vpn"
+  else if (target.includes("fuel") || target.includes("oil") || target.includes("油价")) param = "fuel"
 
   // 1. 如果传入参数是指定 id
   if (param === "deepseek") {
@@ -46,6 +83,8 @@ export function getWidgetView(paramOverride?: string, familyOverride?: string) {
     return <MetricBalanceCard data={getCpampData()} />
   } else if (param === "vpn") {
     return <VpnNodeCard data={getVpnData()} />
+  } else if (param === "fuel") {
+    return <FuelPriceCard data={getFuelData()} family={family} />
   } else if (param === "codex") {
     return <DualQuotaCard data={getCodexData()} />
   } else if (param === "antigravity") {
@@ -70,21 +109,43 @@ export default function DefaultWidget() {
 async function main() {
   // 小组件唤醒执行时，后台轻量触发一次全局配额静默刷新（若有配置），拉取最新真实数据
   try {
-    const p = (Widget.parameter || "").trim().toLowerCase()
-    if (p.includes("antigravity")) {
+    let p = (Widget.parameter || "").trim().toLowerCase()
+    if (!p) {
+      p = (
+        Storage.get<string>("dashboard_kit_preview_active_id", { shared: true }) ||
+        Storage.get<string>("dashboard_kit_preview_active_id") ||
+        ""
+      ).trim().toLowerCase()
+    }
+    const activePath = FileManager.appGroupDocumentsDirectory + "/dashboard_kit_preview_active.txt"
+    if (!p && FileManager.existsSync(activePath)) {
+      try {
+        p = (FileManager.readAsStringSync(activePath) || "").trim().toLowerCase()
+      } catch {}
+    }
+    if (p.includes("antigravity") || p === "ag" || p.includes("anti-gravity")) {
       await refreshAntigravityData().catch(() => null)
     } else if (p.includes("codex")) {
       await refreshCodexData().catch(() => null)
-    } else if (p.includes("deepseek")) {
+    } else if (p.includes("deepseek") || p === "ds") {
       await refreshDeepSeekData().catch(() => null)
-    } else if (p.includes("workbuddy")) {
+    } else if (p.includes("workbuddy") || p === "wb") {
       await refreshWorkBuddyData().catch(() => null)
-    } else if (p.includes("media")) {
+    } else if (p.includes("media") || p.includes("moviepilot") || p.includes("emby") || p.includes("jellyfin")) {
       await refreshMediaData().catch(() => null)
     } else if (p.includes("cpamp")) {
       await refreshCpampData().catch(() => null)
-    } else if (p.includes("vpn")) {
+    } else if (p.includes("vpn") || p.includes("node") || p.includes("ip")) {
       await refreshVpnData().catch(() => null)
+    } else if (p.includes("fuel") || p.includes("oil") || p.includes("油价")) {
+      await refreshFuelData().catch(() => null)
+    } else {
+      // 未带参数时，优先按默认组件刷新
+      if (Widget.family === "systemMedium" || Widget.family === "systemLarge") {
+        await refreshMediaData().catch(() => null)
+      } else {
+        await refreshWorkBuddyData().catch(() => null)
+      }
     }
   } catch {}
 

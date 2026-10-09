@@ -15,6 +15,7 @@ import { RefreshWidgetIntent } from "./app_intents"
 import { THEME, formatTime, remainColor } from "./theme"
 import {
   DualQuotaData,
+  FuelCardData,
   MediaNexusData,
   MetricBalanceData,
   VpnNodeData,
@@ -202,8 +203,8 @@ export function MediaNexusCard({ data }: { data: MediaNexusData }) {
 
         <Spacer minLength={16} />
 
-        {/* 右半区：电影 / 剧集 / 分集 等间距撑满右侧区域，分集对齐右边缘 */}
-        <HStack alignment="center" spacing={0} frame={{ maxWidth: "infinity" }}>
+        {/* 右半区：电影 / 剧集 / 分集 往中间聚合，两边留有适度边距 */}
+        <HStack alignment="center" spacing={0} frame={{ maxWidth: "infinity" }} padding={{ leading: 8, trailing: 8 }}>
           <VStack alignment="center" spacing={3}>
             <Text font={20} fontWeight="bold" foregroundStyle={cBlue} monospacedDigit lineLimit={1}>
               {data.movies.toLocaleString("en-US")}
@@ -561,23 +562,26 @@ export function DualQuotaCard({ data }: { data: DualQuotaData }) {
 
       {/* 底部指标项：Antigravity 与 Codex 精确分流 */}
       {isAntigravity ? (
-        <HStack spacing={2} alignment="center" frame={{ maxWidth: "infinity" }}>
-          <Text font={8} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
-            {data.stat1.label}
-          </Text>
-          <Text font={8.5} fontWeight="bold" foregroundStyle={cStat1} monospacedDigit lineLimit={1}>
-            {data.stat1.value}
-          </Text>
-          <Text font={8} foregroundStyle={THEME.dim} lineLimit={1}>
-            {"·"}
-          </Text>
-          <Text font={8} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
-            {data.stat2.label}
-          </Text>
-          <Text font={8.5} fontWeight="bold" foregroundStyle={cStat2} monospacedDigit lineLimit={1}>
-            {data.stat2.value}
-          </Text>
+        <HStack alignment="center" frame={{ maxWidth: "infinity" }}>
+          {/* 左侧：Gem 周 % */}
+          <HStack spacing={4} alignment="center">
+            <Text font={9} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
+              {data.stat1.label}
+            </Text>
+            <Text font={9.5} fontWeight="bold" foregroundStyle={cStat1} monospacedDigit lineLimit={1}>
+              {data.stat1.value}
+            </Text>
+          </HStack>
           <Spacer />
+          {/* 右侧：C/G 周 % */}
+          <HStack spacing={4} alignment="center">
+            <Text font={9} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
+              {data.stat2.label}
+            </Text>
+            <Text font={9.5} fontWeight="bold" foregroundStyle={cStat2} monospacedDigit lineLimit={1}>
+              {data.stat2.value}
+            </Text>
+          </HStack>
         </HStack>
       ) : (
         <HStack spacing={3} alignment="center">
@@ -602,7 +606,7 @@ export function DualQuotaCard({ data }: { data: DualQuotaData }) {
           <HStack spacing={3} alignment="center">
             <Text font={9} foregroundStyle={THEME.dim} lineLimit={1}>最紧</Text>
             <Text font={9} fontWeight="bold" foregroundStyle={cTight} monospacedDigit lineLimit={1}>
-              {data.footerStatus.replace("最紧", "").trim() || "0%"}
+              {data.footerStatus.replace(/最紧|最低/g, "").trim() || "0%"}
             </Text>
           </HStack>
         ) : (
@@ -703,3 +707,320 @@ export function VpnNodeCard({ data }: { data: VpnNodeData }) {
     </VStack>
   )
 }
+
+// ============================================================
+// 7. 今日油价小组件（小号：白底 Shell 贝壳高光小组件，1:1 精确复刻）
+// ============================================================
+export function FuelPriceSmallCard({ data }: { data: FuelCardData }) {
+  const logoPath = `${FileManager.documentsDirectory}/scripts/DashBoard-Kit/assets/shell_logo.png`
+  const hasLogoFile = FileManager.existsSync(logoPath)
+
+  return (
+    <ZStack
+      alignment="topLeading"
+      frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+      widgetBackground={{
+        light: "#FFFFFF",
+        dark: "#161719",
+      }}
+    >
+      {/* 底层左上角贝壳水印：放大并超出边框，更靠左上偏置，清爽淡雅防重叠 */}
+      <HStack alignment="top">
+        {hasLogoFile ? (
+          <Image
+            filePath={logoPath}
+            resizable={true}
+            scaleToFit={true}
+            opacity={0.18}
+            frame={{ width: 150, height: 150 }}
+            offset={{ x: -40, y: -30 }}
+          />
+        ) : (
+          <Image
+            systemName="fuelpump.fill"
+            font={85}
+            opacity={0.09}
+            foregroundStyle="#F59E0B"
+            offset={{ x: -25, y: -20 }}
+          />
+        )}
+        <Spacer />
+      </HStack>
+
+      {/* 前景层：自然靠右，保留合适内边距避免超出边界 */}
+      <HStack frame={{ maxWidth: "infinity", maxHeight: "infinity" }}>
+        <Spacer />
+        <VStack
+          alignment="trailing"
+          spacing={0}
+          padding={{ top: 12, bottom: 12, trailing: 10 }}
+        >
+          {/* 顶部标签 + 油品名 */}
+          <HStack alignment="center" spacing={3}>
+            <HStack
+              alignment="center"
+              padding={{ top: 1.5, bottom: 1.5, leading: 4, trailing: 4 }}
+              background="rgba(245, 158, 11, 0.16)"
+              clipShape={{ type: "rect", cornerRadius: 3.5 }}
+            >
+              <Text
+                font="caption2"
+                fontWeight="bold"
+                foregroundStyle="#D97706"
+              >
+                OIL
+              </Text>
+            </HStack>
+            <Text
+              font="title3"
+              fontWeight="heavy"
+              foregroundStyle={{
+                light: "#000000",
+                dark: "#FFFFFF",
+              }}
+            >
+              {data.oilName}
+            </Text>
+          </HStack>
+
+          {/* 省份油品全称 */}
+          <Text
+            font="caption2"
+            fontWeight="medium"
+            foregroundStyle={{
+              light: "#8E8E93",
+              dark: "rgba(255, 255, 255, 0.55)",
+            }}
+            padding={{ top: 1.5 }}
+          >
+            {data.subTitle}
+          </Text>
+
+          <Spacer />
+
+          {/* 调价预测 */}
+          <Text
+            font="footnote"
+            fontWeight="bold"
+            foregroundStyle={data.trendColor as any}
+          >
+            {data.smallTrend}
+          </Text>
+
+          {/* 现价大字 */}
+          <HStack alignment="lastTextBaseline" spacing={1.5} padding={{ top: 1 }}>
+            <Text
+              font="subheadline"
+              fontWeight="bold"
+              foregroundStyle={{
+                light: "#000000",
+                dark: "#FFFFFF",
+              }}
+            >
+              ¥
+            </Text>
+            <Text
+              font="title"
+              fontWeight="heavy"
+              foregroundStyle={{
+                light: "#000000",
+                dark: "#FFFFFF",
+              }}
+            >
+              {data.focusPrice}
+            </Text>
+          </HStack>
+
+          <Spacer />
+
+          {/* 调价日期 */}
+          <Text
+            font="caption2"
+            fontWeight="medium"
+            foregroundStyle={{
+              light: "#8E8E93",
+              dark: "rgba(255, 255, 255, 0.45)",
+            }}
+          >
+            {data.cleanDateText}
+          </Text>
+        </VStack>
+      </HStack>
+    </ZStack>
+  )
+}
+
+// ============================================================
+// 8. 今日油价中号小组件（风格一：4联卡片极简行情，双尺寸自适应）
+// ============================================================
+export function FuelPriceMediumCard({ data }: { data: FuelCardData }) {
+  const cardItems = [
+    {
+      name: "92 号",
+      price: data.prices?.oil92 || "--",
+      textColor: "#E5933A",
+      tagBg: "rgba(229, 147, 58, 0.18)",
+    },
+    {
+      name: "95 号",
+      price: data.prices?.oil95 || "--",
+      textColor: "#E6674E",
+      tagBg: "rgba(230, 103, 78, 0.18)",
+    },
+    {
+      name: "98 号",
+      price: data.prices?.oil98 || "--",
+      textColor: "#E05268",
+      tagBg: "rgba(224, 82, 104, 0.18)",
+    },
+    {
+      name: "柴油",
+      price: data.prices?.oil0 || "--",
+      textColor: "#34C759",
+      tagBg: "rgba(52, 199, 89, 0.18)",
+    },
+  ]
+
+  const mediumForecast = data.mediumForecast || `${data.cleanDateText} ${data.smallTrend}`
+
+  return (
+    <VStack
+      alignment="leading"
+      padding={{ top: 12, bottom: 10, leading: 6, trailing: 6 }}
+      frame={{ maxWidth: "infinity", maxHeight: "infinity" }}
+      widgetBackground={{
+        light: "#FFFFFF",
+        dark: "#161719",
+      }}
+    >
+      {/* 顶部 Header：左侧省份靠最左，右侧时间靠最右 */}
+      <HStack alignment="center" padding={{ leading: 4, trailing: 4 }}>
+        <HStack alignment="center" spacing={4}>
+          <Image
+            systemName="fuelpump.fill"
+            font="caption"
+            foregroundStyle="#F59E0B"
+          />
+          <Text
+            font="caption"
+            fontWeight="bold"
+            foregroundStyle={{
+              light: "#1C1C1E",
+              dark: "#FFFFFF",
+            }}
+          >
+            {data.province}实时油价
+          </Text>
+        </HStack>
+        <Spacer />
+        <Text
+          font="caption2"
+          fontWeight="medium"
+          foregroundStyle={{
+            light: "rgba(60, 60, 67, 0.85)",
+            dark: "rgba(255, 255, 255, 0.85)",
+          }}
+        >
+          {mediumForecast}
+        </Text>
+      </HStack>
+
+      <Spacer />
+
+      {/* 中部 4 联卡片 */}
+      <HStack spacing={6} frame={{ maxWidth: "infinity" }}>
+        {cardItems.map((item) => (
+          <VStack
+            key={item.name}
+            alignment="center"
+            spacing={6}
+            frame={{ maxWidth: "infinity" }}
+          >
+            {/* 上层：油号色块 */}
+            <HStack
+              alignment="center"
+              padding={{ top: 2.5, bottom: 2.5, leading: 7, trailing: 7 }}
+              background={item.tagBg as any}
+              clipShape={{ type: "rect", cornerRadius: 5 }}
+            >
+              <Text
+                font="caption2"
+                fontWeight="bold"
+                foregroundStyle={item.textColor as any}
+                lineLimit={1}
+                allowsTightening={true}
+              >
+                {item.name}
+              </Text>
+            </HStack>
+
+            {/* 下层：价格底块 */}
+            <HStack
+              alignment="center"
+              padding={{ top: 6, bottom: 6, leading: 4, trailing: 4 }}
+              background={{
+                light: "rgba(0, 0, 0, 0.05)",
+                dark: "rgba(255, 255, 255, 0.09)",
+              }}
+              clipShape={{ type: "rect", cornerRadius: 8 }}
+              frame={{ maxWidth: "infinity" }}
+            >
+              <Spacer />
+              <Text
+                font="headline"
+                fontWeight="bold"
+                foregroundStyle={{
+                  light: "#000000",
+                  dark: "#FFFFFF",
+                }}
+                lineLimit={1}
+                allowsTightening={true}
+                minScaleFactor={0.8}
+              >
+                {item.price}
+              </Text>
+              <Spacer />
+            </HStack>
+          </VStack>
+        ))}
+      </HStack>
+
+      <Spacer />
+
+      {/* 底部 Footer */}
+      <HStack alignment="center" padding={{ leading: 4, trailing: 4 }}>
+        <Text
+          font="caption2"
+          fontWeight="regular"
+          foregroundStyle={{
+            light: "rgba(60, 60, 67, 0.45)",
+            dark: "rgba(255, 255, 255, 0.45)",
+          }}
+        >
+          {formatTime(data.updatedAt)} 更新
+        </Text>
+        <Spacer />
+        <Text
+          font="caption2"
+          fontWeight="regular"
+          foregroundStyle={{
+            light: "rgba(60, 60, 67, 0.45)",
+            dark: "rgba(255, 255, 255, 0.45)",
+          }}
+        >
+          元/升
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// 统一根据尺寸自适应的 FuelPriceCard
+export function FuelPriceCard({ data, family }: { data: FuelCardData; family?: string }) {
+  if (family === "systemMedium" || family === "systemLarge") {
+    return <FuelPriceMediumCard data={data} />
+  }
+  return <FuelPriceSmallCard data={data} />
+}
+
+

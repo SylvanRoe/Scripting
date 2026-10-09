@@ -1,17 +1,31 @@
 {
-  "name": "DashBoard-Kit",
-  "color": "#1A13ED",
-  "icon": "rectangle.3.group.fill",
-  "description": "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板（Media Nexus、DeepSeek、Codex、Antigravity、WorkBuddy、CPAMP等）",
-  "version": "1.0.0",
-  "entry": "index.tsx",
-  "runInApp": true,
-  "localizedNames": {
-    "zh": "DashBoard-Kit",
-    "en": "DashBoard-Kit"
+  "name" : "DashBoard-Kit",
+  "icon" : "rectangle.3.group.fill",
+  "color" : "#1A13ED",
+  "remoteResource" : null,
+  "iconImage" : "",
+  "permissions" : null,
+  "localizedNames" : {
+    "en" : "DashBoard-Kit",
+    "zh" : "DashBoard-Kit"
   },
-  "localizedDescriptions": {
-    "zh": "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板",
-    "en": "Multi-dashboard kit with unified settings and customizable widget parameters."
+  "runInApp" : true,
+  "version" : "1.0.4",
+  "description" : "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板（Media Nexus、DeepSeek、Codex、Antigravity、WorkBuddy、CPAMP、今日油价双尺寸自适应等）",
+  "contributors" : [
+
+  ],
+  "author" : {
+    "email" : "SylvanRoe@gmail.com",
+    "homepage" : "https:\/\/github.com\/SylvanRoe\/Scripting",
+    "name" : "SylvanRoe"
+  },
+  "intentInputTypes" : [
+
+  ],
+  "entry" : "index.tsx",
+  "localizedDescriptions" : {
+    "zh" : "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板",
+    "en" : "Multi-dashboard kit with unified settings and customizable widget parameters."
   }
 }
