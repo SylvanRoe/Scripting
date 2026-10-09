@@ -1,5 +1,5 @@
 import { Widget } from "scripting"
-import { DualQuotaCard, FuelPriceCard, MediaNexusCard, MetricBalanceCard, VpnNodeCard } from "./cards"
+import { DualQuotaCard, FuelPriceCard, MediaNexusCard, MetricBalanceCard, QbittorrentCard, VpnNodeCard } from "./cards"
 import {
   getAntigravityData,
   getCodexData,
@@ -7,6 +7,7 @@ import {
   getDeepSeekData,
   getFuelData,
   getMediaNexusData,
+  getQbittorrentData,
   getVpnData,
   getWorkBuddyData,
   refreshAntigravityData,
@@ -15,6 +16,7 @@ import {
   refreshDeepSeekData,
   refreshFuelData,
   refreshMediaData,
+  refreshQbittorrentData,
   refreshVpnData,
   refreshWorkBuddyData,
 } from "./data"
@@ -72,6 +74,7 @@ export function getWidgetView(paramOverride?: string, familyOverride?: string) {
   else if (target.includes("media") || target.includes("moviepilot") || target.includes("emby") || target.includes("jellyfin")) param = "media"
   else if (target.includes("cpamp") || target.includes("cpa")) param = "cpamp"
   else if (target.includes("vpn") || target.includes("node") || target.includes("ip") || target.includes("节点")) param = "vpn"
+  else if (target.includes("qbittorrent") || target.includes("qb") || target.includes("qbit")) param = "qbittorrent"
   else if (target.includes("fuel") || target.includes("oil") || target.includes("油价")) param = "fuel"
 
   // 1. 如果传入参数是指定 id
@@ -83,6 +86,8 @@ export function getWidgetView(paramOverride?: string, familyOverride?: string) {
     return <MetricBalanceCard data={getCpampData()} />
   } else if (param === "vpn") {
     return <VpnNodeCard data={getVpnData()} />
+  } else if (param === "qbittorrent") {
+    return <QbittorrentCard data={getQbittorrentData()} family={family} />
   } else if (param === "fuel") {
     return <FuelPriceCard data={getFuelData()} family={family} />
   } else if (param === "codex") {
@@ -137,6 +142,8 @@ async function main() {
       await refreshCpampData().catch(() => null)
     } else if (p.includes("vpn") || p.includes("node") || p.includes("ip")) {
       await refreshVpnData().catch(() => null)
+    } else if (p.includes("qbittorrent") || p.includes("qb") || p.includes("qbit")) {
+      await refreshQbittorrentData().catch(() => null)
     } else if (p.includes("fuel") || p.includes("oil") || p.includes("油价")) {
       await refreshFuelData().catch(() => null)
     } else {

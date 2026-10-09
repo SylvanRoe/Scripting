@@ -8,8 +8,10 @@ import {
   DEFAULT_VPN,
   DEFAULT_WORKBUDDY,
   DEFAULT_FUEL,
+  DEFAULT_QBITTORRENT,
   DualQuotaData,
   FuelCardData,
+  QbittorrentData,
   MediaNexusData,
   MetricBalanceData,
   VpnNodeData,
@@ -1875,5 +1877,213 @@ export async function refreshFuelData(): Promise<FuelCardData | null> {
     return null
   }
 }
+
+// ============================================================
+// 9. qBittorrent 状态与传输数据抓取与缓存
+// ============================================================
+export const QB_URL_KEY = "dashboard_kit_qb_url"
+export const QB_USER_KEY = "dashboard_kit_qb_username"
+export const QB_PASS_KEY = "dashboard_kit_qb_password"
+export const QB_CACHE_KEY = "dashboard_kit_qb_cache_v1"
+export const QB_SID_KEY = "dashboard_kit_qb_sid"
+
+const QB_FILE_CACHE_PATH =
+  FileManager.appGroupDocumentsDirectory + "/dashboard_kit_qb_cache.json"
+
+export function hasQbConfigured(): boolean {
+  try {
+    const url = Keychain.contains(QB_URL_KEY) ? Keychain.get(QB_URL_KEY) || "" : ""
+    return !!url.trim()
+  } catch {
+    return false
+  }
+}
+
+function formatSpeed(bytesPerSec: number): string {
+  if (!bytesPerSec || bytesPerSec <= 0) return "0 B/s"
+  if (bytesPerSec < 1024) return `${bytesPerSec} B/s`
+  if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`
+  if (bytesPerSec < 1024 * 1024 * 1024) return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`
+  return `${(bytesPerSec / (1024 * 1024 * 1024)).toFixed(2)} GB/s`
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return "0 B"
+  const gb = bytes / (1024 * 1024 * 1024)
+  if (gb < 1024) return `${gb.toFixed(1)} GB`
+  return `${(gb / 1024).toFixed(1)} TB`
+}
+
+export function getQbittorrentData(): QbittorrentData {
+  try {
+    let local =
+      Storage.get<QbittorrentData>(QB_CACHE_KEY, { shared: true }) ||
+      Storage.get<QbittorrentData>(QB_CACHE_KEY)
+
+    if (!local && FileManager.existsSync(QB_FILE_CACHE_PATH)) {
+      try {
+        const raw = FileManager.readAsStringSync(QB_FILE_CACHE_PATH)
+        if (raw) local = JSON.parse(raw)
+      } catch {}
+    }
+
+    if (local && local.dlSpeed !== undefined) {
+      return {
+        ...DEFAULT_QBITTORRENT,
+        ...local,
+        serviceId: "qbittorrent",
+      }
+    }
+  } catch {}
+  return DEFAULT_QBITTORRENT
+}
+
+/** 刷新 qBittorrent 真实传输与任务数据 */
+export async function refreshQbittorrentData(): Promise<QbittorrentData | null> {
+  try {
+    const rawUrl = Keychain.contains(QB_URL_KEY) ? (Keychain.get(QB_URL_KEY) || "").trim() : ""
+    if (!rawUrl) return null
+
+    let baseUrl = rawUrl.replace(/\/+$/, "")
+    if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+      baseUrl = `http://${baseUrl}`
+    }
+
+    const username = Keychain.contains(QB_USER_KEY) ? (Keychain.get(QB_USER_KEY) || "").trim() : ""
+    const password = Keychain.contains(QB_PASS_KEY) ? (Keychain.get(QB_PASS_KEY) || "").trim() : ""
+
+    let sid = (Storage.get<string>(QB_SID_KEY, { shared: true }) || Storage.get<string>(QB_SID_KEY) || "").trim()
+
+    // 辅助请求方法（带 Cookie）
+    const callApi = async (path: string, cookie: string) => {
+      return await fetch(`${baseUrl}${path}`, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+          ...(cookie ? { Cookie: cookie } : {}),
+        },
+      })
+    }
+
+    // 1. 尝试使用现有 Cookie 获取 maindata
+    let maindataRes: any = null
+    if (sid) {
+      try {
+        const r = await callApi("/api/v2/sync/maindata", sid)
+        if (r.status === 200) {
+          maindataRes = await r.json()
+        }
+      } catch {}
+    }
+
+    // 2. 如果未认证或 Cookie 失效，执行登录
+    if (!maindataRes) {
+      const loginBody = `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+      const loginRes = await fetch(`${baseUrl}/api/v2/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Referer: baseUrl,
+        },
+        body: loginBody,
+      })
+
+      const hdrs: any = loginRes.headers
+      let setCookie = ""
+      if (typeof hdrs.get === "function") {
+        setCookie = hdrs.get("set-cookie") || hdrs.get("Set-Cookie") || ""
+      }
+      if (!setCookie && typeof hdrs.getSetCookie === "function") {
+        const arr = hdrs.getSetCookie()
+        if (Array.isArray(arr)) setCookie = arr.join("; ")
+      }
+      if (!setCookie) {
+        setCookie = hdrs["set-cookie"] || hdrs["Set-Cookie"] || ""
+      }
+      if (setCookie) {
+        const m = String(setCookie).match(/SID=([^;]+)/)
+        if (m) sid = `SID=${m[1]}`
+        else sid = setCookie
+        Storage.set(QB_SID_KEY, sid, { shared: true })
+        Storage.set(QB_SID_KEY, sid)
+      }
+
+      const r2 = await callApi("/api/v2/sync/maindata", sid)
+      if (r2.status === 200) {
+        maindataRes = await r2.json()
+      }
+    }
+
+    if (!maindataRes || !maindataRes.server_state) {
+      return null
+    }
+
+    const ss = maindataRes.server_state
+    const dlSpeedBytes = ss.dl_info_speed || 0
+    const upSpeedBytes = ss.up_info_speed || 0
+    const dlSpeed = formatSpeed(dlSpeedBytes)
+    const upSpeed = formatSpeed(upSpeedBytes)
+
+    const allTimeDl = formatBytes(ss.alltime_dl || 0)
+    const allTimeUl = formatBytes(ss.alltime_ul || 0)
+
+    const ratioVal = ss.alltime_dl > 0 ? (ss.alltime_ul / ss.alltime_dl).toFixed(2) : "--"
+    const freeSpace = formatBytes(ss.free_space_on_disk || 0)
+
+    // 统计活动任务与做种任务
+    const torrents = maindataRes.torrents || {}
+    let activeCount = 0
+    let seedingCount = 0
+    const totalCount = Object.keys(torrents).length
+
+    for (const hash in torrents) {
+      const t = torrents[hash]
+      const state = (t.state || "").toLowerCase()
+      if (state.includes("downloading") || state.includes("forceddl") || state.includes("stalleddl")) {
+        activeCount++
+      }
+      if (state.includes("uploading") || state.includes("forcedup") || state.includes("stalledup") || state.includes("seeding")) {
+        seedingCount++
+      }
+    }
+
+    let connectionStatus: "connected" | "firewalled" | "disconnected" = "connected"
+    if (ss.connection_status === "firewalled") connectionStatus = "firewalled"
+    else if (ss.connection_status === "disconnected") connectionStatus = "disconnected"
+
+    let statusText = "运行中"
+    if (connectionStatus === "firewalled") statusText = "已连接(防火墙)"
+    else if (connectionStatus === "disconnected") statusText = "未连接节点"
+
+    const data: QbittorrentData = {
+      serviceId: "qbittorrent",
+      statusText,
+      serverName: "qBittorrent",
+      dlSpeed,
+      upSpeed,
+      dlSpeedBytes,
+      upSpeedBytes,
+      activeCount,
+      seedingCount,
+      totalCount,
+      allTimeDl,
+      allTimeUl,
+      shareRatio: ratioVal,
+      freeSpace,
+      connectionStatus,
+      updatedAt: new Date().toISOString(),
+    }
+
+    try {
+      Storage.set(QB_CACHE_KEY, data, { shared: true })
+      Storage.set(QB_CACHE_KEY, data)
+      FileManager.writeAsStringSync(QB_FILE_CACHE_PATH, JSON.stringify(data))
+    } catch {}
+    return data
+  } catch (e) {
+    console.log("拉取 qBittorrent 状态异常:", e)
+    return null
+  }
+}
+
 
 

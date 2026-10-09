@@ -26,6 +26,7 @@
 | `antigravity` 或 `ag` | **Antigravity 配额** | 小号 (Small) | Google CloudCode 配额用量监控 |
 | `cpamp` | **CPAMP 监控** | 小号 (Small) | 监控今日调用量、成功/失败数及消费额度 |
 | `vpn` 或 `node` | **网络节点状态** | 小号 (Small) | 当前公网 IP、节点地区、延迟及网络状态监控 |
+| `qbittorrent` 或 `qb` | **qBittorrent** | 小号 / 中号自适应 | 实时下行与上行速率、做种/活跃任务数、累计传输与磁盘余量 |
 | `fuel` 或 `oil` / `油价` | **今日油价** | 小号 / 中号自适应 | 小号展示 Shell 贝壳高光与主力油品大字，中号展示 4 联卡片行情 |
 
 > 💡 提示：若参数为空，小组件将根据您已配置的服务自动展示最适宜的看板（中号默认展示 Media Nexus，小号默认展示 WorkBuddy）。

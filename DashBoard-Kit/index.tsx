@@ -40,6 +40,11 @@ import {
   FUEL_OIL_KEY,
   FUEL_PROVINCE_KEY,
   FUEL_PROVINCE_MAP,
+  QB_CACHE_KEY,
+  QB_PASS_KEY,
+  QB_SID_KEY,
+  QB_URL_KEY,
+  QB_USER_KEY,
   VPN_CACHE_KEY,
   WB_API_KEY,
   WB_ENDPOINT_KEY,
@@ -49,6 +54,7 @@ import {
   hasCpampConfigured,
   hasDeepSeekConfigured,
   hasMediaConfigured,
+  hasQbConfigured,
   hasWbConfigured,
   normalizeUrl,
   refreshAntigravityData,
@@ -58,6 +64,7 @@ import {
   refreshEmbyData,
   refreshFuelData,
   refreshMediaData,
+  refreshQbittorrentData,
   refreshVpnData,
   refreshWorkBuddyData,
 } from "./data"
@@ -176,6 +183,28 @@ function OptionBrandIcon({ id }: { id: string }) {
         systemName="fuelpump.fill"
         font={{ name: "system", size: 16 }}
         foregroundStyle="#F59E0B"
+      />
+    )
+  }
+  if (id === "qbittorrent") {
+    const qbImg = (globalThis as any).UIImage?.fromFile(
+      `${FileManager.documentsDirectory}/scripts/DashBoard-Kit/assets/qbittorrent.png`
+    )
+    if (qbImg) {
+      return (
+        <Image
+          image={qbImg}
+          resizable={true}
+          frame={{ width: 18, height: 18 }}
+          clipShape={{ type: "rect", cornerRadius: 4 }}
+        />
+      )
+    }
+    return (
+      <Image
+        systemName="arrow.down.circle.fill"
+        font={{ name: "system", size: 16 }}
+        foregroundStyle="#2563EB"
       />
     )
   }
@@ -866,6 +895,96 @@ async function configureFuelSettings() {
   }
 }
 
+/** 引导配置 qBittorrent 服务地址与账号密码 */
+async function configureQbittorrent() {
+  const currentUrl = Keychain.contains(QB_URL_KEY)
+    ? Keychain.get(QB_URL_KEY) || ""
+    : ""
+  const currentUser = Keychain.contains(QB_USER_KEY)
+    ? Keychain.get(QB_USER_KEY) || ""
+    : ""
+  const currentPass = Keychain.contains(QB_PASS_KEY)
+    ? Keychain.get(QB_PASS_KEY) || ""
+    : ""
+
+  const url = await gPrompt({
+    title: "配置 qBittorrent · 服务地址",
+    message: "请输入 qBittorrent WebUI 地址（如 http://192.168.1.100:8080 或 https://qb.domain.com）",
+    defaultValue: currentUrl,
+    placeholder: "http://192.168.1.100:8080",
+    keyboardType: "URL",
+    confirmLabel: "下一步",
+    cancelLabel: "取消",
+  })
+  if (url === null) return
+
+  if (!url.trim()) {
+    await gAlert("服务地址不能为空")
+    return
+  }
+
+  const user = await gPrompt({
+    title: "配置 qBittorrent · 用户名",
+    message: "请输入 WebUI 用户名（默认通常为 admin，若免密请留空）",
+    defaultValue: currentUser || "admin",
+    placeholder: "admin",
+    confirmLabel: "下一步",
+    cancelLabel: "取消",
+  })
+  if (user === null) return
+
+  const pass = await gPrompt({
+    title: "配置 qBittorrent · 密码",
+    message: "请输入 WebUI 密码（若免密请留空）",
+    defaultValue: currentPass,
+    placeholder: "密码（若免密请留空）",
+    obscureText: true,
+    confirmLabel: "保存并测试连接",
+    cancelLabel: "取消",
+  })
+  if (pass === null) return
+
+  Keychain.set(QB_URL_KEY, url.trim(), {
+    accessibility: "first_unlock_this_device",
+  })
+  Keychain.set(QB_USER_KEY, user.trim(), {
+    accessibility: "first_unlock_this_device",
+  })
+  Keychain.set(QB_PASS_KEY, pass.trim(), {
+    accessibility: "first_unlock_this_device",
+  })
+
+  // 清除旧会话 Cookie，促使重新鉴权
+  Storage.remove(QB_SID_KEY, { shared: true })
+  Storage.remove(QB_SID_KEY)
+
+  const res = await refreshQbittorrentData()
+  if (res) {
+    Widget.reloadAll()
+    await gAlert(
+      `✓ 连接成功！\n\n状态：${res.statusText}\n下载速度：${res.dlSpeed}\n上传速度：${res.upSpeed}\n活跃任务：${res.activeCount} 个 · 做种：${res.seedingCount} 个\n磁盘余量：${res.freeSpace}\n\n小组件现已直接展示真实 qBittorrent 数据！`
+    )
+  } else {
+    await gAlert(
+      "已保存配置，但首次连接失败。\n请确认：\n1. WebUI 地址与端口是否正确\n2. 账号密码是否正确\n3. 手机与 qBittorrent 是否处于相同网络（或已连接 VPN）"
+    )
+  }
+}
+
+/** 清理 qBittorrent 配置 */
+async function clearQbittorrentConfig() {
+  const ok = await gConfirm("确定要清除本机保存的 qBittorrent 配置吗？")
+  if (!ok) return
+  Keychain.remove(QB_URL_KEY)
+  Keychain.remove(QB_USER_KEY)
+  Keychain.remove(QB_PASS_KEY)
+  Storage.remove(QB_SID_KEY, { shared: true })
+  Storage.remove(QB_SID_KEY)
+  Storage.remove(QB_CACHE_KEY, { shared: true })
+  Storage.remove(QB_CACHE_KEY)
+  await gAlert("已清除配置，qBittorrent 卡片已恢复为默认数据。")
+}
+
 export default function ConfigView() {
   const dismiss = Navigation.useDismiss()
   const hasMedia = hasMediaConfigured()
@@ -875,6 +994,7 @@ export default function ConfigView() {
   const hasCodex = hasCodexConfigured()
   const hasAntigravity = hasAntigravityConfigured()
   const hasCpamp = hasCpampConfigured()
+  const hasQb = hasQbConfigured()
 
   useEffect(() => {
     // 首次进入设置面板后 500ms 轻量触发
@@ -1079,6 +1199,34 @@ export default function ConfigView() {
             <Image
               systemName="circle.fill"
               font={{ name: "system", size: 8 }}
+              foregroundStyle={hasQb ? "#10B981" : "#F59E0B"}
+            />
+            <Text font={14} fontWeight="medium">qBittorrent (下载器)</Text>
+            <Spacer />
+            <Button
+              title={hasQb ? "已配置 · 修改" : "去配置"}
+              buttonStyle="bordered"
+              controlSize="mini"
+              action={async () => {
+                await configureQbittorrent()
+              }}
+            />
+            {hasQb ? (
+              <Button
+                title="清除"
+                role="destructive"
+                buttonStyle="bordered"
+                controlSize="mini"
+                action={async () => {
+                  await clearQbittorrentConfig()
+                }}
+              />
+            ) : null}
+          </HStack>
+          <HStack spacing={10} alignment="center">
+            <Image
+              systemName="circle.fill"
+              font={{ name: "system", size: 8 }}
               foregroundStyle="#10B981"
             />
             <Text font={14} fontWeight="medium">IP / 节点检测</Text>
@@ -1133,6 +1281,7 @@ export default function ConfigView() {
                   if (hasCodex) tasks.push(refreshCodexData().catch((e) => console.log("codex err:", e)))
                   if (hasAntigravity) tasks.push(refreshAntigravityData().catch((e) => console.log("ag err:", e)))
                   if (hasCpamp) tasks.push(refreshCpampData().catch((e) => console.log("cpamp err:", e)))
+                  if (hasQb) tasks.push(refreshQbittorrentData().catch((e) => console.log("qb err:", e)))
                   tasks.push(refreshVpnData().catch((e) => console.log("vpn err:", e)))
                   tasks.push(refreshFuelData().catch((e) => console.log("fuel err:", e)))
 
@@ -1227,6 +1376,8 @@ export default function ConfigView() {
                     await refreshVpnData().catch(() => null)
                   } else if (opt.id === "fuel") {
                     await refreshFuelData().catch(() => null)
+                  } else if (opt.id === "qbittorrent") {
+                    await refreshQbittorrentData().catch(() => null)
                   } else if (opt.id === "media") {
                     await refreshMediaData().catch(() => null)
                   }
@@ -1246,6 +1397,14 @@ export default function ConfigView() {
                     const chosen = await gActionSheet("请选择油价小组件预览尺寸", [
                       "小号组件 (Shell 贝壳高光)",
                       "中号组件 (4联卡片极简行情)",
+                      "取消",
+                    ])
+                    if (!chosen || chosen === "取消") return
+                    previewFamily = chosen.includes("中号") ? "systemMedium" : "systemSmall"
+                  } else if (opt.id === "qbittorrent") {
+                    const chosen = await gActionSheet("请选择 qBittorrent 预览尺寸", [
+                      "小号组件 (实时速率与任务)",
+                      "中号组件 (全面传输与磁盘监控)",
                       "取消",
                     ])
                     if (!chosen || chosen === "取消") return

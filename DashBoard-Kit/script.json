@@ -10,8 +10,8 @@
     "zh" : "DashBoard-Kit"
   },
   "runInApp" : true,
-  "version" : "1.0.4",
-  "description" : "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板（Media Nexus、DeepSeek、Codex、Antigravity、WorkBuddy、CPAMP、今日油价双尺寸自适应等）",
+  "version" : "1.0.5",
+  "description" : "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板（Media Nexus、DeepSeek、Codex、Antigravity、WorkBuddy、CPAMP、qBittorrent、今日油价等）",
   "contributors" : [
 
   ],

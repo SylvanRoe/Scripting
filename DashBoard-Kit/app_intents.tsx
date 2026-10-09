@@ -5,6 +5,8 @@ import {
   refreshCpampData,
   refreshDeepSeekData,
   refreshEmbyData,
+  refreshFuelData,
+  refreshQbittorrentData,
   refreshVpnData,
   refreshWorkBuddyData,
 } from "./data"
@@ -24,6 +26,8 @@ export const RefreshWidgetIntent = AppIntentManager.register({
         refreshAntigravityData().catch(() => null),
         refreshCpampData().catch(() => null),
         refreshVpnData().catch(() => null),
+        refreshFuelData().catch(() => null),
+        refreshQbittorrentData().catch(() => null),
       ])
     } finally {
       Widget.reloadAll()

@@ -18,6 +18,7 @@ import {
   FuelCardData,
   MediaNexusData,
   MetricBalanceData,
+  QbittorrentData,
   VpnNodeData,
 } from "./types"
 
@@ -1022,5 +1023,346 @@ export function FuelPriceCard({ data, family }: { data: FuelCardData; family?: s
   }
   return <FuelPriceSmallCard data={data} />
 }
+
+// ============================================================
+// 9. qBittorrent 小号看板（传输速率、做种/活跃、空间）
+// ============================================================
+export function QbittorrentSmallCard({ data }: { data: QbittorrentData }) {
+  const qbIconImage = (globalThis as any).UIImage?.fromFile(
+    `${FileManager.documentsDirectory}/scripts/DashBoard-Kit/assets/qbittorrent.png`
+  )
+  const isOnline = data.connectionStatus !== "disconnected"
+  const cSpeed = { light: "#2563EB", dark: "#3B82F6" } as any
+  const cUp = { light: "#059669", dark: "#10B981" } as any
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 13, bottom: 11, leading: 13, trailing: 13 }}
+      widgetBackground={THEME.bg}
+    >
+      {/* 顶栏：图标 + 标题 + 运行状态圆点 + 刷新按钮 */}
+      <HStack spacing={5} alignment="center" frame={{ height: 18 }}>
+        {qbIconImage ? (
+          <Image
+            image={qbIconImage}
+            resizable={true}
+            frame={{ width: 15, height: 15 }}
+            clipShape={{ type: "rect", cornerRadius: 3 }}
+          />
+        ) : (
+          <Image
+            systemName="arrow.down.circle.fill"
+            font={{ name: "system", size: 14 }}
+            foregroundStyle="#2B79C2"
+          />
+        )}
+        <Text font={12} fontWeight="bold" foregroundStyle={THEME.text} lineLimit={1}>
+          qBittorrent
+        </Text>
+        <Circle
+          fill={isOnline ? "#10B981" : "#EF4444"}
+          frame={{ width: 5, height: 5 }}
+        />
+        <Spacer />
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={6} />
+
+      {/* 主下载速度大字 */}
+      <VStack alignment="leading" spacing={1}>
+        <HStack spacing={3} alignment="center">
+          <Image
+            systemName="arrow.down"
+            font={{ name: "system", size: 10 }}
+            fontWeight="bold"
+            foregroundStyle={cSpeed}
+          />
+          <Text font={10} fontWeight="medium" foregroundStyle={THEME.dim}>
+            下载速度
+          </Text>
+        </HStack>
+        <Text
+          font={23}
+          fontWeight="bold"
+          foregroundStyle={cSpeed}
+          monospacedDigit
+          lineLimit={1}
+        >
+          {data.dlSpeed}
+        </Text>
+      </VStack>
+
+      <Spacer minLength={5} />
+
+      {/* 上传速度 + 做种数行 */}
+      <HStack spacing={6} alignment="center">
+        <HStack spacing={3} alignment="center">
+          <Image
+            systemName="arrow.up"
+            font={{ name: "system", size: 9.5 }}
+            fontWeight="bold"
+            foregroundStyle={cUp}
+          />
+          <Text
+            font={11}
+            fontWeight="bold"
+            foregroundStyle={cUp}
+            monospacedDigit
+            lineLimit={1}
+          >
+            {data.upSpeed}
+          </Text>
+        </HStack>
+        <Spacer />
+        <HStack spacing={3} alignment="center">
+          <Text font={9.5} foregroundStyle={THEME.dim}>
+            做种
+          </Text>
+          <Text
+            font={10.5}
+            fontWeight="bold"
+            foregroundStyle={THEME.text}
+            monospacedDigit
+            lineLimit={1}
+          >
+            {data.seedingCount}
+          </Text>
+        </HStack>
+      </HStack>
+
+      <Spacer minLength={5} />
+
+      {/* 活动任务进度与剩余空间行 */}
+      <HStack spacing={6} alignment="center">
+        <HStack spacing={3} alignment="center">
+          <Text font={9.5} foregroundStyle={THEME.dim}>
+            下载
+          </Text>
+          <Text
+            font={10.5}
+            fontWeight="bold"
+            foregroundStyle={cSpeed}
+            monospacedDigit
+            lineLimit={1}
+          >
+            {data.activeCount}
+          </Text>
+          <Text font={9.5} foregroundStyle={THEME.dim}>
+            个
+          </Text>
+        </HStack>
+        <Spacer />
+        <HStack spacing={3} alignment="center">
+          <Text font={9.5} foregroundStyle={THEME.dim}>
+            余量
+          </Text>
+          <Text
+            font={10}
+            fontWeight="medium"
+            foregroundStyle={THEME.dim}
+            monospacedDigit
+            lineLimit={1}
+          >
+            {data.freeSpace}
+          </Text>
+        </HStack>
+      </HStack>
+
+      <Spacer minLength={0} />
+
+      {/* 底栏 */}
+      <HStack spacing={4} alignment="center">
+        <Text font={9} foregroundStyle={THEME.dim} lineLimit={1}>
+          {`分享率 ${data.shareRatio}`}
+        </Text>
+        <Spacer />
+        <Text font={8.5} foregroundStyle={THEME.dim} monospacedDigit lineLimit={1}>
+          {`更新于 ${formatTime(data.updatedAt)}`}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// ============================================================
+// 10. qBittorrent 中号看板（双列网格、累计上传下载、磁盘余量）
+// ============================================================
+export function QbittorrentMediumCard({ data }: { data: QbittorrentData }) {
+  const qbIconImage = (globalThis as any).UIImage?.fromFile(
+    `${FileManager.documentsDirectory}/scripts/DashBoard-Kit/assets/qbittorrent.png`
+  )
+  const isOnline = data.connectionStatus !== "disconnected"
+  const cTitle = { light: "#1E293B", dark: "#F8FAFC" } as any
+  const cLabel = { light: "#64748B", dark: "#94A3B8" } as any
+  const cDl = { light: "#2563EB", dark: "#3B82F6" } as any
+  const cUp = { light: "#059669", dark: "#10B981" } as any
+  const cDivider = { light: "rgba(0,0,0,0.08)", dark: "rgba(255,255,255,0.12)" } as any
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 15, bottom: 13, leading: 18, trailing: 18 }}
+      widgetBackground={{ light: "#FFFFFF", dark: "#0F172A" } as any}
+    >
+      {/* 1. 顶部标题栏 */}
+      <HStack spacing={7} alignment="center">
+        {qbIconImage ? (
+          <Image
+            image={qbIconImage}
+            resizable={true}
+            frame={{ width: 18, height: 18 }}
+            clipShape={{ type: "rect", cornerRadius: 3.5 }}
+          />
+        ) : (
+          <Image
+            systemName="arrow.down.circle.fill"
+            font={{ name: "system", size: 18 }}
+            foregroundStyle="#2B79C2"
+          />
+        )}
+        <Text font={16} fontWeight="bold" foregroundStyle={cTitle}>
+          qBittorrent
+        </Text>
+        <Circle
+          fill={isOnline ? "#10B981" : "#EF4444"}
+          frame={{ width: 6, height: 6 }}
+        />
+        <Spacer />
+        <Text font={11.5} fontWeight="regular" foregroundStyle={cLabel}>
+          {data.statusText}
+        </Text>
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={10} />
+
+      {/* 2. 核心数据网格：[左半区：实时下载 & 上传] | 分割线 | [右半区：任务数与磁盘] */}
+      <HStack alignment="center" spacing={0}>
+        {/* 左半区：实时下行 + 实时上行 */}
+        <HStack alignment="center" spacing={18}>
+          <VStack alignment="center" spacing={3}>
+            <HStack spacing={2} alignment="center">
+              <Image
+                systemName="arrow.down"
+                font={{ name: "system", size: 11 }}
+                fontWeight="bold"
+                foregroundStyle={cDl}
+              />
+              <Text font={18} fontWeight="bold" foregroundStyle={cDl} monospacedDigit lineLimit={1}>
+                {data.dlSpeed}
+              </Text>
+            </HStack>
+            <Text font={10.5} fontWeight="regular" foregroundStyle={cLabel} lineLimit={1}>
+              下载速度
+            </Text>
+          </VStack>
+
+          <VStack alignment="center" spacing={3}>
+            <HStack spacing={2} alignment="center">
+              <Image
+                systemName="arrow.up"
+                font={{ name: "system", size: 11 }}
+                fontWeight="bold"
+                foregroundStyle={cUp}
+              />
+              <Text font={18} fontWeight="bold" foregroundStyle={cUp} monospacedDigit lineLimit={1}>
+                {data.upSpeed}
+              </Text>
+            </HStack>
+            <Text font={10.5} fontWeight="regular" foregroundStyle={cLabel} lineLimit={1}>
+              上传速度
+            </Text>
+          </VStack>
+        </HStack>
+
+        <Spacer minLength={16} />
+
+        {/* 细纵向分割线 */}
+        <RoundedRectangle
+          fill={cDivider}
+          cornerRadius={0.5}
+          frame={{ width: 1, height: 28 }}
+        />
+
+        <Spacer minLength={16} />
+
+        {/* 右半区：下载中 / 做种中 / 剩余空间 */}
+        <HStack alignment="center" spacing={0} frame={{ maxWidth: "infinity" }} padding={{ leading: 6, trailing: 6 }}>
+          <VStack alignment="center" spacing={3}>
+            <Text font={19} fontWeight="bold" foregroundStyle={cDl} monospacedDigit lineLimit={1}>
+              {data.activeCount}
+            </Text>
+            <Text font={10.5} fontWeight="regular" foregroundStyle={cLabel} lineLimit={1}>
+              下载中
+            </Text>
+          </VStack>
+          <Spacer />
+          <VStack alignment="center" spacing={3}>
+            <Text font={19} fontWeight="bold" foregroundStyle={cUp} monospacedDigit lineLimit={1}>
+              {data.seedingCount}
+            </Text>
+            <Text font={10.5} fontWeight="regular" foregroundStyle={cLabel} lineLimit={1}>
+              做种中
+            </Text>
+          </VStack>
+          <Spacer />
+          <VStack alignment="center" spacing={3}>
+            <Text font={17} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1}>
+              {data.freeSpace}
+            </Text>
+            <Text font={10.5} fontWeight="regular" foregroundStyle={cLabel} lineLimit={1}>
+              磁盘余量
+            </Text>
+          </VStack>
+        </HStack>
+      </HStack>
+
+      <Spacer minLength={10} />
+
+      {/* 3. 统计底栏：累计下载、累计上传、全局分享率 */}
+      <HStack spacing={12} alignment="center" padding={{ leading: 2, trailing: 2 }}>
+        <HStack spacing={4} alignment="center">
+          <Text font={11} foregroundStyle={cLabel}>累计下载:</Text>
+          <Text font={11} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit>{data.allTimeDl}</Text>
+        </HStack>
+        <HStack spacing={4} alignment="center">
+          <Text font={11} foregroundStyle={cLabel}>累计上传:</Text>
+          <Text font={11} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit>{data.allTimeUl}</Text>
+        </HStack>
+        <Spacer />
+        <HStack spacing={4} alignment="center">
+          <Text font={11} foregroundStyle={cLabel}>分享率:</Text>
+          <Text font={11} fontWeight="bold" foregroundStyle={cUp} monospacedDigit>{data.shareRatio}</Text>
+        </HStack>
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      {/* 4. 底栏：左侧状态 · 右侧更新时间 */}
+      <HStack spacing={6} alignment="center">
+        <Text font={10} fontWeight="regular" foregroundStyle={cLabel} lineLimit={1}>
+          {`总任务 ${data.totalCount} 个 · ${data.statusText}`}
+        </Text>
+        <Spacer />
+        <Text font={10} fontWeight="regular" foregroundStyle={cLabel} monospacedDigit>
+          {`更新于 ${formatTime(data.updatedAt)}`}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// 统一根据尺寸自适应的 QbittorrentCard
+export function QbittorrentCard({ data, family }: { data: QbittorrentData; family?: string }) {
+  if (family === "systemMedium" || family === "systemLarge") {
+    return <QbittorrentMediumCard data={data} />
+  }
+  return <QbittorrentSmallCard data={data} />
+}
+
 
 

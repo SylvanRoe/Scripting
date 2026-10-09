@@ -189,6 +189,44 @@ export const DEFAULT_VPN: VpnNodeData = {
   updatedAt: new Date().toISOString(),
 }
 
+export interface QbittorrentData {
+  serviceId: "qbittorrent"
+  statusText: string // "运行中" | "已连接"
+  serverName?: string
+  dlSpeed: string // "24.5 MB/s"
+  upSpeed: string // "3.8 MB/s"
+  dlSpeedBytes: number
+  upSpeedBytes: number
+  activeCount: number // 下载中任务数
+  seedingCount: number // 做种中任务数
+  totalCount: number // 总任务数
+  allTimeDl: string // 累计下载 "1.2 TB"
+  allTimeUl: string // 累计上传 "4.5 TB"
+  shareRatio: string // "3.75"
+  freeSpace: string // 剩余磁盘空间 "2.4 TB"
+  connectionStatus: "connected" | "firewalled" | "disconnected"
+  updatedAt: string
+}
+
+export const DEFAULT_QBITTORRENT: QbittorrentData = {
+  serviceId: "qbittorrent",
+  statusText: "运行中",
+  serverName: "qBittorrent",
+  dlSpeed: "28.6 MB/s",
+  upSpeed: "5.2 MB/s",
+  dlSpeedBytes: 28600000,
+  upSpeedBytes: 5200000,
+  activeCount: 3,
+  seedingCount: 42,
+  totalCount: 45,
+  allTimeDl: "1.4 TB",
+  allTimeUl: "5.8 TB",
+  shareRatio: "4.14",
+  freeSpace: "3.2 TB",
+  connectionStatus: "connected",
+  updatedAt: new Date().toISOString(),
+}
+
 export interface FuelCardData {
   serviceId: "fuel"
   province: string
@@ -243,5 +281,6 @@ export const WIDGET_OPTIONS = [
   { id: "workbuddy", name: "WorkBuddy", desc: "小号账号池积分剩余看板", defaultFamily: "systemSmall" },
   { id: "cpamp", name: "CPAMP", desc: "小号今日调用与 Token 看板", defaultFamily: "systemSmall" },
   { id: "vpn", name: "VPN 节点", desc: "小号出口 IP 与风险检测看板", defaultFamily: "systemSmall" },
+  { id: "qbittorrent", name: "qBittorrent", desc: "自适应下载器看板（小号速度与做种 / 中号全面监控）", defaultFamily: "systemSmall" },
   { id: "fuel", name: "今日油价", desc: "自适应油价行情（小号 Shell 高光 / 中号 4联卡片）", defaultFamily: "systemSmall" },
 ]
