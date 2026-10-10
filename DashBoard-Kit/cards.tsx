@@ -6,6 +6,7 @@ import {
   Image,
   RoundedRectangle,
   SVG,
+  Script,
   Spacer,
   Text,
   VStack,
@@ -18,6 +19,7 @@ import {
   FuelCardData,
   MediaNexusData,
   MetricBalanceData,
+  QB_LOGO_IMAGE,
   QX_LOGO_IMAGE,
   QbittorrentData,
   QuantumultXData,
@@ -309,11 +311,11 @@ export function MetricBalanceCard({ data }: { data: MetricBalanceData }) {
     >
       {/* 顶栏：字标或 图标+标题 + 纯轻量刷新图标 */}
       <HStack spacing={6} alignment="center" frame={{ height: 18 }}>
-        {data.wordmarkImage ? (
+        {data.wordmarkImage && !data.iconImage ? (
           <Image
             image={data.wordmarkImage}
             resizable={true}
-            frame={{ width: Math.round(16 * (248 / 57)), height: 16 }}
+            frame={{ width: Math.round(19 * (248 / 57)), height: 19 }}
           />
         ) : (
           <HStack spacing={5} alignment="center">
@@ -322,13 +324,16 @@ export function MetricBalanceCard({ data }: { data: MetricBalanceData }) {
               iconColor={data.iconColor}
               iconImage={data.iconImage}
               svgCode={data.svgCode}
-              size={16}
+              size={isWorkBuddy ? 18 : 16}
             />
             {data.brandTitle ? (
               <Text
-                font={13.5}
+                font={13}
                 fontWeight="bold"
                 foregroundStyle={data.brandTitleColor || THEME.text}
+                lineLimit={1}
+                minScaleFactor={0.8}
+                allowsTightening={true}
               >
                 {data.brandTitle}
               </Text>
@@ -715,7 +720,7 @@ export function VpnNodeCard({ data }: { data: VpnNodeData }) {
 // 7. 今日油价小组件（小号：白底 Shell 贝壳高光小组件，1:1 精确复刻）
 // ============================================================
 export function FuelPriceSmallCard({ data }: { data: FuelCardData }) {
-  const logoPath = `${FileManager.documentsDirectory}/scripts/DashBoard-Kit/assets/shell_logo.png`
+  const logoPath = `${Script.directory}/assets/shell_logo.png`
   const hasLogoFile = FileManager.existsSync(logoPath)
 
   return (
@@ -1030,9 +1035,6 @@ export function FuelPriceCard({ data, family }: { data: FuelCardData; family?: s
 // 9. qBittorrent 小号看板（传输速率、做种/活跃、空间）
 // ============================================================
 export function QbittorrentSmallCard({ data }: { data: QbittorrentData }) {
-  const qbIconImage = (globalThis as any).UIImage?.fromFile(
-    `${FileManager.documentsDirectory}/scripts/DashBoard-Kit/assets/qbittorrent.png`
-  )
   const isOnline = data.connectionStatus !== "disconnected"
   const cSpeed = { light: "#2563EB", dark: "#3B82F6" } as any
   const cUp = { light: "#059669", dark: "#10B981" } as any
@@ -1046,20 +1048,7 @@ export function QbittorrentSmallCard({ data }: { data: QbittorrentData }) {
     >
       {/* 顶栏：图标 + 标题 + 运行状态圆点 + 刷新按钮 */}
       <HStack spacing={5} alignment="center" frame={{ height: 18 }}>
-        {qbIconImage ? (
-          <Image
-            image={qbIconImage}
-            resizable={true}
-            frame={{ width: 15, height: 15 }}
-            clipShape={{ type: "rect", cornerRadius: 3 }}
-          />
-        ) : (
-          <Image
-            systemName="arrow.down.circle.fill"
-            font={{ name: "system", size: 14 }}
-            foregroundStyle="#2B79C2"
-          />
-        )}
+        <BrandHeaderIcon iconImage={QB_LOGO_IMAGE} size={15} />
         <Text font={12} fontWeight="bold" foregroundStyle={THEME.text} lineLimit={1}>
           qBittorrent
         </Text>
@@ -1193,9 +1182,6 @@ export function QbittorrentSmallCard({ data }: { data: QbittorrentData }) {
 // 10. qBittorrent 中号看板（双列网格、累计上传下载、磁盘余量）
 // ============================================================
 export function QbittorrentMediumCard({ data }: { data: QbittorrentData }) {
-  const qbIconImage = (globalThis as any).UIImage?.fromFile(
-    `${FileManager.documentsDirectory}/scripts/DashBoard-Kit/assets/qbittorrent.png`
-  )
   const isOnline = data.connectionStatus !== "disconnected"
   const cTitle = { light: "#1E293B", dark: "#F8FAFC" } as any
   const cLabel = { light: "#64748B", dark: "#94A3B8" } as any
@@ -1212,20 +1198,7 @@ export function QbittorrentMediumCard({ data }: { data: QbittorrentData }) {
     >
       {/* 1. 顶部标题栏 */}
       <HStack spacing={7} alignment="center">
-        {qbIconImage ? (
-          <Image
-            image={qbIconImage}
-            resizable={true}
-            frame={{ width: 18, height: 18 }}
-            clipShape={{ type: "rect", cornerRadius: 3.5 }}
-          />
-        ) : (
-          <Image
-            systemName="arrow.down.circle.fill"
-            font={{ name: "system", size: 18 }}
-            foregroundStyle="#2B79C2"
-          />
-        )}
+        <BrandHeaderIcon iconImage={QB_LOGO_IMAGE} size={18} />
         <Text font={16} fontWeight="bold" foregroundStyle={cTitle}>
           qBittorrent
         </Text>
@@ -1313,7 +1286,16 @@ export function QbittorrentMediumCard({ data }: { data: QbittorrentData }) {
           </VStack>
           <Spacer />
           <VStack alignment="center" spacing={3}>
-            <Text font={17} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1}>
+            <Text
+              font={17}
+              fontWeight="bold"
+              foregroundStyle={cTitle}
+              monospacedDigit
+              lineLimit={1}
+              minScaleFactor={0.65}
+              allowsTightening={true}
+              fixedSize={{ horizontal: true, vertical: false }}
+            >
               {data.freeSpace}
             </Text>
             <Text font={10.5} fontWeight="regular" foregroundStyle={cLabel} lineLimit={1}>

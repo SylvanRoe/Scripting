@@ -92,8 +92,10 @@ import {
   DEFAULT_CODEX,
   DEFAULT_WORKBUDDY,
   DEEPSEEK_WHALE_SVG,
+  QB_LOGO_IMAGE,
   QX_LOGO_IMAGE,
   WIDGET_OPTIONS,
+  WORKBUDDY_ICON_IMAGE,
 } from "./types"
 
 // 引用系统标准全局 Dialog 对话框（Scripting 官方标准 API）
@@ -169,13 +171,7 @@ function OptionBrandIcon({ id }: { id: string }) {
     )
   }
   if (id === "workbuddy") {
-    return (
-      <Image
-        image={DEFAULT_WORKBUDDY.wordmarkImage}
-        resizable={true}
-        frame={{ width: 30, height: Math.round(30 * (57 / 248)) }}
-      />
-    )
+    return <BrandHeaderIcon iconImage={WORKBUDDY_ICON_IMAGE} size={22} />
   }
   if (id === "cpamp") {
     return <BrandHeaderIcon svgCode={CPAMP_LOGO_SVG} size={20} />
@@ -202,26 +198,7 @@ function OptionBrandIcon({ id }: { id: string }) {
     )
   }
   if (id === "qbittorrent") {
-    const qbImg = (globalThis as any).UIImage?.fromFile(
-      `${FileManager.documentsDirectory}/scripts/DashBoard-Kit/assets/qbittorrent.png`
-    )
-    if (qbImg) {
-      return (
-        <Image
-          image={qbImg}
-          resizable={true}
-          frame={{ width: 18, height: 18 }}
-          clipShape={{ type: "rect", cornerRadius: 4 }}
-        />
-      )
-    }
-    return (
-      <Image
-        systemName="arrow.down.circle.fill"
-        font={{ name: "system", size: 16 }}
-        foregroundStyle="#2563EB"
-      />
-    )
+    return <BrandHeaderIcon iconImage={QB_LOGO_IMAGE} size={20} />
   }
   return (
     <Image

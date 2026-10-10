@@ -13,6 +13,12 @@ export const CPAMP_LOGO_SVG = `<svg viewBox="12 8 272 302" fill="none" xmlns="ht
 // Quantumult X 官方三色风车图标（来自 App Store 官方图标资源）
 export const QX_LOGO_IMAGE = loadIcon("assets/quantumult-x.png")
 
+// qBittorrent 官方图标
+export const QB_LOGO_IMAGE = loadIcon("assets/qbittorrent.png")
+
+// WorkBuddy 独立吉祥物图标
+export const WORKBUDDY_ICON_IMAGE = loadIcon("assets/workbuddy-icon.png", "assets/workbuddy-icon-dark.png")
+
 function loadIcon(relLight: string, relDark?: string) {
   try {
     const base = Script.directory
@@ -112,7 +118,8 @@ export const DEFAULT_DEEPSEEK: MetricBalanceData = {
 
 export const DEFAULT_WORKBUDDY: MetricBalanceData = {
   serviceId: "workbuddy",
-  brandTitle: "WORKBUDDY",
+  brandTitle: "WorkBuddy",
+  iconImage: WORKBUDDY_ICON_IMAGE,
   wordmarkImage: loadIcon("assets/workbuddy.png", "assets/workbuddy-dark.png"),
   statusText: "就绪",
   mainLabel: "积分剩余",
