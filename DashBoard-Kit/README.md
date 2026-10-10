@@ -38,6 +38,7 @@
 
 1. **首次配置**：在 Scripting App 中直接**点击运行** `DashBoard-Kit`，即可进入可视化配置管理面板。
 2. **配置各服务连接**：
+   * **Quantumult X**：在圈X「重写 -> 引用」中添加远程重写订阅 `https://raw.githubusercontent.com/SylvanRoe/Scripting/refs/heads/main/DashBoard-Kit/qx_dashboard.conf` 并开启重写开关；可在脚本内填入机场订阅链接获取真实剩余流量，或自定义展示的 4 个策略组。
    * **MoviePilot / Emby**：填入服务器局域网或公网地址及 API Key。
    * **DeepSeek**：填入平台 User Token 或官方开放平台 API Key。
    * **WorkBuddy**：填入 workbuddy2api-panel 面板地址及 Token。
