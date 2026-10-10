@@ -2103,46 +2103,11 @@ const QX_FILE_CACHE_PATH =
 /**
  * 供用户一键复制到 Quantumult X 的本地 Rewrite 与桥接脚本模板
  */
-export const QX_REWRITE_GUIDE_TEXT = `# 1. 在 Quantumult X 配置文件 [rewrite_local] 下添加：
-^http:\\/\\/qx\\.(lan|local)\\/api url script-analyze-echo-response qx_dashboard_bridge.js
+export const QX_REWRITE_GUIDE_TEXT = `# 方式一（推荐）：在 Quantumult X「重写 (Rewrite) -> 引用」中添加远程重写订阅：
+https://raw.githubusercontent.com/SylvanRoe/Scripting/refs/heads/main/DashBoard-Kit/qx_dashboard.conf
 
-# 2. 在 Quantumult X 脚本目录新建 qx_dashboard_bridge.js，粘贴以下代码：
-const url = new URL($request.url);
-const action = url.searchParams.get("action") || "status";
-const mode = url.searchParams.get("mode") || "";
-const policy = url.searchParams.get("policy") || "";
-const node = url.searchParams.get("node") || "";
-
-function sendMsg(act, content) {
-  return new Promise((resolve) => {
-    const msg = content !== undefined ? { action: act, content } : { action: act };
-    $configuration.sendMessage(msg).then(
-      (res) => resolve(res && res.ret ? res.ret : res),
-      () => resolve(null)
-    );
-  });
-}
-
-(async () => {
-  if (action === "set_mode" && mode) {
-    await sendMsg("set_running_mode", { running_mode: mode });
-  } else if (action === "set_policy" && policy && node) {
-    const dict = {};
-    dict[policy] = node;
-    await sendMsg("set_policy_state", dict);
-  }
-  const modeRet = await sendMsg("get_running_mode");
-  const stateRet = await sendMsg("get_policy_state");
-  $done({
-    status: "HTTP/1.1 200 OK",
-    headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify({
-      ok: true,
-      running_mode: (modeRet && modeRet.running_mode) || mode || "filter",
-      policies: stateRet || {}
-    })
-  });
-})();`
+# 方式二：在 Quantumult X 配置文件 [rewrite_local] 下直接添加一行（自动拉取远程脚本，无需建本地文件）：
+^http:\\/\\/qx\\.(lan|local)\\/api url script-analyze-echo-response https://raw.githubusercontent.com/SylvanRoe/Scripting/refs/heads/main/DashBoard-Kit/qx_dashboard_bridge.js`
 
 const MODE_LABELS: Record<"filter" | "all_proxy" | "all_direct", string> = {
   filter: "规则分流",
@@ -2170,15 +2135,25 @@ export function saveQxData(data: QuantumultXData) {
 
 export function getQxData(): QuantumultXData {
   try {
-    let local =
+    const fromStorage =
       Storage.get<QuantumultXData>(QX_CACHE_KEY, { shared: true }) ||
       Storage.get<QuantumultXData>(QX_CACHE_KEY)
 
-    if (!local && FileManager.existsSync(QX_FILE_CACHE_PATH)) {
+    let fromFile: QuantumultXData | null = null
+    if (FileManager.existsSync(QX_FILE_CACHE_PATH)) {
       try {
         const raw = FileManager.readAsStringSync(QX_FILE_CACHE_PATH)
-        if (raw) local = JSON.parse(raw)
+        if (raw) fromFile = JSON.parse(raw)
       } catch {}
+    }
+
+    let local = fromStorage
+    if (fromFile && fromFile.serviceId === "qx") {
+      const tFile = Date.parse(fromFile.updatedAt || "") || 0
+      const tStor = Date.parse(fromStorage?.updatedAt || "") || 0
+      if (!local || tFile >= tStor) {
+        local = fromFile
+      }
     }
 
     if (local && local.serviceId === "qx" && Array.isArray(local.policies)) {
@@ -2302,58 +2277,137 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
           if (json.policies && typeof json.policies === "object") {
             const pKeys = Object.keys(json.policies)
             if (pKeys.length > 0) {
-              // 解析 QX get_policy_state 数组格式 [selected, ...candidates] 或对象格式 { selected, candidates }
-              const parsePolicyEntry = (val: any, fallbackSelected: string, fallbackCands: string[]) => {
+              // 收集所有区域子策略组与当前活跃落地节点，供未返回完整 candidates 时智能构建候选列表
+              const regionGroups = pKeys.filter((k) =>
+                /自动|香港|台湾|日本|狮城|新加坡|美国|韩国|英国|德国|节点|HK|TW|JP|SG|US/i.test(k)
+              )
+              const mainProxyKey = pKeys.find((k) => /^(proxy|节点选择|主策略)$/i.test(k))
+              const leafNodes: string[] = []
+              for (const k of pKeys) {
+                const v = json.policies[k]
+                if (Array.isArray(v) && v.length >= 2) {
+                  const leaf = String(v[v.length - 1] || "")
+                  if (
+                    leaf &&
+                    !pKeys.includes(leaf) &&
+                    leaf.toLowerCase() !== "direct" &&
+                    leaf !== "⚠️" &&
+                    !leafNodes.includes(leaf)
+                  ) {
+                    leafNodes.push(leaf)
+                  }
+                }
+              }
+
+              const iconForGroup = (name: string, idx: number): string => {
+                if (/苹果|apple/i.test(name)) return "apple.logo"
+                if (/媒体|影视|流媒体|stream|emby|netflix|youtube|哔哩|bilibili/i.test(name)) return "play.tv.fill"
+                if (/音乐|music|spotify|声田/i.test(name)) return "music.note"
+                if (/ai|openai|claude|gpt|gemini/i.test(name)) return "sparkles"
+                if (/全球|加速|global/i.test(name)) return "bolt.horizontal.circle.fill"
+                if (/兜底|final|match/i.test(name)) return "shield.lefthalf.filled"
+                return DEFAULT_QX.policies[idx]?.icon || "globe.asia.australia.fill"
+              }
+
+              const labelForGroup = (name: string): string => {
+                if (name.toLowerCase() === "proxy") return "节点选择"
+                return name
+              }
+
+              // 解析 QX get_policy_state 策略链数组 [策略组名本身, 当前选中项, ...(最终落地节点)]
+              // 或 get_customized_policy 对象格式 { selected, candidates }
+              const parsePolicyEntry = (key: string, val: any) => {
                 if (Array.isArray(val) && val.length > 0) {
-                  const sel = String(val[0] || fallbackSelected)
-                  const cands = val.length > 1 ? val.slice(1).map(String) : [sel]
-                  return { selected: sel, candidates: cands }
+                  // get_policy_state 返回格式: [groupName, currentSelected, ...leafNode]
+                  const rawSelected =
+                    val.length >= 2 && String(val[0]) === key
+                      ? String(val[1])
+                      : String(val[0])
+                  // 如果选中项本身是子策略组，优先展示可读性更好的选中项
+                  const sel = rawSelected === "⚠️" && val.length >= 3 ? String(val[2]) : rawSelected
+
+                  const cands: string[] = []
+                  const pushCand = (c: string) => {
+                    if (c && c !== key && c !== "⚠️" && !cands.includes(c)) cands.push(c)
+                  }
+                  pushCand(sel)
+
+                  if (key.toLowerCase() === "proxy" || regionGroups.includes(key)) {
+                    // 圈X内置 proxy 组与地区组只能直接选择具体服务器节点（不能选子策略组），因此只放入真实活跃节点与 direct
+                    for (const lf of leafNodes) pushCand(lf)
+                    pushCand("direct")
+                  } else {
+                    // 分流规则组（如全球加速、国际媒体、苹果服务、哔哩哔哩等）：可在 proxy、自动选择、各地区组、direct 间切换
+                    if (mainProxyKey) pushCand(mainProxyKey)
+                    for (const rg of regionGroups) pushCand(rg)
+                    pushCand("direct")
+                  }
+                  return { selected: sel, candidates: cands.length > 0 ? cands : [sel] }
                 }
                 if (val && typeof val === "object") {
                   const cands =
                     Array.isArray(val.candidates) && val.candidates.length > 0
                       ? val.candidates.map(String)
-                      : fallbackCands
-                  const sel = String(val.selected || cands[0] || fallbackSelected)
+                      : ["direct"]
+                  const sel = String(val.selected || cands[0] || "direct")
                   return { selected: sel, candidates: cands }
                 }
-                return { selected: fallbackSelected, candidates: fallbackCands }
+                return { selected: "direct", candidates: ["direct"] }
               }
 
-              // 优先匹配用户已有策略组 ID，若无则取前 4 个策略组
-              const updatedPolicies: QxPolicyItem[] = []
-              for (const existing of policies) {
-                const matchedKey = pKeys.find(
-                  (k) => k.toLowerCase() === existing.id.toLowerCase() || k === existing.label
-                )
-                if (matchedKey) {
-                  const parsed = parsePolicyEntry(
-                    json.policies[matchedKey],
-                    existing.selected,
-                    existing.candidates
-                  )
-                  updatedPolicies.push({
-                    ...existing,
-                    id: matchedKey,
-                    selected: parsed.selected,
-                    candidates: parsed.candidates,
-                  })
+              // 读取用户自定义的 4 个策略组名称（如有），否则按智能优先级选取 4 个真实策略组
+              let preferredKeys: string[] = []
+              try {
+                const savedCustom = Keychain.contains(QX_POLICIES_KEY)
+                  ? Keychain.get(QX_POLICIES_KEY) || ""
+                  : ""
+                if (savedCustom.trim()) {
+                  preferredKeys = savedCustom
+                    .split(/[,，\n]/)
+                    .map((s) => s.trim())
+                    .filter((s) => pKeys.includes(s))
+                }
+              } catch {}
+
+              if (preferredKeys.length < 4) {
+                const priorityOrder = [
+                  "proxy",
+                  "全球加速",
+                  "国际媒体",
+                  "苹果服务",
+                  "哔哩哔哩",
+                  "声田音乐",
+                  "兜底分流",
+                  "自动选择",
+                  "香港节点",
+                  "台湾节点",
+                  "日本节点",
+                  "狮城节点",
+                  "美国节点",
+                ]
+                for (const pk of priorityOrder) {
+                  const found = pKeys.find((k) => k.toLowerCase() === pk.toLowerCase())
+                  if (found && !preferredKeys.includes(found)) {
+                    preferredKeys.push(found)
+                    if (preferredKeys.length >= 4) break
+                  }
+                }
+                for (const k of pKeys) {
+                  if (preferredKeys.length >= 4) break
+                  if (!preferredKeys.includes(k)) preferredKeys.push(k)
                 }
               }
-              if (updatedPolicies.length > 0 && updatedPolicies.length >= Math.min(2, pKeys.length)) {
-                policies = updatedPolicies
-              } else {
-                policies = pKeys.slice(0, 4).map((k, idx) => {
-                  const parsed = parsePolicyEntry(json.policies[k], "PROXY", ["DIRECT", "PROXY"])
-                  return {
-                    id: k,
-                    label: k,
-                    selected: parsed.selected,
-                    candidates: parsed.candidates,
-                    icon: DEFAULT_QX.policies[idx]?.icon || "network",
-                  }
-                })
-              }
+
+              policies = preferredKeys.slice(0, 4).map((k, idx) => {
+                const parsed = parsePolicyEntry(k, json.policies[k])
+                return {
+                  id: k,
+                  label: labelForGroup(k),
+                  selected: parsed.selected,
+                  candidates: parsed.candidates,
+                  icon: iconForGroup(k, idx),
+                }
+              })
             }
           }
         }

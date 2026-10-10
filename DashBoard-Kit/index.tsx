@@ -47,6 +47,7 @@ import {
   QB_USER_KEY,
   QX_BRIDGE_URL_KEY,
   QX_CACHE_KEY,
+  QX_POLICIES_KEY,
   QX_REWRITE_GUIDE_TEXT,
   QX_SUB_NAME_KEY,
   QX_SUB_URL_KEY,
@@ -1009,6 +1010,7 @@ async function configureQuantumultX() {
     actions: [
       { label: "📋 一键复制 QX 本地重写规则与桥接脚本" },
       { label: "🔗 配置机场订阅链接 (获取真实流量/到期)" },
+      { label: "🎛 自定义卡片展示的 4 个策略组" },
       { label: "🔄 立即切换运行模式 (分流/全局/直连)" },
       { label: "🎯 立即测试切换策略组节点" },
       { label: "⚡️ 立即同步状态并刷新小组件" },
@@ -1018,10 +1020,12 @@ async function configureQuantumultX() {
 
   if (choice === 0) {
     try {
-      await Pasteboard.setString(QX_REWRITE_GUIDE_TEXT)
+      await Pasteboard.setString(
+        "https://raw.githubusercontent.com/SylvanRoe/Scripting/refs/heads/main/DashBoard-Kit/qx_dashboard.conf"
+      )
     } catch {}
     await gAlert(
-      "✓ 已复制到剪贴板！\n\n配置步骤（仅需 1 分钟）：\n1. 在 Quantumult X [rewrite_local] 中添加：\n^http:\\/\\/qx\\.(lan|local)\\/api url script-analyze-echo-response qx_dashboard_bridge.js\n\n2. 将剪贴板中的脚本保存为 qx_dashboard_bridge.js。\n\n完成后桌面小组件即可实时读取并直接控制 QX 策略组与运行模式！"
+      "✓ 远程重写订阅链接已复制到剪贴板！\n\n直接打开 Quantumult X →「重写 (Rewrite)」→「引用」，粘贴添加该远程链接并启用即可，无需手动新建本地 JS 脚本！"
     )
     return
   }
@@ -1058,13 +1062,43 @@ async function configureQuantumultX() {
   }
 
   if (choice === 2) {
+    const curCustom = Keychain.contains(QX_POLICIES_KEY) ? Keychain.get(QX_POLICIES_KEY) || "" : ""
+    const defaultStr = curCustom || (currentData.policies || []).map((p) => p.id).join(", ")
+    const input = await gPrompt({
+      title: "自定义展示的 4 个策略组",
+      message:
+        "请输入你在圈X中的策略组名称（最多 4 个，用逗号分隔，留空则自动匹配如 proxy, 全球加速, 国际媒体, 苹果服务）：",
+      defaultValue: defaultStr,
+      placeholder: "proxy, 全球加速, 国际媒体, 苹果服务",
+      confirmLabel: "保存并同步",
+      cancelLabel: "取消",
+    })
+    if (input === null) return
+    if (input.trim()) {
+      Keychain.set(QX_POLICIES_KEY, input.trim(), {
+        accessibility: "first_unlock_this_device",
+      })
+    } else {
+      Keychain.remove(QX_POLICIES_KEY)
+    }
+    const res = await refreshQxData()
+    Widget.reloadAll()
+    if (res) {
+      await gAlert(
+        `✓ 已更新展示策略组：\n${res.policies.map((p) => `• ${p.label}（${p.selected}）`).join("\n")}`
+      )
+    }
+    return
+  }
+
+  if (choice === 3) {
     const next = await switchQxRunningMode()
     Widget.reloadAll()
     await gAlert(`✓ 已切换运行模式为：【${next.runningModeLabel}】\n桌面小组件已同步更新！`)
     return
   }
 
-  if (choice === 3) {
+  if (choice === 4) {
     const policies = currentData.policies || []
     const pIdx = await Dialog.actionSheet({
       title: "选择要切换节点的策略组",
@@ -1083,7 +1117,7 @@ async function configureQuantumultX() {
     return
   }
 
-  if (choice === 4) {
+  if (choice === 5) {
     const res = await refreshQxData()
     Widget.reloadAll()
     if (res) {
