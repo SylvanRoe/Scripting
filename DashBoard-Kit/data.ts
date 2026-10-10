@@ -2104,7 +2104,7 @@ const QX_FILE_CACHE_PATH =
  * 供用户一键复制到 Quantumult X 的本地 Rewrite 与桥接脚本模板
  */
 export const QX_REWRITE_GUIDE_TEXT = `# 1. 在 Quantumult X 配置文件 [rewrite_local] 下添加：
-^http:\\/\\/qx\\.local\\/api url script-analyze-echo-response qx_dashboard_bridge.js
+^http:\\/\\/qx\\.(lan|local)\\/api url script-analyze-echo-response qx_dashboard_bridge.js
 
 # 2. 在 Quantumult X 脚本目录新建 qx_dashboard_bridge.js，粘贴以下代码：
 const url = new URL($request.url);
@@ -2115,7 +2115,8 @@ const node = url.searchParams.get("node") || "";
 
 function sendMsg(act, content) {
   return new Promise((resolve) => {
-    $configuration.sendMessage({ action: act, content }).then(
+    const msg = content !== undefined ? { action: act, content } : { action: act };
+    $configuration.sendMessage(msg).then(
       (res) => resolve(res && res.ret ? res.ret : res),
       () => resolve(null)
     );
@@ -2131,14 +2132,14 @@ function sendMsg(act, content) {
     await sendMsg("set_policy_state", dict);
   }
   const modeRet = await sendMsg("get_running_mode");
-  const policiesRet = await sendMsg("get_customized_policy");
+  const stateRet = await sendMsg("get_policy_state");
   $done({
     status: "HTTP/1.1 200 OK",
     headers: { "Content-Type": "application/json; charset=utf-8" },
     body: JSON.stringify({
       ok: true,
       running_mode: (modeRet && modeRet.running_mode) || mode || "filter",
-      policies: policiesRet || {}
+      policies: stateRet || {}
     })
   });
 })();`
@@ -2265,10 +2266,11 @@ function parseSubscriptionUserinfo(headerVal: string): {
 export async function refreshQxData(): Promise<QuantumultXData | null> {
   try {
     const current = getQxData()
-    const bridgeUrl = (
+    const rawBridge = (
       (Keychain.contains(QX_BRIDGE_URL_KEY) ? Keychain.get(QX_BRIDGE_URL_KEY) : "") ||
-      "http://qx.local/api"
+      "http://qx.lan/api"
     ).trim()
+    const bridgeUrl = rawBridge.replace("://qx.local/", "://qx.lan/")
     const subUrl = (Keychain.contains(QX_SUB_URL_KEY) ? Keychain.get(QX_SUB_URL_KEY) || "" : "").trim()
     const subName = (
       (Keychain.contains(QX_SUB_NAME_KEY) ? Keychain.get(QX_SUB_NAME_KEY) : "") ||
@@ -2278,13 +2280,13 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
 
     let runningMode = current.runningMode
     let runningModeLabel = MODE_LABELS[runningMode] || "规则分流"
-    let bridgeConnected = current.bridgeConnected
+    let bridgeConnected = false
     let policies: QxPolicyItem[] = current.policies.map((p) => ({ ...p }))
 
     // 1. 尝试调用 QX 本地 Rewrite Bridge 获取真实策略组与运行模式
     try {
       const sep = bridgeUrl.includes("?") ? "&" : "?"
-      const res = await fetch(`${bridgeUrl}${sep}action=status`, { timeout: 2.5 })
+      const res = await fetch(`${bridgeUrl}${sep}action=status`, { timeout: 1.5 })
       if (res.ok) {
         const json: any = await res.json().catch(() => null)
         if (json && (json.ok || json.running_mode || json.policies)) {
@@ -2300,6 +2302,24 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
           if (json.policies && typeof json.policies === "object") {
             const pKeys = Object.keys(json.policies)
             if (pKeys.length > 0) {
+              // 解析 QX get_policy_state 数组格式 [selected, ...candidates] 或对象格式 { selected, candidates }
+              const parsePolicyEntry = (val: any, fallbackSelected: string, fallbackCands: string[]) => {
+                if (Array.isArray(val) && val.length > 0) {
+                  const sel = String(val[0] || fallbackSelected)
+                  const cands = val.length > 1 ? val.slice(1).map(String) : [sel]
+                  return { selected: sel, candidates: cands }
+                }
+                if (val && typeof val === "object") {
+                  const cands =
+                    Array.isArray(val.candidates) && val.candidates.length > 0
+                      ? val.candidates.map(String)
+                      : fallbackCands
+                  const sel = String(val.selected || cands[0] || fallbackSelected)
+                  return { selected: sel, candidates: cands }
+                }
+                return { selected: fallbackSelected, candidates: fallbackCands }
+              }
+
               // 优先匹配用户已有策略组 ID，若无则取前 4 个策略组
               const updatedPolicies: QxPolicyItem[] = []
               for (const existing of policies) {
@@ -2307,31 +2327,29 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
                   (k) => k.toLowerCase() === existing.id.toLowerCase() || k === existing.label
                 )
                 if (matchedKey) {
-                  const pObj = json.policies[matchedKey]
-                  const cands = Array.isArray(pObj?.candidates) && pObj.candidates.length > 0
-                    ? pObj.candidates
-                    : existing.candidates
+                  const parsed = parsePolicyEntry(
+                    json.policies[matchedKey],
+                    existing.selected,
+                    existing.candidates
+                  )
                   updatedPolicies.push({
                     ...existing,
                     id: matchedKey,
-                    selected: pObj?.selected || existing.selected,
-                    candidates: cands,
+                    selected: parsed.selected,
+                    candidates: parsed.candidates,
                   })
                 }
               }
-              if (updatedPolicies.length > 0) {
+              if (updatedPolicies.length > 0 && updatedPolicies.length >= Math.min(2, pKeys.length)) {
                 policies = updatedPolicies
               } else {
                 policies = pKeys.slice(0, 4).map((k, idx) => {
-                  const pObj = json.policies[k] || {}
-                  const cands = Array.isArray(pObj.candidates) && pObj.candidates.length > 0
-                    ? pObj.candidates
-                    : ["DIRECT", "PROXY"]
+                  const parsed = parsePolicyEntry(json.policies[k], "PROXY", ["DIRECT", "PROXY"])
                   return {
                     id: k,
                     label: k,
-                    selected: pObj.selected || cands[0],
-                    candidates: cands,
+                    selected: parsed.selected,
+                    candidates: parsed.candidates,
                     icon: DEFAULT_QX.policies[idx]?.icon || "network",
                   }
                 })
@@ -2443,25 +2461,32 @@ export async function switchQxRunningMode(): Promise<QuantumultXData> {
   const nextMode = order[(idx + 1) % order.length]
   const nextLabel = MODE_LABELS[nextMode]
 
-  const bridgeUrl = (
-    (Keychain.contains(QX_BRIDGE_URL_KEY) ? Keychain.get(QX_BRIDGE_URL_KEY) : "") ||
-    "http://qx.local/api"
-  ).trim()
-
-  try {
-    const sep = bridgeUrl.includes("?") ? "&" : "?"
-    await fetch(`${bridgeUrl}${sep}action=set_mode&mode=${nextMode}`, { timeout: 1.5 }).catch(
-      () => null
-    )
-  } catch {}
-
   const updated: QuantumultXData = {
     ...current,
     runningMode: nextMode,
     runningModeLabel: nextLabel,
     updatedAt: new Date().toISOString(),
   }
+  // 先立即落盘，确保桌面小组件毫秒级刷新 UI
   saveQxData(updated)
+
+  const rawBridge = (
+    (Keychain.contains(QX_BRIDGE_URL_KEY) ? Keychain.get(QX_BRIDGE_URL_KEY) : "") ||
+    "http://qx.lan/api"
+  ).trim()
+  const bridgeUrl = rawBridge.replace("://qx.local/", "://qx.lan/")
+
+  try {
+    const sep = bridgeUrl.includes("?") ? "&" : "?"
+    const res = await fetch(`${bridgeUrl}${sep}action=set_mode&mode=${nextMode}`, { timeout: 1.2 }).catch(
+      () => null
+    )
+    if (res && res.ok) {
+      updated.bridgeConnected = true
+      saveQxData(updated)
+    }
+  } catch {}
+
   return updated
 }
 
@@ -2486,26 +2511,33 @@ export async function switchQxPolicyNode(policyId: string): Promise<QuantumultXD
     return p
   })
 
-  if (targetNode) {
-    const bridgeUrl = (
-      (Keychain.contains(QX_BRIDGE_URL_KEY) ? Keychain.get(QX_BRIDGE_URL_KEY) : "") ||
-      "http://qx.local/api"
-    ).trim()
-    try {
-      const sep = bridgeUrl.includes("?") ? "&" : "?"
-      await fetch(
-        `${bridgeUrl}${sep}action=set_policy&policy=${encodeURIComponent(policyId)}&node=${encodeURIComponent(targetNode)}`,
-        { timeout: 1.5 }
-      ).catch(() => null)
-    } catch {}
-  }
-
   const updated: QuantumultXData = {
     ...current,
     policies: nextPolicies,
     updatedAt: new Date().toISOString(),
   }
+  // 先立即落盘，确保桌面小组件毫秒级刷新 UI
   saveQxData(updated)
+
+  if (targetNode) {
+    const rawBridge = (
+      (Keychain.contains(QX_BRIDGE_URL_KEY) ? Keychain.get(QX_BRIDGE_URL_KEY) : "") ||
+      "http://qx.lan/api"
+    ).trim()
+    const bridgeUrl = rawBridge.replace("://qx.local/", "://qx.lan/")
+    try {
+      const sep = bridgeUrl.includes("?") ? "&" : "?"
+      const res = await fetch(
+        `${bridgeUrl}${sep}action=set_policy&policy=${encodeURIComponent(policyId)}&node=${encodeURIComponent(targetNode)}`,
+        { timeout: 1.2 }
+      ).catch(() => null)
+      if (res && res.ok) {
+        updated.bridgeConnected = true
+        saveQxData(updated)
+      }
+    } catch {}
+  }
+
   return updated
 }
 

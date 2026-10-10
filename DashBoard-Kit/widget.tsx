@@ -160,7 +160,12 @@ async function main() {
     } else if (p.includes("fuel") || p.includes("oil") || p.includes("油价")) {
       await refreshFuelData().catch(() => null)
     } else if (p.includes("qx") || p.includes("quantumult") || p.includes("圈x")) {
-      await refreshQxData().catch(() => null)
+      // 如果刚在桌面点击了切换模式/节点（8秒内已更新缓存），跳过耗时网络请求，直接秒级渲染 UI
+      const curQx = getQxData()
+      const elapsed = Date.now() - (Date.parse(curQx.updatedAt || "") || 0)
+      if (elapsed > 8000) {
+        await refreshQxData().catch(() => null)
+      }
     } else {
       // 未带参数时，优先按默认组件刷新
       if (Widget.family === "systemMedium" || Widget.family === "systemLarge") {

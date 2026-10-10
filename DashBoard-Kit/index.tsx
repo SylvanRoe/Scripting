@@ -1021,7 +1021,7 @@ async function configureQuantumultX() {
       await Pasteboard.setString(QX_REWRITE_GUIDE_TEXT)
     } catch {}
     await gAlert(
-      "✓ 已复制到剪贴板！\n\n配置步骤（仅需 1 分钟）：\n1. 在 Quantumult X [rewrite_local] 中添加：\n^http:\\/\\/qx\\.local\\/api url script-analyze-echo-response qx_dashboard_bridge.js\n\n2. 将剪贴板中的脚本保存为 qx_dashboard_bridge.js。\n\n完成后桌面小组件即可实时读取并直接控制 QX 策略组与运行模式！"
+      "✓ 已复制到剪贴板！\n\n配置步骤（仅需 1 分钟）：\n1. 在 Quantumult X [rewrite_local] 中添加：\n^http:\\/\\/qx\\.(lan|local)\\/api url script-analyze-echo-response qx_dashboard_bridge.js\n\n2. 将剪贴板中的脚本保存为 qx_dashboard_bridge.js。\n\n完成后桌面小组件即可实时读取并直接控制 QX 策略组与运行模式！"
     )
     return
   }
