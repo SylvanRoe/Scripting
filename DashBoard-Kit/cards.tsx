@@ -1760,5 +1760,360 @@ export function QuantumultXCard({ data, family }: { data: QuantumultXData; famil
   return <QuantumultXSmallCard data={data} />
 }
 
+// ============================================================
+// 13. Quantumult X 流量统计看板（遵循 DashBoard-Kit 统一 UI 风格，自适应深色/浅色模式）
+// ============================================================
+export function QuantumultXTrafficSmallCard({ data }: { data: QuantumultXData }) {
+  const dlStr = data.downloadTraffic || data.usedGb || "102.6 GB"
+  const ulStr = data.uploadTraffic || "5.8 GB"
+  const pCount = data.policyGroupCount || String((data.policies || []).length || 14)
+  const cDivider = { light: "rgba(0,0,0,0.08)", dark: "rgba(255,255,255,0.12)" } as any
+  const cAccent = { light: "#2563EB", dark: "#38BDF8" } as any
+  const cDl = { light: "#16A34A", dark: "#22C55E" } as any
+  const cUl = { light: "#D97706", dark: "#F59E0B" } as any
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 13, bottom: 11, leading: 13, trailing: 13 }}
+      widgetBackground={THEME.bg}
+    >
+      {/* 1. 顶部栏：QX 官方图标 + Quantumult X + 在线绿点 + 统一刷新按钮 */}
+      <HStack spacing={4} alignment="center" frame={{ height: 18 }}>
+        <BrandHeaderIcon iconImage={QX_LOGO_IMAGE} size={15} />
+        <Text
+          font={11.5}
+          fontWeight="bold"
+          foregroundStyle={THEME.text}
+          lineLimit={1}
+          minScaleFactor={0.8}
+          allowsTightening={true}
+        >
+          Quantumult X
+        </Text>
+        <Circle fill="#10B981" frame={{ width: 5, height: 5 }} />
+        <Spacer minLength={2} />
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      {/* 2. 累计下行 & 累计上行 */}
+      <HStack alignment="center" spacing={0}>
+        <VStack alignment="center" spacing={2} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image
+              systemName="arrow.down.circle.fill"
+              font={{ name: "system", size: 10 }}
+              foregroundStyle={cDl}
+            />
+            <Text font={9.5} fontWeight="medium" foregroundStyle={THEME.dim}>
+              累计下行
+            </Text>
+          </HStack>
+          <Text
+            font={16}
+            fontWeight="bold"
+            foregroundStyle={THEME.text}
+            monospacedDigit
+            lineLimit={1}
+            minScaleFactor={0.7}
+          >
+            {dlStr}
+          </Text>
+        </VStack>
+
+        <RoundedRectangle
+          fill={cDivider}
+          cornerRadius={0.5}
+          frame={{ width: 1, height: 28 }}
+        />
+
+        <VStack alignment="center" spacing={2} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image
+              systemName="arrow.up.circle.fill"
+              font={{ name: "system", size: 10 }}
+              foregroundStyle={cUl}
+            />
+            <Text font={9.5} fontWeight="medium" foregroundStyle={THEME.dim}>
+              累计上行
+            </Text>
+          </HStack>
+          <Text
+            font={16}
+            fontWeight="bold"
+            foregroundStyle={THEME.text}
+            monospacedDigit
+            lineLimit={1}
+            minScaleFactor={0.7}
+          >
+            {ulStr}
+          </Text>
+        </VStack>
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      {/* 3. 中部两项：策略组数 & 实时延迟 */}
+      <HStack alignment="center" spacing={0}>
+        <VStack alignment="center" spacing={2} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image
+              systemName="cpu"
+              font={{ name: "system", size: 9 }}
+              foregroundStyle={cAccent}
+            />
+            <Text font={9} foregroundStyle={THEME.dim}>
+              策略组数
+            </Text>
+          </HStack>
+          <Text font={11.5} fontWeight="bold" foregroundStyle={THEME.text} monospacedDigit>
+            {pCount}
+          </Text>
+        </VStack>
+
+        <VStack alignment="center" spacing={2} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image
+              systemName="link"
+              font={{ name: "system", size: 9 }}
+              foregroundStyle={cAccent}
+            />
+            <Text font={9} foregroundStyle={THEME.dim}>
+              实时延迟
+            </Text>
+          </HStack>
+          <Text font={11.5} fontWeight="bold" foregroundStyle={THEME.text} monospacedDigit>
+            {data.latencyMs}
+          </Text>
+        </VStack>
+      </HStack>
+
+      <Spacer minLength={6} />
+
+      {/* 4. 底栏：运行模式 · 更新时间 */}
+      <HStack spacing={4} alignment="center">
+        <Button intent={SwitchQxModeIntent(undefined)} buttonStyle="plain">
+          <Text font={8.5} foregroundStyle={THEME.dim} lineLimit={1}>
+            {`${data.runningModeLabel} · 余 ${data.remainGb}`}
+          </Text>
+        </Button>
+        <Spacer />
+        <Text font={8.5} foregroundStyle={THEME.dim} monospacedDigit>
+          {`更新于 ${formatTime(data.updatedAt)}`}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+export function QuantumultXTrafficMediumCard({ data }: { data: QuantumultXData }) {
+  const dlStr = data.downloadTraffic || data.usedGb || "102.6 GB"
+  const ulStr = data.uploadTraffic || "5.8 GB"
+  const pCount = data.policyGroupCount || String((data.policies || []).length || 14)
+  const versionStr = data.qxVersion || "Quantumult X 1.8.1"
+
+  const cTitle = { light: "#1E293B", dark: "#F8FAFC" } as any
+  const cLabel = { light: "#64748B", dark: "#94A3B8" } as any
+  const cDivider = { light: "rgba(0,0,0,0.08)", dark: "rgba(255,255,255,0.12)" } as any
+  const cAccent = { light: "#2563EB", dark: "#38BDF8" } as any
+  const cDl = { light: "#16A34A", dark: "#22C55E" } as any
+  const cUl = { light: "#D97706", dark: "#F59E0B" } as any
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 14, bottom: 12, leading: 16, trailing: 16 }}
+      widgetBackground={{ light: "#FFFFFF", dark: "#0F172A" } as any}
+    >
+      {/* 1. 顶部栏：QX 官方图标 + 标题 + 在线绿点 + 更新时间 + 统一圆角刷新按钮 */}
+      <HStack spacing={6} alignment="center">
+        <BrandHeaderIcon iconImage={QX_LOGO_IMAGE} size={18} />
+        <Text font={15.5} fontWeight="bold" foregroundStyle={cTitle}>
+          Quantumult X
+        </Text>
+        <Circle fill="#10B981" frame={{ width: 6, height: 6 }} />
+        <Spacer />
+        <Text font={10.5} fontWeight="medium" foregroundStyle={cLabel} monospacedDigit>
+          {`更新于 ${formatTime(data.updatedAt)}`}
+        </Text>
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      {/* 2. 中部核心双栏：左「累计下行」 | 竖向分割线 | 右「累计上行」 */}
+      <HStack alignment="center" spacing={0}>
+        {/* 左栏：累计下行 */}
+        <VStack alignment="center" spacing={3} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={4} alignment="center">
+            <Image
+              systemName="arrow.down.circle.fill"
+              font={{ name: "system", size: 11.5 }}
+              foregroundStyle={cDl}
+            />
+            <Text font={11} fontWeight="medium" foregroundStyle={cLabel}>
+              累计下行
+            </Text>
+          </HStack>
+          <Text
+            font={23}
+            fontWeight="bold"
+            foregroundStyle={cTitle}
+            monospacedDigit
+            lineLimit={1}
+            minScaleFactor={0.75}
+          >
+            {dlStr}
+          </Text>
+        </VStack>
+
+        {/* 中央分割线 */}
+        <RoundedRectangle
+          fill={cDivider}
+          cornerRadius={0.5}
+          frame={{ width: 1, height: 38 }}
+        />
+
+        {/* 右栏：累计上行 */}
+        <VStack alignment="center" spacing={3} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={4} alignment="center">
+            <Image
+              systemName="arrow.up.circle.fill"
+              font={{ name: "system", size: 11.5 }}
+              foregroundStyle={cUl}
+            />
+            <Text font={11} fontWeight="medium" foregroundStyle={cLabel}>
+              累计上行
+            </Text>
+          </HStack>
+          <Text
+            font={23}
+            fontWeight="bold"
+            foregroundStyle={cTitle}
+            monospacedDigit
+            lineLimit={1}
+            minScaleFactor={0.75}
+          >
+            {ulStr}
+          </Text>
+        </VStack>
+      </HStack>
+
+      <Spacer minLength={9} />
+
+      {/* 3. 四列系统/代理指标：策略组数 · 实时延迟 · 剩余流量 · 运行模式(可点击切换) */}
+      <HStack alignment="center" spacing={0}>
+        {/* 列1：策略组数 */}
+        <VStack alignment="center" spacing={2.5} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image
+              systemName="cpu"
+              font={{ name: "system", size: 10 }}
+              foregroundStyle={cAccent}
+            />
+            <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+              策略组数
+            </Text>
+          </HStack>
+          <Text font={13} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1}>
+            {pCount}
+          </Text>
+        </VStack>
+
+        {/* 列2：实时延迟 */}
+        <VStack alignment="center" spacing={2.5} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image
+              systemName="link"
+              font={{ name: "system", size: 10 }}
+              foregroundStyle={cAccent}
+            />
+            <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+              实时延迟
+            </Text>
+          </HStack>
+          <Text font={13} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1}>
+            {data.latencyMs}
+          </Text>
+        </VStack>
+
+        {/* 列3：剩余流量 */}
+        <VStack alignment="center" spacing={2.5} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image
+              systemName="globe"
+              font={{ name: "system", size: 10 }}
+              foregroundStyle={cAccent}
+            />
+            <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+              剩余流量
+            </Text>
+          </HStack>
+          <Text font={13} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1}>
+            {data.remainGb}
+          </Text>
+        </VStack>
+
+        {/* 列4：运行模式（支持桌面直接点击切换） */}
+        <Button intent={SwitchQxModeIntent(undefined)} buttonStyle="plain">
+          <VStack alignment="center" spacing={2.5} frame={{ maxWidth: "infinity" }}>
+            <HStack spacing={3} alignment="center">
+              <Image
+                systemName="clock"
+                font={{ name: "system", size: 10 }}
+                foregroundStyle={cAccent}
+              />
+              <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+                运行模式
+              </Text>
+            </HStack>
+            <Text font={13} fontWeight="bold" foregroundStyle={cTitle} lineLimit={1}>
+              {data.runningModeLabel}
+            </Text>
+          </VStack>
+        </Button>
+      </HStack>
+
+      <Spacer minLength={7} />
+
+      {/* 4. 底部信息栏：左侧订阅统计/到期 · 右侧版本信息/总额 */}
+      <HStack spacing={6} alignment="center">
+        <Text
+          font={9.5}
+          fontWeight="regular"
+          foregroundStyle={cLabel}
+          lineLimit={1}
+          minScaleFactor={0.8}
+          allowsTightening={true}
+        >
+          {`订阅统计 · ${data.expireText}`}
+        </Text>
+        <Spacer />
+        <Text
+          font={9.5}
+          fontWeight="regular"
+          foregroundStyle={cLabel}
+          monospacedDigit
+          lineLimit={1}
+          minScaleFactor={0.8}
+        >
+          {`${versionStr} · 总额 ${data.totalGb}`}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+export function QuantumultXTrafficCard({ data, family }: { data: QuantumultXData; family?: string }) {
+  if (family === "systemMedium" || family === "systemLarge") {
+    return <QuantumultXTrafficMediumCard data={data} />
+  }
+  return <QuantumultXTrafficSmallCard data={data} />
+}
+
 
 

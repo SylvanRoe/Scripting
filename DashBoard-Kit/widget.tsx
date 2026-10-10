@@ -6,6 +6,7 @@ import {
   MetricBalanceCard,
   QbittorrentCard,
   QuantumultXCard,
+  QuantumultXTrafficCard,
   VpnNodeCard,
 } from "./cards"
 import {
@@ -49,20 +50,20 @@ export function getWidgetView(paramOverride?: string, familyOverride?: string) {
     } catch {}
   }
 
-  // 若仍为空，读取最近一次点击预览激活的组件 ID
+  // 若仍为空，优先读取文件与 Storage 中最近一次点击预览激活的组件 ID
+  const activePath = FileManager.appGroupDocumentsDirectory + "/dashboard_kit_preview_active.txt"
+  if (!p && FileManager.existsSync(activePath)) {
+    try {
+      p = (FileManager.readAsStringSync(activePath) || "").trim().toLowerCase()
+    } catch {}
+  }
+
   if (!p) {
     p = (
       Storage.get<string>("dashboard_kit_preview_active_id", { shared: true }) ||
       Storage.get<string>("dashboard_kit_preview_active_id") ||
       ""
     ).trim().toLowerCase()
-  }
-
-  const activePath = FileManager.appGroupDocumentsDirectory + "/dashboard_kit_preview_active.txt"
-  if (!p && FileManager.existsSync(activePath)) {
-    try {
-      p = (FileManager.readAsStringSync(activePath) || "").trim().toLowerCase()
-    } catch {}
   }
   const family = familyOverride || Widget.family
 
@@ -86,10 +87,21 @@ export function getWidgetView(paramOverride?: string, familyOverride?: string) {
   else if (target.includes("vpn") || target.includes("node") || target.includes("ip") || target.includes("节点")) param = "vpn"
   else if (target.includes("qbittorrent") || target.includes("qb") || target.includes("qbit")) param = "qbittorrent"
   else if (target.includes("fuel") || target.includes("oil") || target.includes("油价")) param = "fuel"
+  else if (
+    target === "qx_traffic" ||
+    target === "qx2" ||
+    target.includes("qx-traffic") ||
+    target.includes("qxtraffic") ||
+    target.includes("圈x流量") ||
+    target.includes("qx流量")
+  )
+    param = "qx_traffic"
   else if (target.includes("qx") || target.includes("quantumult") || target.includes("圈x")) param = "qx"
 
   // 1. 如果传入参数是指定 id
-  if (param === "qx") {
+  if (param === "qx_traffic") {
+    return <QuantumultXTrafficCard data={getQxData()} family={family} />
+  } else if (param === "qx") {
     return <QuantumultXCard data={getQxData()} family={family} />
   } else if (param === "deepseek") {
     return <MetricBalanceCard data={getDeepSeekData()} />

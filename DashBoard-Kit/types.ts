@@ -294,8 +294,13 @@ export interface QuantumultXData {
   remainGb: string // "391.6 GB"
   remainPct: number // 78.3
   expireText: string // "24天后重置"
+  downloadTraffic?: string // 累计下行，如 "104.2 GB"
+  uploadTraffic?: string // 累计上行，如 "4.2 GB"
+  policyGroupCount?: string // 策略组数量，如 "14"
+  activeNodeCount?: string // 活跃节点数，如 "6"
   latencyMs: string // "26 ms"
   outboundTag: string // "🇭🇰 香港 · 103.85.*"
+  qxVersion?: string // "Quantumult X 1.8.1"
   policies: QxPolicyItem[]
   updatedAt: string
 }
@@ -311,8 +316,13 @@ export const DEFAULT_QX: QuantumultXData = {
   remainGb: "391.6 GB",
   remainPct: 78.3,
   expireText: "24天后重置",
+  downloadTraffic: "102.6 GB",
+  uploadTraffic: "5.8 GB",
+  policyGroupCount: "14",
+  activeNodeCount: "6",
   latencyMs: "24 ms",
   outboundTag: "🇭🇰 香港 IEPL · 原生",
+  qxVersion: "Quantumult X 1.8.1",
   policies: [
     {
       id: "Proxy",
@@ -349,6 +359,7 @@ export const DEFAULT_QX: QuantumultXData = {
 // 支持在桌面小组件参数 (Widget.parameter) 中识别的 key 与列表
 export const WIDGET_OPTIONS = [
   { id: "qx", name: "Quantumult X", desc: "自适应代理控制面板（桌面切模式/切策略节点/流量监控）", defaultFamily: "systemMedium" },
+  { id: "qx_traffic", name: "Quantumult X (流量统计)", desc: "自适应上下行累计流量、策略组/延迟/剩余流量监控看板", defaultFamily: "systemMedium" },
   { id: "media", name: "Media Nexus", desc: "中号影视与媒体库总览看板", defaultFamily: "systemMedium" },
   { id: "deepseek", name: "DeepSeek", desc: "小号余额与模型延迟看板", defaultFamily: "systemSmall" },
   { id: "codex", name: "Codex", desc: "小号双周期额度与重置看板", defaultFamily: "systemSmall" },

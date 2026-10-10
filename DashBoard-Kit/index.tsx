@@ -180,7 +180,7 @@ function OptionBrandIcon({ id }: { id: string }) {
   if (id === "cpamp") {
     return <BrandHeaderIcon svgCode={CPAMP_LOGO_SVG} size={20} />
   }
-  if (id === "qx") {
+  if (id === "qx" || id === "qx_traffic") {
     return <BrandHeaderIcon iconImage={QX_LOGO_IMAGE} size={20} />
   }
   if (id === "vpn") {
@@ -1540,7 +1540,7 @@ export default function ConfigView() {
                     await refreshFuelData().catch(() => null)
                   } else if (opt.id === "qbittorrent") {
                     await refreshQbittorrentData().catch(() => null)
-                  } else if (opt.id === "qx") {
+                  } else if (opt.id === "qx" || opt.id === "qx_traffic") {
                     await refreshQxData().catch(() => null)
                   } else if (opt.id === "media") {
                     await refreshMediaData().catch(() => null)
@@ -1561,6 +1561,14 @@ export default function ConfigView() {
                     const chosen = await gActionSheet("请选择 Quantumult X 预览尺寸", [
                       "中号组件 (流量监控 + 2x2 策略组桌面直切矩阵)",
                       "小号组件 (精简模式切换 + 主力策略组 + 流量)",
+                      "取消",
+                    ])
+                    if (!chosen || chosen === "取消") return
+                    previewFamily = chosen.includes("小号") ? "systemSmall" : "systemMedium"
+                  } else if (opt.id === "qx_traffic") {
+                    const chosen = await gActionSheet("请选择 Quantumult X (流量统计) 预览尺寸", [
+                      "中号组件 (上下行累计 + 四宫格核心指标)",
+                      "小号组件 (精简上下行累计 + 延迟)",
                       "取消",
                     ])
                     if (!chosen || chosen === "取消") return

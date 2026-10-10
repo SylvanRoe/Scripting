@@ -2199,6 +2199,8 @@ function parseSubscriptionUserinfo(headerVal: string): {
   remainGb: string
   remainPct: number
   expireText: string
+  downloadTraffic: string
+  uploadTraffic: string
 } | null {
   if (!headerVal) return null
   const getNum = (key: string) => {
@@ -2220,6 +2222,15 @@ function parseSubscriptionUserinfo(headerVal: string): {
     return gb >= 100 ? `${Math.round(gb)} GB` : `${gb.toFixed(1)} GB`
   }
 
+  const formatTraffic = (b: number) => {
+    const gb = b / (1024 * 1024 * 1024)
+    if (gb >= 1) return gb >= 100 ? `${Math.round(gb)} GB` : `${gb.toFixed(1)} GB`
+    const mb = b / (1024 * 1024)
+    if (mb >= 1) return `${mb.toFixed(1)} MB`
+    const kb = b / 1024
+    return `${Math.max(0.1, Math.round(kb * 10) / 10)} KB`
+  }
+
   let expireText = "长期有效"
   if (expire > 0) {
     const days = Math.max(0, Math.ceil((expire * 1000 - Date.now()) / (86400 * 1000)))
@@ -2232,6 +2243,8 @@ function parseSubscriptionUserinfo(headerVal: string): {
     remainGb: toGb(remainBytes),
     remainPct,
     expireText,
+    downloadTraffic: formatTraffic(download),
+    uploadTraffic: formatTraffic(upload),
   }
 }
 
@@ -2257,6 +2270,9 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
     let runningModeLabel = MODE_LABELS[runningMode] || "规则分流"
     let bridgeConnected = false
     let policies: QxPolicyItem[] = current.policies.map((p) => ({ ...p }))
+    let policyGroupCount = current.policyGroupCount || "14"
+    let activeNodeCount = current.activeNodeCount || "6"
+    let qxVersion = current.qxVersion || "Quantumult X 1.8.1"
 
     // 1. 尝试调用 QX 本地 Rewrite Bridge 获取真实策略组与运行模式
     try {
@@ -2266,6 +2282,10 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
         const json: any = await res.json().catch(() => null)
         if (json && (json.ok || json.running_mode || json.policies)) {
           bridgeConnected = true
+          if (json.version) {
+            const vStr = String(json.version).trim()
+            qxVersion = vStr.toLowerCase().startsWith("quantumult") ? vStr : `Quantumult X ${vStr}`
+          }
           if (
             json.running_mode === "filter" ||
             json.running_mode === "all_proxy" ||
@@ -2277,6 +2297,7 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
           if (json.policies && typeof json.policies === "object") {
             const pKeys = Object.keys(json.policies)
             if (pKeys.length > 0) {
+              policyGroupCount = String(pKeys.length)
               // 收集所有区域子策略组与当前活跃落地节点，供未返回完整 candidates 时智能构建候选列表
               const regionGroups = pKeys.filter((k) =>
                 /自动|香港|台湾|日本|狮城|新加坡|美国|韩国|英国|德国|节点|HK|TW|JP|SG|US/i.test(k)
@@ -2297,6 +2318,9 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
                     leafNodes.push(leaf)
                   }
                 }
+              }
+              if (leafNodes.length > 0) {
+                activeNodeCount = String(leafNodes.length)
               }
 
               const iconForGroup = (name: string, idx: number): string => {
@@ -2420,6 +2444,8 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
     let remainGb = current.remainGb
     let remainPct = current.remainPct
     let expireText = current.expireText
+    let downloadTraffic = current.downloadTraffic || "102.6 GB"
+    let uploadTraffic = current.uploadTraffic || "5.8 GB"
 
     if (subUrl) {
       try {
@@ -2451,6 +2477,8 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
           remainGb = parsed.remainGb
           remainPct = parsed.remainPct
           expireText = parsed.expireText
+          downloadTraffic = parsed.downloadTraffic
+          uploadTraffic = parsed.uploadTraffic
         }
       } catch (e) {
         console.log("拉取 QX 机场订阅流量失败:", e)
@@ -2491,8 +2519,13 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
       remainGb,
       remainPct,
       expireText,
+      downloadTraffic,
+      uploadTraffic,
+      policyGroupCount,
+      activeNodeCount,
       latencyMs,
       outboundTag,
+      qxVersion,
       policies,
       updatedAt: new Date().toISOString(),
     }

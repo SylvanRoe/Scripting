@@ -24,13 +24,16 @@ function sendMsg(act, content) {
   }
   const modeRet = await sendMsg("get_running_mode");
   const stateRet = await sendMsg("get_policy_state");
+  const envInfo = typeof $environment !== "undefined" ? $environment : null;
+
   $done({
     status: "HTTP/1.1 200 OK",
     headers: { "Content-Type": "application/json; charset=utf-8" },
     body: JSON.stringify({
       ok: true,
       running_mode: (modeRet && modeRet.running_mode) || mode || "filter",
-      policies: stateRet || {}
+      policies: stateRet || {},
+      version: envInfo && envInfo.version ? String(envInfo.version) : ""
     })
   });
 })();
