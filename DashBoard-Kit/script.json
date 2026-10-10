@@ -3,8 +3,8 @@
   "intentInputTypes" : [
 
   ],
-  "description" : "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板（Media Nexus、DeepSeek、Codex、Antigravity、WorkBuddy、CPAMP、qBittorrent、今日油价等）",
-  "version" : "1.0.5",
+  "description" : "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板（Quantumult X、Media Nexus、DeepSeek、Codex、Antigravity、WorkBuddy、CPAMP、qBittorrent、今日油价等）",
+  "version" : "1.0.6",
   "color" : "#1A13ED",
   "localizedDescriptions" : {
     "zh" : "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板",
