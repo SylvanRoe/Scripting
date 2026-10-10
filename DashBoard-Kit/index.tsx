@@ -45,16 +45,23 @@ import {
   QB_SID_KEY,
   QB_URL_KEY,
   QB_USER_KEY,
+  QX_BRIDGE_URL_KEY,
+  QX_CACHE_KEY,
+  QX_REWRITE_GUIDE_TEXT,
+  QX_SUB_NAME_KEY,
+  QX_SUB_URL_KEY,
   VPN_CACHE_KEY,
   WB_API_KEY,
   WB_ENDPOINT_KEY,
   getMediaType,
+  getQxData,
   hasAntigravityConfigured,
   hasCodexConfigured,
   hasCpampConfigured,
   hasDeepSeekConfigured,
   hasMediaConfigured,
   hasQbConfigured,
+  hasQxConfigured,
   hasWbConfigured,
   normalizeUrl,
   refreshAntigravityData,
@@ -65,8 +72,11 @@ import {
   refreshFuelData,
   refreshMediaData,
   refreshQbittorrentData,
+  refreshQxData,
   refreshVpnData,
   refreshWorkBuddyData,
+  switchQxPolicyNode,
+  switchQxRunningMode,
 } from "./data"
 import {
   completeAntigravityOAuth,
@@ -81,6 +91,7 @@ import {
   DEFAULT_CODEX,
   DEFAULT_WORKBUDDY,
   DEEPSEEK_WHALE_SVG,
+  QX_LOGO_IMAGE,
   WIDGET_OPTIONS,
 } from "./types"
 
@@ -167,6 +178,9 @@ function OptionBrandIcon({ id }: { id: string }) {
   }
   if (id === "cpamp") {
     return <BrandHeaderIcon svgCode={CPAMP_LOGO_SVG} size={20} />
+  }
+  if (id === "qx") {
+    return <BrandHeaderIcon iconImage={QX_LOGO_IMAGE} size={20} />
   }
   if (id === "vpn") {
     return (
@@ -985,6 +999,101 @@ async function clearQbittorrentConfig() {
   await gAlert("已清除配置，qBittorrent 卡片已恢复为默认数据。")
 }
 
+/** 引导配置 Quantumult X（方案三：Rewrite 本地桥接 + 机场订阅流量 + 桌面交互测试） */
+async function configureQuantumultX() {
+  const currentData = getQxData()
+  const choice = await Dialog.actionSheet({
+    title: "配置 Quantumult X (方案三联动)",
+    message: `当前运行模式：${currentData.runningModeLabel} · 剩余流量：${currentData.remainGb}`,
+    cancelButton: true,
+    actions: [
+      { label: "📋 一键复制 QX 本地重写规则与桥接脚本" },
+      { label: "🔗 配置机场订阅链接 (获取真实流量/到期)" },
+      { label: "🔄 立即切换运行模式 (分流/全局/直连)" },
+      { label: "🎯 立即测试切换策略组节点" },
+      { label: "⚡️ 立即同步状态并刷新小组件" },
+    ],
+  })
+  if (choice === null || choice === undefined || choice < 0) return
+
+  if (choice === 0) {
+    try {
+      await Pasteboard.setString(QX_REWRITE_GUIDE_TEXT)
+    } catch {}
+    await gAlert(
+      "✓ 已复制到剪贴板！\n\n配置步骤（仅需 1 分钟）：\n1. 在 Quantumult X [rewrite_local] 中添加：\n^http:\\/\\/qx\\.local\\/api url script-analyze-echo-response qx_dashboard_bridge.js\n\n2. 将剪贴板中的脚本保存为 qx_dashboard_bridge.js。\n\n完成后桌面小组件即可实时读取并直接控制 QX 策略组与运行模式！"
+    )
+    return
+  }
+
+  if (choice === 1) {
+    const curSub = Keychain.contains(QX_SUB_URL_KEY) ? Keychain.get(QX_SUB_URL_KEY) || "" : ""
+    const subUrl = await gPrompt({
+      title: "配置 Quantumult X · 机场订阅地址",
+      message: "请输入机场订阅链接（用于解析响应头 subscription-userinfo 中的真实剩余流量与到期时间）：",
+      defaultValue: curSub,
+      placeholder: "https://sub.example.com/api/v1/client/subscribe?token=...",
+      keyboardType: "URL",
+      confirmLabel: "保存并同步",
+      cancelLabel: "取消",
+    })
+    if (subUrl === null) return
+
+    if (subUrl.trim()) {
+      Keychain.set(QX_SUB_URL_KEY, subUrl.trim(), {
+        accessibility: "first_unlock_this_device",
+      })
+    } else {
+      Keychain.remove(QX_SUB_URL_KEY)
+    }
+
+    const res = await refreshQxData()
+    Widget.reloadAll()
+    if (res) {
+      await gAlert(
+        `✓ 订阅配置已更新！\n\n剩余流量：${res.remainGb} (${res.remainPct}%)\n已用/总计：${res.usedGb} / ${res.totalGb}\n周期状态：${res.expireText}\n\n桌面小组件已同步生效！`
+      )
+    }
+    return
+  }
+
+  if (choice === 2) {
+    const next = await switchQxRunningMode()
+    Widget.reloadAll()
+    await gAlert(`✓ 已切换运行模式为：【${next.runningModeLabel}】\n桌面小组件已同步更新！`)
+    return
+  }
+
+  if (choice === 3) {
+    const policies = currentData.policies || []
+    const pIdx = await Dialog.actionSheet({
+      title: "选择要切换节点的策略组",
+      message: "在桌面小组件上直接点击对应策略组卡片也可实现同样效果",
+      cancelButton: true,
+      actions: policies.map((p) => ({ label: `${p.label}（当前：${p.selected}）` })),
+    })
+    if (pIdx === null || pIdx === undefined || pIdx < 0 || pIdx >= policies.length) return
+    const targetP = policies[pIdx]
+    const updated = await switchQxPolicyNode(targetP.id)
+    Widget.reloadAll()
+    const afterP = updated.policies.find((x) => x.id === targetP.id)
+    await gAlert(
+      `✓ 策略组【${targetP.label}】已切换节点：\n${targetP.selected}  ➔  ${afterP?.selected}\n\n桌面小组件已同步更新！`
+    )
+    return
+  }
+
+  if (choice === 4) {
+    const res = await refreshQxData()
+    Widget.reloadAll()
+    if (res) {
+      await gAlert(
+        `✓ Quantumult X 状态已同步！\n\n运行模式：${res.runningModeLabel}\n当前出口：${res.outboundTag} (${res.latencyMs})\n剩余流量：${res.remainGb} (${res.remainPct}%)\n主力节点：${res.policies[0]?.selected || "--"}`
+      )
+    }
+  }
+}
+
 export default function ConfigView() {
   const dismiss = Navigation.useDismiss()
   const hasMedia = hasMediaConfigured()
@@ -995,6 +1104,7 @@ export default function ConfigView() {
   const hasAntigravity = hasAntigravityConfigured()
   const hasCpamp = hasCpampConfigured()
   const hasQb = hasQbConfigured()
+  const hasQx = hasQxConfigured()
 
   useEffect(() => {
     // 首次进入设置面板后 500ms 轻量触发
@@ -1027,6 +1137,23 @@ export default function ConfigView() {
       >
         {/* 数据源状态汇总 */}
         <Section header={<Text>数据源状态（真实数据优先）</Text>}>
+          <HStack spacing={10} alignment="center">
+            <Image
+              systemName="circle.fill"
+              font={{ name: "system", size: 8 }}
+              foregroundStyle="#10B981"
+            />
+            <Text font={14} fontWeight="medium">Quantumult X (方案三联动)</Text>
+            <Spacer />
+            <Button
+              title={hasQx ? "已配置 · 管理" : "桥接与配置"}
+              buttonStyle="bordered"
+              controlSize="mini"
+              action={async () => {
+                await configureQuantumultX()
+              }}
+            />
+          </HStack>
           <HStack spacing={10} alignment="center">
             <Image
               systemName="circle.fill"
@@ -1282,6 +1409,7 @@ export default function ConfigView() {
                   if (hasAntigravity) tasks.push(refreshAntigravityData().catch((e) => console.log("ag err:", e)))
                   if (hasCpamp) tasks.push(refreshCpampData().catch((e) => console.log("cpamp err:", e)))
                   if (hasQb) tasks.push(refreshQbittorrentData().catch((e) => console.log("qb err:", e)))
+                  tasks.push(refreshQxData().catch((e) => console.log("qx err:", e)))
                   tasks.push(refreshVpnData().catch((e) => console.log("vpn err:", e)))
                   tasks.push(refreshFuelData().catch((e) => console.log("fuel err:", e)))
 
@@ -1378,6 +1506,8 @@ export default function ConfigView() {
                     await refreshFuelData().catch(() => null)
                   } else if (opt.id === "qbittorrent") {
                     await refreshQbittorrentData().catch(() => null)
+                  } else if (opt.id === "qx") {
+                    await refreshQxData().catch(() => null)
                   } else if (opt.id === "media") {
                     await refreshMediaData().catch(() => null)
                   }
@@ -1393,7 +1523,15 @@ export default function ConfigView() {
                   } catch {}
 
                   let previewFamily = opt.defaultFamily as any
-                  if (opt.id === "fuel") {
+                  if (opt.id === "qx") {
+                    const chosen = await gActionSheet("请选择 Quantumult X 预览尺寸", [
+                      "中号组件 (流量监控 + 2x2 策略组桌面直切矩阵)",
+                      "小号组件 (精简模式切换 + 主力策略组 + 流量)",
+                      "取消",
+                    ])
+                    if (!chosen || chosen === "取消") return
+                    previewFamily = chosen.includes("小号") ? "systemSmall" : "systemMedium"
+                  } else if (opt.id === "fuel") {
                     const chosen = await gActionSheet("请选择油价小组件预览尺寸", [
                       "小号组件 (Shell 贝壳高光)",
                       "中号组件 (4联卡片极简行情)",

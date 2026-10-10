@@ -10,6 +10,9 @@ export const DEEPSEEK_WHALE_SVG = `<svg viewBox="0 0 64 64" version="1.1" xmlns=
 // 官方 CPA-Manager-Plus 矢量六边形棱镜 Logo SVG
 export const CPAMP_LOGO_SVG = `<svg viewBox="12 8 272 302" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill="#005CFF" d="M129 18 54 65C34 77 22 85 22 99v49c0 2.2 1.8 4 4 4h20c2.1 0 3.2-.8 4.7-2.3l8-8c1.5-1.5 2.3-3.5 2.3-5.7v-21c0-3.7 1.5-6.3 4-8.7L140 56V26c0-4.4-4.4-8-11-8Zm38 0 75 47c20 12 32 20 32 34v49c0 2.2-1.8 4-4 4h-20c-2.1 0-3.2-.8-4.7-2.3l-8-8c-1.5-1.5-2.3-3.5-2.3-5.7v-21c0-3.7-1.5-6.3-4-8.7L156 56V26c0-4.4 4.4-8 11-8ZM26 168h20c2.1 0 3.2.8 4.7 2.3l6.3 6.3c2.6 2.6 3 4.4 3 7.4v16c0 4 .4 7.5 2 11L140 263v26c0 4.8-2.3 7-5.5 8.8-3.1 1.8-6.3 2-10 .2l-84-50.7C28 239.7 22 232.5 22 219v-47c0-2.2 1.8-4 4-4Zm244 0h-20c-2.1 0-3.2.8-4.7 2.3l-6.3 6.3c-2.6 2.6-3 4.4-3 7.4v16c0 4-.4 7.5-2 11L156 263v26c0 4.8 2.3 7 5.5 8.8 3.1 1.8 6.3 2 10 .2l84-50.7C268 239.7 274 232.5 274 219v-47c0-2.2-1.8-4-4-4Z"/><path d="m148 102 55 58-55 57-55-57 55-58Z" fill="#0878EE"/><path d="m93 160 27.5-28 27.5 28H93Z" fill="#38C8FF"/><path d="m120.5 132 27.5-30v58l-27.5-28Z" fill="#66DFFF"/><path d="m148 102 27.5 30-27.5 28v-58Z" fill="#126CFF"/><path d="m175.5 132 27.5 28h-55l27.5-28Z" fill="#075CFF"/><path d="m203 160-27.5 28-27.5-28h55Z" fill="#0044C7"/><path d="m175.5 188-27.5 29v-57l27.5 28Z" fill="#003BB8"/><path d="m148 217-27.5-29 27.5-28v57Z" fill="#075EDC"/><path d="m120.5 188-27.5-28h55l-27.5 28Z" fill="#078DF3"/></svg>`
 
+// Quantumult X 官方三色风车图标（来自 App Store 官方图标资源）
+export const QX_LOGO_IMAGE = loadIcon("assets/quantumult-x.png")
+
 function loadIcon(relLight: string, relDark?: string) {
   try {
     const base = Script.directory
@@ -272,8 +275,80 @@ export const DEFAULT_FUEL: FuelCardData = {
   updatedAt: new Date().toISOString(),
 }
 
+export interface QxPolicyItem {
+  id: string // 策略组标识，如 "Proxy" | "AI" | "Stream" | "Apple"
+  label: string // 显示名称，如 "节点选择" | "AI 专线"
+  selected: string // 当前选中节点，如 "🇭🇰 香港 IEPL 01"
+  candidates: string[] // 候选节点列表，用于桌面点击循环切换
+  icon?: string
+}
+
+export interface QuantumultXData {
+  serviceId: "qx"
+  runningMode: "filter" | "all_proxy" | "all_direct"
+  runningModeLabel: string // "规则分流" | "全部代理" | "全部直连"
+  bridgeConnected: boolean // 是否已连上 QX 本地 Rewrite Bridge
+  subName: string // 机场/配置名称
+  usedGb: string // "108.4 GB"
+  totalGb: string // "500 GB"
+  remainGb: string // "391.6 GB"
+  remainPct: number // 78.3
+  expireText: string // "24天后重置"
+  latencyMs: string // "26 ms"
+  outboundTag: string // "🇭🇰 香港 · 103.85.*"
+  policies: QxPolicyItem[]
+  updatedAt: string
+}
+
+export const DEFAULT_QX: QuantumultXData = {
+  serviceId: "qx",
+  runningMode: "filter",
+  runningModeLabel: "规则分流",
+  bridgeConnected: true,
+  subName: "Quantumult X",
+  usedGb: "108.4 GB",
+  totalGb: "500 GB",
+  remainGb: "391.6 GB",
+  remainPct: 78.3,
+  expireText: "24天后重置",
+  latencyMs: "24 ms",
+  outboundTag: "🇭🇰 香港 IEPL · 原生",
+  policies: [
+    {
+      id: "Proxy",
+      label: "节点选择",
+      selected: "🇭🇰 香港 IEPL 01",
+      candidates: ["🇭🇰 香港 IEPL 01", "🇸🇬 狮城 BGP 02", "🇯🇵 日本东京 01", "🇺🇸 美国 GIA 01"],
+      icon: "globe.asia.australia.fill",
+    },
+    {
+      id: "AI",
+      label: "AI 专线",
+      selected: "🇺🇸 美国 GIA 01",
+      candidates: ["🇺🇸 美国 GIA 01", "🇸🇬 狮城原生 02", "🇯🇵 日本软银 03", "🇬🇧 英国伦敦 01"],
+      icon: "sparkles",
+    },
+    {
+      id: "Stream",
+      label: "流媒体组",
+      selected: "🇸🇬 狮城解锁 01",
+      candidates: ["🇸🇬 狮城解锁 01", "🇭🇰 香港原生 02", "🇹🇼 台湾 Hinet 01", "🇯🇵 日本原生 01"],
+      icon: "play.tv.fill",
+    },
+    {
+      id: "Apple",
+      label: "苹果服务",
+      selected: "🍎 DIRECT 直连",
+      candidates: ["🍎 DIRECT 直连", "🇭🇰 香港 IEPL 01", "🇺🇸 美国 GIA 01"],
+      icon: "apple.logo",
+    },
+  ],
+  updatedAt: new Date().toISOString(),
+}
+
 // 支持在桌面小组件参数 (Widget.parameter) 中识别的 key 与列表
 export const WIDGET_OPTIONS = [
+  { id: "qx", name: "Quantumult X", desc: "自适应代理控制面板（桌面切模式/切策略节点/流量监控）", defaultFamily: "systemMedium" },
   { id: "media", name: "Media Nexus", desc: "中号影视与媒体库总览看板", defaultFamily: "systemMedium" },
   { id: "deepseek", name: "DeepSeek", desc: "小号余额与模型延迟看板", defaultFamily: "systemSmall" },
   { id: "codex", name: "Codex", desc: "小号双周期额度与重置看板", defaultFamily: "systemSmall" },

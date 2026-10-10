@@ -1,5 +1,13 @@
 import { Widget } from "scripting"
-import { DualQuotaCard, FuelPriceCard, MediaNexusCard, MetricBalanceCard, QbittorrentCard, VpnNodeCard } from "./cards"
+import {
+  DualQuotaCard,
+  FuelPriceCard,
+  MediaNexusCard,
+  MetricBalanceCard,
+  QbittorrentCard,
+  QuantumultXCard,
+  VpnNodeCard,
+} from "./cards"
 import {
   getAntigravityData,
   getCodexData,
@@ -8,6 +16,7 @@ import {
   getFuelData,
   getMediaNexusData,
   getQbittorrentData,
+  getQxData,
   getVpnData,
   getWorkBuddyData,
   refreshAntigravityData,
@@ -17,6 +26,7 @@ import {
   refreshFuelData,
   refreshMediaData,
   refreshQbittorrentData,
+  refreshQxData,
   refreshVpnData,
   refreshWorkBuddyData,
 } from "./data"
@@ -76,9 +86,12 @@ export function getWidgetView(paramOverride?: string, familyOverride?: string) {
   else if (target.includes("vpn") || target.includes("node") || target.includes("ip") || target.includes("节点")) param = "vpn"
   else if (target.includes("qbittorrent") || target.includes("qb") || target.includes("qbit")) param = "qbittorrent"
   else if (target.includes("fuel") || target.includes("oil") || target.includes("油价")) param = "fuel"
+  else if (target.includes("qx") || target.includes("quantumult") || target.includes("圈x")) param = "qx"
 
   // 1. 如果传入参数是指定 id
-  if (param === "deepseek") {
+  if (param === "qx") {
+    return <QuantumultXCard data={getQxData()} family={family} />
+  } else if (param === "deepseek") {
     return <MetricBalanceCard data={getDeepSeekData()} />
   } else if (param === "workbuddy") {
     return <MetricBalanceCard data={getWorkBuddyData()} />
@@ -146,6 +159,8 @@ async function main() {
       await refreshQbittorrentData().catch(() => null)
     } else if (p.includes("fuel") || p.includes("oil") || p.includes("油价")) {
       await refreshFuelData().catch(() => null)
+    } else if (p.includes("qx") || p.includes("quantumult") || p.includes("圈x")) {
+      await refreshQxData().catch(() => null)
     } else {
       // 未带参数时，优先按默认组件刷新
       if (Widget.family === "systemMedium" || Widget.family === "systemLarge") {

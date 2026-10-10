@@ -11,14 +11,16 @@ import {
   VStack,
   ZStack,
 } from "scripting"
-import { RefreshWidgetIntent } from "./app_intents"
+import { RefreshWidgetIntent, SwitchQxModeIntent, SwitchQxPolicyIntent } from "./app_intents"
 import { THEME, formatTime, remainColor } from "./theme"
 import {
   DualQuotaData,
   FuelCardData,
   MediaNexusData,
   MetricBalanceData,
+  QX_LOGO_IMAGE,
   QbittorrentData,
+  QuantumultXData,
   VpnNodeData,
 } from "./types"
 
@@ -1362,6 +1364,400 @@ export function QbittorrentCard({ data, family }: { data: QbittorrentData; famil
     return <QbittorrentMediumCard data={data} />
   }
   return <QbittorrentSmallCard data={data} />
+}
+
+// ============================================================
+// 11. Quantumult X 小号看板（方案三：桌面点击切模式/切节点 + 流量监控）
+// ============================================================
+export function QuantumultXSmallCard({ data }: { data: QuantumultXData }) {
+  const pColor = remainColor(data.remainPct)
+  const modeColor =
+    data.runningMode === "all_proxy"
+      ? ({ light: "#7C3AED", dark: "#A78BFA" } as any)
+      : data.runningMode === "all_direct"
+      ? ({ light: "#059669", dark: "#34D399" } as any)
+      : ({ light: "#2563EB", dark: "#60A5FA" } as any)
+
+  const modeBg =
+    data.runningMode === "all_proxy"
+      ? ({ light: "rgba(124,58,237,0.10)", dark: "rgba(167,139,250,0.16)" } as any)
+      : data.runningMode === "all_direct"
+      ? ({ light: "rgba(5,150,105,0.10)", dark: "rgba(52,211,153,0.16)" } as any)
+      : ({ light: "rgba(37,99,235,0.10)", dark: "rgba(96,165,250,0.16)" } as any)
+
+  const cRowBg = { light: "rgba(15,23,42,0.035)", dark: "rgba(255,255,255,0.06)" } as any
+  const topPolicies = (data.policies || []).slice(0, 2)
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 13, bottom: 11, leading: 13, trailing: 13 }}
+      widgetBackground={THEME.bg}
+    >
+      {/* 1. 顶栏：QX 图标 + 标题 + 在线绿点 + 刷新按钮 */}
+      <HStack spacing={4} alignment="center" frame={{ height: 18 }}>
+        <BrandHeaderIcon iconImage={QX_LOGO_IMAGE} size={15} />
+        <Text
+          font={11.5}
+          fontWeight="bold"
+          foregroundStyle={THEME.text}
+          lineLimit={1}
+          minScaleFactor={0.8}
+          allowsTightening={true}
+        >
+          Quantumult X
+        </Text>
+        <Circle fill="#10B981" frame={{ width: 5, height: 5 }} />
+        <Spacer minLength={2} />
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={6} />
+
+      {/* 2. 可点击切换运行模式胶囊 + 实时延迟 */}
+      <HStack spacing={6} alignment="center">
+        <Button intent={SwitchQxModeIntent(undefined)} buttonStyle="plain">
+          <HStack
+            spacing={3.5}
+            alignment="center"
+            padding={{ top: 3, bottom: 3, leading: 7, trailing: 7 }}
+            background={modeBg}
+            clipShape={{ type: "rect", cornerRadius: 6 }}
+            fixedSize={{ horizontal: true, vertical: false }}
+          >
+            <Image
+              systemName={
+                data.runningMode === "all_proxy"
+                  ? "globe"
+                  : data.runningMode === "all_direct"
+                  ? "bolt.horizontal.fill"
+                  : "arrow.triangle.branch"
+              }
+              font={{ name: "system", size: 9.5 }}
+              foregroundStyle={modeColor}
+            />
+            <Text font={10} fontWeight="bold" foregroundStyle={modeColor} lineLimit={1}>
+              {data.runningModeLabel}
+            </Text>
+            <Image
+              systemName="arrow.triangle.2.circlepath"
+              font={{ name: "system", size: 8.5 }}
+              foregroundStyle={modeColor}
+            />
+          </HStack>
+        </Button>
+        <Spacer minLength={2} />
+        <Text
+          font={10}
+          fontWeight="bold"
+          foregroundStyle={THEME.green}
+          monospacedDigit
+          lineLimit={1}
+          minScaleFactor={0.75}
+          fixedSize={{ horizontal: true, vertical: false }}
+        >
+          {data.latencyMs}
+        </Text>
+      </HStack>
+
+      <Spacer minLength={5} />
+
+      {/* 3. 核心策略组可点击切换列表（前 2 组） */}
+      <VStack alignment="leading" spacing={4}>
+        {topPolicies.map((p) => (
+          <Button key={p.id} intent={SwitchQxPolicyIntent(p.id)} buttonStyle="plain">
+            <HStack
+              spacing={4}
+              alignment="center"
+              padding={{ top: 3.5, bottom: 3.5, leading: 6, trailing: 6 }}
+              background={cRowBg}
+              clipShape={{ type: "rect", cornerRadius: 6 }}
+              frame={{ maxWidth: "infinity" }}
+            >
+              <Text font={9.5} fontWeight="medium" foregroundStyle={THEME.dim} lineLimit={1}>
+                {p.label.replace(/选择|策略|组$/g, "")}
+              </Text>
+              <Spacer minLength={4} />
+              <Text
+                font={10}
+                fontWeight="bold"
+                foregroundStyle={THEME.text}
+                lineLimit={1}
+                minScaleFactor={0.8}
+              >
+                {p.selected}
+              </Text>
+              <Image
+                systemName="chevron.right"
+                font={{ name: "system", size: 8 }}
+                foregroundStyle={THEME.dim}
+              />
+            </HStack>
+          </Button>
+        ))}
+      </VStack>
+
+      <Spacer minLength={6} />
+
+      {/* 4. 机场订阅剩余流量进度条 */}
+      <HStack spacing={6} alignment="center">
+        <ProgressBar value={data.remainPct} color={pColor} height={4.5} />
+        <Text font={10} fontWeight="bold" foregroundStyle={pColor} monospacedDigit lineLimit={1}>
+          {`${Math.round(data.remainPct)}%`}
+        </Text>
+      </HStack>
+
+      <Spacer minLength={0} />
+
+      {/* 5. 底栏：剩余流量 · 更新时间 */}
+      <HStack spacing={4} alignment="center">
+        <Text font={8.5} foregroundStyle={THEME.dim} lineLimit={1}>
+          {`余 ${data.remainGb}`}
+        </Text>
+        <Spacer />
+        <Text font={8.5} foregroundStyle={THEME.dim} monospacedDigit lineLimit={1}>
+          {`更新于 ${formatTime(data.updatedAt)}`}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// ============================================================
+// 12. Quantumult X 中号看板（方案三：左栏流量/出口监控 + 右栏 2x2 策略组桌面直切矩阵）
+// ============================================================
+export function QuantumultXMediumCard({ data }: { data: QuantumultXData }) {
+  const cTitle = { light: "#1E293B", dark: "#F8FAFC" } as any
+  const cLabel = { light: "#64748B", dark: "#94A3B8" } as any
+  const cDivider = { light: "rgba(0,0,0,0.08)", dark: "rgba(255,255,255,0.12)" } as any
+  const cCellBg = { light: "#F8FAFC", dark: "#1E293B" } as any
+  const cCellBorder = { light: "rgba(15,23,42,0.06)", dark: "rgba(255,255,255,0.08)" } as any
+  const pColor = remainColor(data.remainPct)
+
+  const modeColor =
+    data.runningMode === "all_proxy"
+      ? ({ light: "#7C3AED", dark: "#A78BFA" } as any)
+      : data.runningMode === "all_direct"
+      ? ({ light: "#059669", dark: "#34D399" } as any)
+      : ({ light: "#2563EB", dark: "#60A5FA" } as any)
+
+  const modeBg =
+    data.runningMode === "all_proxy"
+      ? ({ light: "rgba(124,58,237,0.10)", dark: "rgba(167,139,250,0.16)" } as any)
+      : data.runningMode === "all_direct"
+      ? ({ light: "rgba(5,150,105,0.10)", dark: "rgba(52,211,153,0.16)" } as any)
+      : ({ light: "rgba(37,99,235,0.10)", dark: "rgba(96,165,250,0.16)" } as any)
+
+  const policies = (data.policies || []).slice(0, 4)
+  const row1 = policies.slice(0, 2)
+  const row2 = policies.slice(2, 4)
+
+  const renderPolicyCell = (p: any) => (
+    <Button key={p.id} intent={SwitchQxPolicyIntent(p.id)} buttonStyle="plain">
+      <ZStack frame={{ maxWidth: "infinity" }}>
+        <RoundedRectangle
+          fill={cCellBg}
+          cornerRadius={7}
+          stroke={{
+            shapeStyle: cCellBorder,
+            strokeStyle: { lineWidth: 0.8 },
+          }}
+        />
+        <VStack
+          alignment="leading"
+          spacing={2.5}
+          padding={{ top: 5, bottom: 5, leading: 7, trailing: 7 }}
+          frame={{ maxWidth: "infinity" }}
+        >
+          <HStack spacing={3} alignment="center">
+            <Image
+              systemName={p.icon || "network"}
+              font={{ name: "system", size: 8.5 }}
+              foregroundStyle={modeColor}
+            />
+            <Text
+              font={9.5}
+              fontWeight="medium"
+              foregroundStyle={cLabel}
+              lineLimit={1}
+              minScaleFactor={0.8}
+              allowsTightening={true}
+            >
+              {p.label}
+            </Text>
+            <Spacer minLength={2} />
+            <Image
+              systemName="arrow.triangle.2.circlepath"
+              font={{ name: "system", size: 8 }}
+              foregroundStyle={cLabel}
+            />
+          </HStack>
+          <Text
+            font={10.5}
+            fontWeight="bold"
+            foregroundStyle={cTitle}
+            lineLimit={1}
+            minScaleFactor={0.8}
+          >
+            {p.selected}
+          </Text>
+        </VStack>
+      </ZStack>
+    </Button>
+  )
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 14, bottom: 12, leading: 16, trailing: 16 }}
+      widgetBackground={{ light: "#FFFFFF", dark: "#0F172A" } as any}
+    >
+      {/* 1. 顶部标题栏：Logo + Quantumult X + 在线点 + 可点击运行模式切换胶囊 + 刷新 */}
+      <HStack spacing={6} alignment="center">
+        <BrandHeaderIcon iconImage={QX_LOGO_IMAGE} size={18} />
+        <Text font={15.5} fontWeight="bold" foregroundStyle={cTitle}>
+          Quantumult X
+        </Text>
+        <Circle fill="#10B981" frame={{ width: 6, height: 6 }} />
+        <Spacer />
+        <Button intent={SwitchQxModeIntent(undefined)} buttonStyle="plain">
+          <HStack
+            spacing={4}
+            alignment="center"
+            padding={{ top: 3, bottom: 3, leading: 8, trailing: 8 }}
+            background={modeBg}
+            clipShape={{ type: "rect", cornerRadius: 7 }}
+          >
+            <Image
+              systemName={
+                data.runningMode === "all_proxy"
+                  ? "globe"
+                  : data.runningMode === "all_direct"
+                  ? "bolt.horizontal.fill"
+                  : "arrow.triangle.branch"
+              }
+              font={{ name: "system", size: 9.5 }}
+              foregroundStyle={modeColor}
+            />
+            <Text font={10.5} fontWeight="bold" foregroundStyle={modeColor} lineLimit={1}>
+              {data.runningModeLabel}
+            </Text>
+            <Image
+              systemName="arrow.triangle.2.circlepath"
+              font={{ name: "system", size: 8.5 }}
+              foregroundStyle={modeColor}
+            />
+          </HStack>
+        </Button>
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      {/* 2. 中部黄金分割：[左半区：订阅剩余流量与落地延迟] | 分割线 | [右半区：2x2 策略组交互矩阵] */}
+      <HStack alignment="center" spacing={0}>
+        {/* 左半区 */}
+        <VStack alignment="leading" spacing={4} frame={{ width: 112 }}>
+          <HStack spacing={4} alignment="center">
+            <Text font={9.5} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+              剩余流量
+            </Text>
+            <Spacer />
+            <Text font={9} foregroundStyle={cLabel} lineLimit={1} minScaleFactor={0.8}>
+              {data.expireText}
+            </Text>
+          </HStack>
+
+          <HStack alignment="lastTextBaseline" spacing={2}>
+            <Text
+              font={17.5}
+              fontWeight="bold"
+              foregroundStyle={pColor}
+              monospacedDigit
+              lineLimit={1}
+              minScaleFactor={0.7}
+              allowsTightening={true}
+            >
+              {data.remainGb}
+            </Text>
+            <Spacer minLength={2} />
+            <Text font={10} fontWeight="bold" foregroundStyle={pColor} monospacedDigit>
+              {`${Math.round(data.remainPct)}%`}
+            </Text>
+          </HStack>
+
+          <ProgressBar value={data.remainPct} color={pColor} height={4.5} />
+
+          <HStack spacing={3} alignment="center" padding={{ top: 2 }}>
+            <Text
+              font={9}
+              fontWeight="medium"
+              foregroundStyle={cTitle}
+              lineLimit={1}
+              minScaleFactor={0.75}
+              allowsTightening={true}
+            >
+              {data.outboundTag}
+            </Text>
+            <Spacer minLength={2} />
+            <Text
+              font={9}
+              fontWeight="bold"
+              foregroundStyle={THEME.green}
+              monospacedDigit
+              lineLimit={1}
+            >
+              {data.latencyMs}
+            </Text>
+          </HStack>
+        </VStack>
+
+        <Spacer minLength={9} />
+
+        {/* 纵向分割线 */}
+        <RoundedRectangle
+          fill={cDivider}
+          cornerRadius={0.5}
+          frame={{ width: 1, height: 64 }}
+        />
+
+        <Spacer minLength={9} />
+
+        {/* 右半区：2x2 策略组可点击切换矩阵 */}
+        <VStack alignment="leading" spacing={5} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={5} frame={{ maxWidth: "infinity" }}>
+            {row1.map((p) => renderPolicyCell(p))}
+          </HStack>
+          <HStack spacing={5} frame={{ maxWidth: "infinity" }}>
+            {row2.map((p) => renderPolicyCell(p))}
+          </HStack>
+        </VStack>
+      </HStack>
+
+      <Spacer minLength={7} />
+
+      {/* 3. 底栏：已用/总计 · 交互提示 · 更新时间 */}
+      <HStack spacing={6} alignment="center">
+        <Text font={9.5} fontWeight="regular" foregroundStyle={cLabel} lineLimit={1}>
+          {`已用 ${data.usedGb} / ${data.totalGb} · 点击模式或策略组可切换`}
+        </Text>
+        <Spacer />
+        <Text font={9.5} fontWeight="regular" foregroundStyle={cLabel} monospacedDigit>
+          {`更新于 ${formatTime(data.updatedAt)}`}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// 统一根据尺寸自适应的 QuantumultXCard
+export function QuantumultXCard({ data, family }: { data: QuantumultXData; family?: string }) {
+  if (family === "systemMedium" || family === "systemLarge") {
+    return <QuantumultXMediumCard data={data} />
+  }
+  return <QuantumultXSmallCard data={data} />
 }
 
 

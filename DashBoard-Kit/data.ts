@@ -9,9 +9,12 @@ import {
   DEFAULT_WORKBUDDY,
   DEFAULT_FUEL,
   DEFAULT_QBITTORRENT,
+  DEFAULT_QX,
   DualQuotaData,
   FuelCardData,
   QbittorrentData,
+  QuantumultXData,
+  QxPolicyItem,
   MediaNexusData,
   MetricBalanceData,
   VpnNodeData,
@@ -2083,6 +2086,427 @@ export async function refreshQbittorrentData(): Promise<QbittorrentData | null> 
     console.log("拉取 qBittorrent 状态异常:", e)
     return null
   }
+}
+
+// ============================================================
+// 10. Quantumult X 深度联动（方案三：Rewrite 本地桥接 + 桌面切节点/模式 + 订阅流量）
+// ============================================================
+export const QX_BRIDGE_URL_KEY = "dashboard_kit_qx_bridge_url"
+export const QX_SUB_URL_KEY = "dashboard_kit_qx_sub_url"
+export const QX_SUB_NAME_KEY = "dashboard_kit_qx_sub_name"
+export const QX_POLICIES_KEY = "dashboard_kit_qx_policies"
+export const QX_CACHE_KEY = "dashboard_kit_qx_cache_v1"
+
+const QX_FILE_CACHE_PATH =
+  FileManager.appGroupDocumentsDirectory + "/dashboard_kit_qx_cache.json"
+
+/**
+ * 供用户一键复制到 Quantumult X 的本地 Rewrite 与桥接脚本模板
+ */
+export const QX_REWRITE_GUIDE_TEXT = `# 1. 在 Quantumult X 配置文件 [rewrite_local] 下添加：
+^http:\\/\\/qx\\.local\\/api url script-analyze-echo-response qx_dashboard_bridge.js
+
+# 2. 在 Quantumult X 脚本目录新建 qx_dashboard_bridge.js，粘贴以下代码：
+const url = new URL($request.url);
+const action = url.searchParams.get("action") || "status";
+const mode = url.searchParams.get("mode") || "";
+const policy = url.searchParams.get("policy") || "";
+const node = url.searchParams.get("node") || "";
+
+function sendMsg(act, content) {
+  return new Promise((resolve) => {
+    $configuration.sendMessage({ action: act, content }).then(
+      (res) => resolve(res && res.ret ? res.ret : res),
+      () => resolve(null)
+    );
+  });
+}
+
+(async () => {
+  if (action === "set_mode" && mode) {
+    await sendMsg("set_running_mode", { running_mode: mode });
+  } else if (action === "set_policy" && policy && node) {
+    const dict = {};
+    dict[policy] = node;
+    await sendMsg("set_policy_state", dict);
+  }
+  const modeRet = await sendMsg("get_running_mode");
+  const policiesRet = await sendMsg("get_customized_policy");
+  $done({
+    status: "HTTP/1.1 200 OK",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({
+      ok: true,
+      running_mode: (modeRet && modeRet.running_mode) || mode || "filter",
+      policies: policiesRet || {}
+    })
+  });
+})();`
+
+const MODE_LABELS: Record<"filter" | "all_proxy" | "all_direct", string> = {
+  filter: "规则分流",
+  all_proxy: "全部代理",
+  all_direct: "全部直连",
+}
+
+export function hasQxConfigured(): boolean {
+  try {
+    const sub = Keychain.contains(QX_SUB_URL_KEY) ? Keychain.get(QX_SUB_URL_KEY) || "" : ""
+    const bridge = Keychain.contains(QX_BRIDGE_URL_KEY) ? Keychain.get(QX_BRIDGE_URL_KEY) || "" : ""
+    return !!(sub.trim() || bridge.trim())
+  } catch {
+    return false
+  }
+}
+
+export function saveQxData(data: QuantumultXData) {
+  try {
+    Storage.set(QX_CACHE_KEY, data, { shared: true })
+    Storage.set(QX_CACHE_KEY, data)
+    FileManager.writeAsStringSync(QX_FILE_CACHE_PATH, JSON.stringify(data))
+  } catch {}
+}
+
+export function getQxData(): QuantumultXData {
+  try {
+    let local =
+      Storage.get<QuantumultXData>(QX_CACHE_KEY, { shared: true }) ||
+      Storage.get<QuantumultXData>(QX_CACHE_KEY)
+
+    if (!local && FileManager.existsSync(QX_FILE_CACHE_PATH)) {
+      try {
+        const raw = FileManager.readAsStringSync(QX_FILE_CACHE_PATH)
+        if (raw) local = JSON.parse(raw)
+      } catch {}
+    }
+
+    if (local && local.serviceId === "qx" && Array.isArray(local.policies)) {
+      return {
+        ...DEFAULT_QX,
+        ...local,
+        serviceId: "qx",
+      }
+    }
+  } catch {}
+  return DEFAULT_QX
+}
+
+function flagFromCountry(countryOrCode: string): string {
+  const s = (countryOrCode || "").toUpperCase()
+  if (s.includes("HK") || s.includes("香港")) return "🇭🇰"
+  if (s.includes("SG") || s.includes("新加坡") || s.includes("狮城")) return "🇸🇬"
+  if (s.includes("JP") || s.includes("日本") || s.includes("东京") || s.includes("大阪")) return "🇯🇵"
+  if (s.includes("US") || s.includes("美国") || s.includes("硅谷") || s.includes("洛杉矶")) return "🇺🇸"
+  if (s.includes("TW") || s.includes("台湾") || s.includes("台北")) return "🇹🇼"
+  if (s.includes("KR") || s.includes("韩国") || s.includes("首尔")) return "🇰🇷"
+  if (s.includes("MY") || s.includes("马来")) return "🇲🇾"
+  if (s.includes("TH") || s.includes("泰国")) return "🇹🇭"
+  if (s.includes("VN") || s.includes("越南")) return "🇻🇳"
+  if (s.includes("IN") || s.includes("印度")) return "🇮🇳"
+  if (s.includes("AU") || s.includes("澳大利亚") || s.includes("悉尼")) return "🇦🇺"
+  if (s.includes("CA") || s.includes("加拿大")) return "🇨🇦"
+  if (s.includes("FR") || s.includes("法国")) return "🇫🇷"
+  if (s.includes("NL") || s.includes("荷兰")) return "🇳🇱"
+  if (s.includes("RU") || s.includes("俄罗斯")) return "🇷🇺"
+  if (s.includes("GB") || s.includes("UK") || s.includes("英国") || s.includes("伦敦")) return "🇬🇧"
+  if (s.includes("DE") || s.includes("德国") || s.includes("法兰克福")) return "🇩🇪"
+  if (s.includes("CN") || s.includes("中国")) return "🇨🇳"
+  return "🌐"
+}
+
+/**
+ * 解析机场订阅响应头 subscription-userinfo: upload=123; download=456; total=789; expire=1790000000
+ */
+function parseSubscriptionUserinfo(headerVal: string): {
+  usedGb: string
+  totalGb: string
+  remainGb: string
+  remainPct: number
+  expireText: string
+} | null {
+  if (!headerVal) return null
+  const getNum = (key: string) => {
+    const m = headerVal.match(new RegExp(`${key}=([0-9.]+)`, "i"))
+    return m ? Number(m[1]) : 0
+  }
+  const upload = getNum("upload")
+  const download = getNum("download")
+  const total = getNum("total")
+  const expire = getNum("expire")
+  if (total <= 0) return null
+
+  const usedBytes = upload + download
+  const remainBytes = Math.max(0, total - usedBytes)
+  const remainPct = Math.round((remainBytes / total) * 1000) / 10
+
+  const toGb = (b: number) => {
+    const gb = b / (1024 * 1024 * 1024)
+    return gb >= 100 ? `${Math.round(gb)} GB` : `${gb.toFixed(1)} GB`
+  }
+
+  let expireText = "长期有效"
+  if (expire > 0) {
+    const days = Math.max(0, Math.ceil((expire * 1000 - Date.now()) / (86400 * 1000)))
+    expireText = days > 0 ? `${days}天后到期` : "今日到期"
+  }
+
+  return {
+    usedGb: toGb(usedBytes),
+    totalGb: toGb(total),
+    remainGb: toGb(remainBytes),
+    remainPct,
+    expireText,
+  }
+}
+
+/**
+ * 刷新 Quantumult X 状态（并发请求本地 Rewrite 桥接接口 + 机场订阅流量头 + 实时延迟与出口）
+ */
+export async function refreshQxData(): Promise<QuantumultXData | null> {
+  try {
+    const current = getQxData()
+    const bridgeUrl = (
+      (Keychain.contains(QX_BRIDGE_URL_KEY) ? Keychain.get(QX_BRIDGE_URL_KEY) : "") ||
+      "http://qx.local/api"
+    ).trim()
+    const subUrl = (Keychain.contains(QX_SUB_URL_KEY) ? Keychain.get(QX_SUB_URL_KEY) || "" : "").trim()
+    const subName = (
+      (Keychain.contains(QX_SUB_NAME_KEY) ? Keychain.get(QX_SUB_NAME_KEY) : "") ||
+      current.subName ||
+      "Quantumult X"
+    ).trim()
+
+    let runningMode = current.runningMode
+    let runningModeLabel = MODE_LABELS[runningMode] || "规则分流"
+    let bridgeConnected = current.bridgeConnected
+    let policies: QxPolicyItem[] = current.policies.map((p) => ({ ...p }))
+
+    // 1. 尝试调用 QX 本地 Rewrite Bridge 获取真实策略组与运行模式
+    try {
+      const sep = bridgeUrl.includes("?") ? "&" : "?"
+      const res = await fetch(`${bridgeUrl}${sep}action=status`, { timeout: 2.5 })
+      if (res.ok) {
+        const json: any = await res.json().catch(() => null)
+        if (json && (json.ok || json.running_mode || json.policies)) {
+          bridgeConnected = true
+          if (
+            json.running_mode === "filter" ||
+            json.running_mode === "all_proxy" ||
+            json.running_mode === "all_direct"
+          ) {
+            runningMode = json.running_mode
+            runningModeLabel = MODE_LABELS[runningMode]
+          }
+          if (json.policies && typeof json.policies === "object") {
+            const pKeys = Object.keys(json.policies)
+            if (pKeys.length > 0) {
+              // 优先匹配用户已有策略组 ID，若无则取前 4 个策略组
+              const updatedPolicies: QxPolicyItem[] = []
+              for (const existing of policies) {
+                const matchedKey = pKeys.find(
+                  (k) => k.toLowerCase() === existing.id.toLowerCase() || k === existing.label
+                )
+                if (matchedKey) {
+                  const pObj = json.policies[matchedKey]
+                  const cands = Array.isArray(pObj?.candidates) && pObj.candidates.length > 0
+                    ? pObj.candidates
+                    : existing.candidates
+                  updatedPolicies.push({
+                    ...existing,
+                    id: matchedKey,
+                    selected: pObj?.selected || existing.selected,
+                    candidates: cands,
+                  })
+                }
+              }
+              if (updatedPolicies.length > 0) {
+                policies = updatedPolicies
+              } else {
+                policies = pKeys.slice(0, 4).map((k, idx) => {
+                  const pObj = json.policies[k] || {}
+                  const cands = Array.isArray(pObj.candidates) && pObj.candidates.length > 0
+                    ? pObj.candidates
+                    : ["DIRECT", "PROXY"]
+                  return {
+                    id: k,
+                    label: k,
+                    selected: pObj.selected || cands[0],
+                    candidates: cands,
+                    icon: DEFAULT_QX.policies[idx]?.icon || "network",
+                  }
+                })
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // 2. 若配置了机场订阅链接，拉取真实流量与到期时间
+    let usedGb = current.usedGb
+    let totalGb = current.totalGb
+    let remainGb = current.remainGb
+    let remainPct = current.remainPct
+    let expireText = current.expireText
+
+    if (subUrl) {
+      try {
+        const subRes = await fetch(subUrl, {
+          method: "GET",
+          headers: { "User-Agent": "Quantumult%20X/1.4.4 (iPhone; iOS 17.5)" },
+          timeout: 5,
+        })
+        const hdrs: any = subRes.headers
+        let userInfo = ""
+        if (typeof hdrs?.get === "function") {
+          userInfo =
+            hdrs.get("subscription-userinfo") ||
+            hdrs.get("Subscription-Userinfo") ||
+            hdrs.get("SUBSCRIPTION-USERINFO") ||
+            ""
+        } else if (hdrs && typeof hdrs === "object") {
+          for (const k of Object.keys(hdrs)) {
+            if (k.toLowerCase() === "subscription-userinfo") {
+              userInfo = String(hdrs[k])
+              break
+            }
+          }
+        }
+        const parsed = parseSubscriptionUserinfo(userInfo)
+        if (parsed) {
+          usedGb = parsed.usedGb
+          totalGb = parsed.totalGb
+          remainGb = parsed.remainGb
+          remainPct = parsed.remainPct
+          expireText = parsed.expireText
+        }
+      } catch (e) {
+        console.log("拉取 QX 机场订阅流量失败:", e)
+      }
+    }
+
+    // 3. 测量实时代理延迟与当前出口地区
+    let latencyMs = current.latencyMs
+    let outboundTag = current.outboundTag
+    try {
+      const t0 = Date.now()
+      const [pingRes, ipInfo] = await Promise.all([
+        fetch("http://cp.cloudflare.com/generate_204", { timeout: 3 }).catch(() => null),
+        fetch(IP_API_URL, { timeout: 3.5 })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
+      ])
+      if (pingRes) {
+        const dt = Math.max(8, Date.now() - t0)
+        latencyMs = `${dt} ms`
+      }
+      if (ipInfo && ipInfo.status === "success") {
+        const flag = flagFromCountry(ipInfo.countryCode || ipInfo.country || "")
+        const region = ipInfo.country || ipInfo.regionName || "海外"
+        const firstOctet = String(ipInfo.query || "").split(".")[0]
+        outboundTag = `${flag} ${region}${firstOctet ? ` · ${firstOctet}.*` : ""}`
+      }
+    } catch {}
+
+    const nextData: QuantumultXData = {
+      serviceId: "qx",
+      runningMode,
+      runningModeLabel,
+      bridgeConnected,
+      subName,
+      usedGb,
+      totalGb,
+      remainGb,
+      remainPct,
+      expireText,
+      latencyMs,
+      outboundTag,
+      policies,
+      updatedAt: new Date().toISOString(),
+    }
+
+    saveQxData(nextData)
+    return nextData
+  } catch (e) {
+    console.log("刷新 Quantumult X 数据异常:", e)
+    return null
+  }
+}
+
+/**
+ * 桌面交互按钮：循环切换 Quantumult X 运行模式（规则分流 -> 全部代理 -> 全部直连）
+ */
+export async function switchQxRunningMode(): Promise<QuantumultXData> {
+  const current = getQxData()
+  const order: ("filter" | "all_proxy" | "all_direct")[] = ["filter", "all_proxy", "all_direct"]
+  const idx = order.indexOf(current.runningMode)
+  const nextMode = order[(idx + 1) % order.length]
+  const nextLabel = MODE_LABELS[nextMode]
+
+  const bridgeUrl = (
+    (Keychain.contains(QX_BRIDGE_URL_KEY) ? Keychain.get(QX_BRIDGE_URL_KEY) : "") ||
+    "http://qx.local/api"
+  ).trim()
+
+  try {
+    const sep = bridgeUrl.includes("?") ? "&" : "?"
+    await fetch(`${bridgeUrl}${sep}action=set_mode&mode=${nextMode}`, { timeout: 1.5 }).catch(
+      () => null
+    )
+  } catch {}
+
+  const updated: QuantumultXData = {
+    ...current,
+    runningMode: nextMode,
+    runningModeLabel: nextLabel,
+    updatedAt: new Date().toISOString(),
+  }
+  saveQxData(updated)
+  return updated
+}
+
+/**
+ * 桌面交互按钮：点击某个策略组直接切换到下一个候选节点
+ */
+export async function switchQxPolicyNode(policyId: string): Promise<QuantumultXData> {
+  const current = getQxData()
+  let targetNode = ""
+
+  const nextPolicies = current.policies.map((p) => {
+    if (p.id === policyId || p.label === policyId) {
+      const cands = Array.isArray(p.candidates) && p.candidates.length > 0 ? p.candidates : [p.selected]
+      const curIdx = cands.indexOf(p.selected)
+      const nextNode = cands[(curIdx + 1) % cands.length]
+      targetNode = nextNode
+      return {
+        ...p,
+        selected: nextNode,
+      }
+    }
+    return p
+  })
+
+  if (targetNode) {
+    const bridgeUrl = (
+      (Keychain.contains(QX_BRIDGE_URL_KEY) ? Keychain.get(QX_BRIDGE_URL_KEY) : "") ||
+      "http://qx.local/api"
+    ).trim()
+    try {
+      const sep = bridgeUrl.includes("?") ? "&" : "?"
+      await fetch(
+        `${bridgeUrl}${sep}action=set_policy&policy=${encodeURIComponent(policyId)}&node=${encodeURIComponent(targetNode)}`,
+        { timeout: 1.5 }
+      ).catch(() => null)
+    } catch {}
+  }
+
+  const updated: QuantumultXData = {
+    ...current,
+    policies: nextPolicies,
+    updatedAt: new Date().toISOString(),
+  }
+  saveQxData(updated)
+  return updated
 }
 
 
