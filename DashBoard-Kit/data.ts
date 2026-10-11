@@ -2099,6 +2099,88 @@ export const QX_CACHE_KEY = "dashboard_kit_qx_cache_v1"
 
 const QX_FILE_CACHE_PATH =
   FileManager.appGroupDocumentsDirectory + "/dashboard_kit_qx_cache.json"
+const QX_SETTINGS_FILE_PATH =
+  FileManager.appGroupDocumentsDirectory + "/dashboard_kit_qx_settings.json"
+
+export interface QxSettings {
+  subUrl?: string
+  subName?: string
+  bridgeUrl?: string
+  customPolicies?: string
+}
+
+export function getQxSettings(): QxSettings {
+  const out: QxSettings = {}
+  try {
+    if (FileManager.existsSync(QX_SETTINGS_FILE_PATH)) {
+      const raw = FileManager.readAsStringSync(QX_SETTINGS_FILE_PATH)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === "object") Object.assign(out, parsed)
+      }
+    }
+  } catch {}
+  try {
+    const stor =
+      Storage.get<QxSettings>("dashboard_kit_qx_settings_v1", { shared: true }) ||
+      Storage.get<QxSettings>("dashboard_kit_qx_settings_v1")
+    if (stor && typeof stor === "object") {
+      if (stor.subUrl !== undefined && !out.subUrl) out.subUrl = stor.subUrl
+      if (stor.subName !== undefined && !out.subName) out.subName = stor.subName
+      if (stor.bridgeUrl !== undefined && !out.bridgeUrl) out.bridgeUrl = stor.bridgeUrl
+      if (stor.customPolicies !== undefined && out.customPolicies === undefined) {
+        out.customPolicies = stor.customPolicies
+      }
+    }
+  } catch {}
+  try {
+    if (!out.subUrl && Keychain.contains(QX_SUB_URL_KEY)) {
+      out.subUrl = Keychain.get(QX_SUB_URL_KEY) || ""
+    }
+    if (!out.subName && Keychain.contains(QX_SUB_NAME_KEY)) {
+      out.subName = Keychain.get(QX_SUB_NAME_KEY) || ""
+    }
+    if (!out.bridgeUrl && Keychain.contains(QX_BRIDGE_URL_KEY)) {
+      out.bridgeUrl = Keychain.get(QX_BRIDGE_URL_KEY) || ""
+    }
+    if (out.customPolicies === undefined && Keychain.contains(QX_POLICIES_KEY)) {
+      out.customPolicies = Keychain.get(QX_POLICIES_KEY) || ""
+    }
+  } catch {}
+  return out
+}
+
+export function saveQxSettings(patch: Partial<QxSettings>) {
+  const next: QxSettings = {
+    ...getQxSettings(),
+    ...patch,
+  }
+  try {
+    FileManager.writeAsStringSync(QX_SETTINGS_FILE_PATH, JSON.stringify(next))
+  } catch {}
+  try {
+    Storage.set("dashboard_kit_qx_settings_v1", next, { shared: true })
+    Storage.set("dashboard_kit_qx_settings_v1", next)
+  } catch {}
+  try {
+    if (patch.subUrl !== undefined) {
+      if (patch.subUrl.trim()) {
+        Keychain.set(QX_SUB_URL_KEY, patch.subUrl.trim(), { accessibility: "first_unlock_this_device" })
+      } else {
+        Keychain.remove(QX_SUB_URL_KEY)
+      }
+    }
+    if (patch.customPolicies !== undefined) {
+      if (patch.customPolicies.trim()) {
+        Keychain.set(QX_POLICIES_KEY, patch.customPolicies.trim(), {
+          accessibility: "first_unlock_this_device",
+        })
+      } else {
+        Keychain.remove(QX_POLICIES_KEY)
+      }
+    }
+  } catch {}
+}
 
 /**
  * 供用户一键复制到 Quantumult X 的本地 Rewrite 与桥接脚本模板
@@ -2117,9 +2199,8 @@ const MODE_LABELS: Record<"filter" | "all_proxy" | "all_direct", string> = {
 
 export function hasQxConfigured(): boolean {
   try {
-    const sub = Keychain.contains(QX_SUB_URL_KEY) ? Keychain.get(QX_SUB_URL_KEY) || "" : ""
-    const bridge = Keychain.contains(QX_BRIDGE_URL_KEY) ? Keychain.get(QX_BRIDGE_URL_KEY) || "" : ""
-    return !!(sub.trim() || bridge.trim())
+    const s = getQxSettings()
+    return !!((s.subUrl && s.subUrl.trim()) || (s.bridgeUrl && s.bridgeUrl.trim()) || (s.customPolicies && s.customPolicies.trim()))
   } catch {
     return false
   }
@@ -2254,17 +2335,12 @@ function parseSubscriptionUserinfo(headerVal: string): {
 export async function refreshQxData(): Promise<QuantumultXData | null> {
   try {
     const current = getQxData()
-    const rawBridge = (
-      (Keychain.contains(QX_BRIDGE_URL_KEY) ? Keychain.get(QX_BRIDGE_URL_KEY) : "") ||
-      "http://qx.lan/api"
-    ).trim()
+    const settings = getQxSettings()
+    const rawBridge = (settings.bridgeUrl || "http://qx.lan/api").trim()
     const bridgeUrl = rawBridge.replace("://qx.local/", "://qx.lan/")
-    const subUrl = (Keychain.contains(QX_SUB_URL_KEY) ? Keychain.get(QX_SUB_URL_KEY) || "" : "").trim()
-    const subName = (
-      (Keychain.contains(QX_SUB_NAME_KEY) ? Keychain.get(QX_SUB_NAME_KEY) : "") ||
-      current.subName ||
-      "Quantumult X"
-    ).trim()
+    const subUrl = (settings.subUrl || "").trim()
+    const subName = (settings.subName || current.subName || "Quantumult X").trim()
+    const savedCustom = (settings.customPolicies || "").trim()
 
     let runningMode = current.runningMode
     let runningModeLabel = MODE_LABELS[runningMode] || "规则分流"
@@ -2323,14 +2399,18 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
                 activeNodeCount = String(leafNodes.length)
               }
 
-              const iconForGroup = (name: string, idx: number): string => {
+              const iconForGroup = (name: string): string => {
                 if (/苹果|apple/i.test(name)) return "apple.logo"
-                if (/媒体|影视|流媒体|stream|emby|netflix|youtube|哔哩|bilibili/i.test(name)) return "play.tv.fill"
+                if (/哔哩|bilibili/i.test(name)) return "tv.fill"
+                if (/媒体|影视|流媒体|stream|emby|netflix|youtube/i.test(name)) return "play.tv.fill"
                 if (/音乐|music|spotify|声田/i.test(name)) return "music.note"
                 if (/ai|openai|claude|gpt|gemini/i.test(name)) return "sparkles"
                 if (/全球|加速|global/i.test(name)) return "bolt.horizontal.circle.fill"
                 if (/兜底|final|match/i.test(name)) return "shield.lefthalf.filled"
-                return DEFAULT_QX.policies[idx]?.icon || "globe.asia.australia.fill"
+                if (/自动|auto/i.test(name)) return "wand.and.stars"
+                if (/电报|telegram|tg/i.test(name)) return "paperplane.fill"
+                if (/游戏|game|steam/i.test(name)) return "gamecontroller.fill"
+                return "globe.asia.australia.fill"
               }
 
               const labelForGroup = (name: string): string => {
@@ -2379,20 +2459,44 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
                 return { selected: "direct", candidates: ["direct"] }
               }
 
-              // 读取用户自定义的 4 个策略组名称（如有），否则按智能优先级选取 4 个真实策略组
+              // 读取用户自定义的 4 个策略组名称（如有），支持：
+              // 1. 忽略大小写匹配（如输入 PROXY 匹配 proxy）
+              // 2. 别名匹配（如输入 "节点选择" 匹配 "proxy"）
+              // 3. 包含/模糊匹配（如输入 "香港" 匹配 "香港节点"，输入 "bili" 或 "哔哩" 匹配 "哔哩哔哩"）
               let preferredKeys: string[] = []
-              try {
-                const savedCustom = Keychain.contains(QX_POLICIES_KEY)
-                  ? Keychain.get(QX_POLICIES_KEY) || ""
-                  : ""
-                if (savedCustom.trim()) {
-                  preferredKeys = savedCustom
-                    .split(/[,，\n]/)
-                    .map((s) => s.trim())
-                    .filter((s) => pKeys.includes(s))
+              let hasCustomInput = false
+              let customInputs: string[] = []
+              if (savedCustom) {
+                customInputs = savedCustom
+                  .split(/[,，、;；\n|]+/)
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+                hasCustomInput = customInputs.length > 0
+                const findMatch = (inputName: string): string | undefined => {
+                  const low = inputName.toLowerCase()
+                  // 精确或忽略大小写匹配
+                  let m = pKeys.find((k) => k.toLowerCase() === low)
+                  if (m) return m
+                  // "节点选择" / "主节点" <-> "proxy"
+                  if (low === "节点选择" || low === "主节点" || low === "主策略") {
+                    m = pKeys.find((k) => k.toLowerCase() === "proxy")
+                    if (m) return m
+                  }
+                  // 子串包含匹配
+                  m = pKeys.find(
+                    (k) => k.toLowerCase().includes(low) || low.includes(k.toLowerCase())
+                  )
+                  return m
                 }
-              } catch {}
+                for (const inp of customInputs) {
+                  const matched = findMatch(inp)
+                  if (matched && !preferredKeys.includes(matched)) {
+                    preferredKeys.push(matched)
+                  }
+                }
+              }
 
+              // 仅当用户没有自定义输入时，才使用默认优先级补齐；若用户填了自定义但不足 4 个，则按默认顺序补齐剩余空位
               if (preferredKeys.length < 4) {
                 const priorityOrder = [
                   "proxy",
@@ -2422,18 +2526,40 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
                 }
               }
 
-              policies = preferredKeys.slice(0, 4).map((k, idx) => {
+              policies = preferredKeys.slice(0, 4).map((k) => {
                 const parsed = parsePolicyEntry(k, json.policies[k])
                 return {
                   id: k,
                   label: labelForGroup(k),
                   selected: parsed.selected,
                   candidates: parsed.candidates,
-                  icon: iconForGroup(k, idx),
+                  icon: iconForGroup(k),
                 }
               })
             }
           }
+        }
+      } else if (savedCustom) {
+        // 如果桥接暂时未连通，但用户修改了自定义策略组名称，也直接更新卡片显示名称
+        const customNames = savedCustom
+          .split(/[,，、;；\n|]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .slice(0, 4)
+        if (customNames.length > 0) {
+          policies = customNames.map((name, idx) => {
+            const existing =
+              current.policies.find(
+                (p) => p.id.toLowerCase() === name.toLowerCase() || p.label === name
+              ) ||
+              DEFAULT_QX.policies[idx] ||
+              DEFAULT_QX.policies[0]
+            return {
+              ...existing,
+              id: name,
+              label: name.toLowerCase() === "proxy" ? "节点选择" : name,
+            }
+          })
         }
       }
     } catch {}

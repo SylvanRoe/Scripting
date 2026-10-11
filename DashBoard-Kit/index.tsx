@@ -56,6 +56,7 @@ import {
   WB_ENDPOINT_KEY,
   getMediaType,
   getQxData,
+  getQxSettings,
   hasAntigravityConfigured,
   hasCodexConfigured,
   hasCpampConfigured,
@@ -76,6 +77,7 @@ import {
   refreshQxData,
   refreshVpnData,
   refreshWorkBuddyData,
+  saveQxSettings,
   switchQxPolicyNode,
   switchQxRunningMode,
 } from "./data"
@@ -1008,7 +1010,7 @@ async function configureQuantumultX() {
   }
 
   if (choice === 1) {
-    const curSub = Keychain.contains(QX_SUB_URL_KEY) ? Keychain.get(QX_SUB_URL_KEY) || "" : ""
+    const curSub = getQxSettings().subUrl || ""
     const subUrl = await gPrompt({
       title: "配置 Quantumult X · 机场订阅地址",
       message: "请输入机场订阅链接（用于解析响应头 subscription-userinfo 中的真实剩余流量与到期时间）：",
@@ -1020,13 +1022,7 @@ async function configureQuantumultX() {
     })
     if (subUrl === null) return
 
-    if (subUrl.trim()) {
-      Keychain.set(QX_SUB_URL_KEY, subUrl.trim(), {
-        accessibility: "first_unlock_this_device",
-      })
-    } else {
-      Keychain.remove(QX_SUB_URL_KEY)
-    }
+    saveQxSettings({ subUrl: subUrl.trim() })
 
     const res = await refreshQxData()
     Widget.reloadAll()
@@ -1039,25 +1035,19 @@ async function configureQuantumultX() {
   }
 
   if (choice === 2) {
-    const curCustom = Keychain.contains(QX_POLICIES_KEY) ? Keychain.get(QX_POLICIES_KEY) || "" : ""
+    const curCustom = getQxSettings().customPolicies || ""
     const defaultStr = curCustom || (currentData.policies || []).map((p) => p.id).join(", ")
     const input = await gPrompt({
       title: "自定义展示的 4 个策略组",
       message:
-        "请输入你在圈X中的策略组名称（最多 4 个，用逗号分隔，留空则自动匹配如 proxy, 全球加速, 国际媒体, 苹果服务）：",
+        "请输入你在圈X中的策略组名称（最多 4 个，用逗号分隔，支持模糊匹配如：proxy, 哔哩哔哩, 国际媒体, 苹果服务；留空则恢复默认排序）：",
       defaultValue: defaultStr,
       placeholder: "proxy, 全球加速, 国际媒体, 苹果服务",
       confirmLabel: "保存并同步",
       cancelLabel: "取消",
     })
     if (input === null) return
-    if (input.trim()) {
-      Keychain.set(QX_POLICIES_KEY, input.trim(), {
-        accessibility: "first_unlock_this_device",
-      })
-    } else {
-      Keychain.remove(QX_POLICIES_KEY)
-    }
+    saveQxSettings({ customPolicies: input.trim() })
     const res = await refreshQxData()
     Widget.reloadAll()
     if (res) {
