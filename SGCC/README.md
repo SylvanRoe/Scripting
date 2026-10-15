@@ -1,8 +1,16 @@
 # SGCC 国家电网电量小组件（Scripting 移植版）
 
+> ⚠️ **停止维护说明**：
+> 本仓库/项目（`SGCC` v1.0.2）已停止维护。
+> 后续功能的增强与长期维护已交由 **jpcnmm** 接手，最新维护仓库地址：
+> 🔗 [https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod](https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod)
+> 
+> （注：从 Scriptable 到 Scripting 的迁移原作者仍为 **SylvanRoe**）
+
 在 iOS 桌面展示国家电网用电量 / 电费的 **systemMedium** 小组件。
 
-> **移植/维护（Scripting 版）**：SylvanRoe · telegram: @Air_QT · 更新: 2026/09/05
+> **迁移原作者**：SylvanRoe · telegram: @Air_QT
+> **后续维护仓库**：[@jpcnmm2 / SGCC_Mod](https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod)
 >
 > **原作者（原 Scriptable 脚本）声明，修改套用请注明来源：**
 >
