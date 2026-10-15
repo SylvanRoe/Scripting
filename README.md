@@ -7,7 +7,7 @@
 从全能聚合看板到精致桌面 Widget。每个项目独立封装、一键导入、独立更新。
 
 [![Platform](https://img.shields.io/badge/Platform-iPhone%20%7C%20iPad-007AFF?logo=apple&logoColor=white)](https://apps.apple.com/app/apple-store/id6479691128)
-[![Projects](https://img.shields.io/badge/Projects-5-34C759)](#全部项目)
+[![Projects](https://img.shields.io/badge/Projects-4-34C759)](#全部项目)
 [![Stars](https://img.shields.io/github/stars/SylvanRoe/Scripting?style=flat&label=Stars)](https://github.com/SylvanRoe/Scripting/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/SylvanRoe/Scripting?style=flat&label=Updated)](https://github.com/SylvanRoe/Scripting/commits/main)
 [![Telegram](https://img.shields.io/badge/Telegram-@Air__QT-26A5E4?logo=telegram&logoColor=white)](https://t.me/Air_QT)
@@ -26,7 +26,7 @@
 
 | 项目规模 | 导入方式 | 维护与文档 |
 | :--- | :--- | :--- |
-| 5 个独立项目（含多合一看板套件） | `.scripting` 单项目一键导入 | 独立目录维护 · 附项目内 `README.md` |
+| 4 个独立项目（含多合一看板套件） | `.scripting` 单项目一键导入 | 独立目录维护 · 附项目内 `README.md` |
 
 ## 主力推荐
 
@@ -34,7 +34,6 @@
 | :--- | :--- | :--- |
 | [DashBoard-Kit](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FDashBoard-Kit%2FDashBoard-Kit.scripting%22%5D) | 多组件看板聚合套件：统一后台配置管理，支持通过小组件参数自由切换 Loon、Quantumult X、Media Nexus、DeepSeek、WorkBuddy、Codex、Antigravity、CPAMP、qBittorrent、今日油价、节点检测等多套精美卡片。 | [查看说明](DashBoard-Kit/) |
 | [今日油价](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2F%E4%BB%8A%E6%97%A5%E6%B2%B9%E4%BB%B7%2F%E4%BB%8A%E6%97%A5%E6%B2%B9%E4%BB%B7.scripting%22%5D) | 全国各省市汽柴油价格实时监控与调价窗口预测桌面小组件，提供多套现代视觉风格，支持系统定位与自定义省份。 | [查看说明](今日油价/) |
-| [喝水记录](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2F%E5%96%9D%E6%B0%B4%E8%AE%B0%E5%BD%95%2F%E5%96%9D%E6%B0%B4%E8%AE%B0%E5%BD%95.scripting%22%5D) | 轻量饮水与饮品打卡工具，配套可交互桌面小组件（小 / 中 / 大号），支持桌面快捷按钮一键打卡并同步至 Apple 健康。 | [查看说明](喝水记录/) |
 
 ## 全部项目
 
@@ -43,8 +42,7 @@
 | 项目 | 版本 | 描述 | 来源 / 维护 |
 | :--- | :--- | :--- | :--- |
 | [DashBoard-Kit](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FDashBoard-Kit%2FDashBoard-Kit.scripting%22%5D) | `v1.2.0` | 多组件看板聚合套件（统一后台配置管理，支持小组件参数自由切换 Loon、Quantumult X、Media Nexus、DeepSeek、WorkBuddy、Codex、Antigravity、CPAMP、qBittorrent、今日油价、节点检测等多套精美卡片）。 | 原创 · [目录](DashBoard-Kit/) |
-| [SGCC](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FSGCC%2FSGCC.scripting%22%5D) | `v1.0.2` (停止维护) | 国家电网电量中号小组件（展示年度/月度用电量与电费、阶梯进度、近日用电柱状图）。**本项目已停止维护**，后续增强与更新维护由 [@jpcnmm](https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod) 接手；迁移原作者仍为 SylvanRoe。 | 移植自 @脑瓜 · 现维护 [@jpcnmm](https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod) · [目录](SGCC/) |
-| [SGCC_Mod](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FSGCC_Mod%2FSGCC_Mod.scripting%22%5D) | `v1.2.1` | 网上国网电费中号小组件增强版，全面复刻三栏显示内容自由定制，支持后付费余额、5–15 日用电柱状图等。 | 维护 @jpcnmm · [目录](SGCC_Mod/) |
+| [SGCC](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FSGCC%2FSGCC.scripting%22%5D) | `v1.0.2` (停止维护) | 国家电网电量中号小组件（展示年度/月度用电量与电费、阶梯进度、近日用电柱状图）。**本项目已停止维护**，后续增强与更新维护由 [@jpcnmm](https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod) 接手。 | 移植自 @脑瓜 · 现维护 [@jpcnmm](https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod) · [目录](SGCC/) |
 
 ### 日常与生活 Widget
 

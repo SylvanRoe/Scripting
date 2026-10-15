@@ -4,8 +4,6 @@
 > 本仓库/项目（`SGCC` v1.0.2）已停止维护。
 > 后续功能的增强与长期维护已交由 **jpcnmm** 接手，最新维护仓库地址：
 > 🔗 [https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod](https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod)
-> 
-> （注：从 Scriptable 到 Scripting 的迁移原作者仍为 **SylvanRoe**）
 
 在 iOS 桌面展示国家电网用电量 / 电费的 **systemMedium** 小组件。
 
