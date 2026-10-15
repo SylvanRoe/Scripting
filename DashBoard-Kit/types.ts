@@ -13,6 +13,9 @@ export const CPAMP_LOGO_SVG = `<svg viewBox="12 8 272 302" fill="none" xmlns="ht
 // Quantumult X 官方三色风车图标（来自 App Store 官方图标资源）
 export const QX_LOGO_IMAGE = loadIcon("assets/quantumult-x.png")
 
+// Loon 官方热气球图标
+export const LOON_LOGO_IMAGE = loadIcon("assets/loon.png")
+
 // qBittorrent 官方图标
 export const QB_LOGO_IMAGE = loadIcon("assets/qbittorrent.png")
 
@@ -363,8 +366,94 @@ export const DEFAULT_QX: QuantumultXData = {
   updatedAt: new Date().toISOString(),
 }
 
+export interface LoonPolicyItem {
+  id: string // 策略组标识/名称，如 "节点选择" | "国外网站" | "流媒体"
+  label: string // 显示名称
+  selected: string // 当前选中节点，如 "🇭🇰 香港 IEPL 01"
+  candidates: string[] // 候选节点列表，用于桌面点击循环切换
+  icon?: string
+}
+
+export interface LoonData {
+  serviceId: "loon"
+  runningMode: "filter" | "all_proxy" | "all_direct"
+  runningModeLabel: string // "分流模式" | "全局代理" | "全局直连"
+  bridgeConnected: boolean // 是否已连上 Loon 本地 OpenAPI Bridge
+  bridgeError?: string // 最近一次桥接失败原因（便于排查）
+  subName: string // 机场/配置名称
+  usedGb: string // "108.4 GB"
+  totalGb: string // "500 GB"
+  remainGb: string // "391.6 GB"
+  remainPct: number // 78.3
+  expireText: string // "24天后重置"
+  downloadTraffic?: string // 累计下行，如 "104.2 GB"
+  uploadTraffic?: string // 累计上行，如 "4.2 GB"
+  policyGroupCount?: string // 策略组数量，如 "16"
+  activeNodeCount?: string // 节点数
+  latencyMs: string // "26 ms"
+  outboundTag: string // "🇭🇰 香港 · 103.85.*"
+  loonVersion?: string // "Loon 3.2.1"
+  ssid?: string
+  policies: LoonPolicyItem[]
+  updatedAt: string
+}
+
+export const DEFAULT_LOON: LoonData = {
+  serviceId: "loon",
+  runningMode: "filter",
+  runningModeLabel: "分流模式",
+  bridgeConnected: true,
+  subName: "Loon 代理",
+  usedGb: "108.4 GB",
+  totalGb: "500 GB",
+  remainGb: "391.6 GB",
+  remainPct: 78.3,
+  expireText: "24天后重置",
+  downloadTraffic: "102.6 GB",
+  uploadTraffic: "5.8 GB",
+  policyGroupCount: "16",
+  activeNodeCount: "8",
+  latencyMs: "24 ms",
+  outboundTag: "🇭🇰 香港 IEPL · 原生",
+  loonVersion: "Loon 3.2.1",
+  ssid: "loon-wifi",
+  policies: [
+    {
+      id: "节点选择",
+      label: "节点选择",
+      selected: "🇭🇰 香港 IEPL 01",
+      candidates: ["🇭🇰 香港 IEPL 01", "🇸🇬 狮城 BGP 02", "🇯🇵 日本东京 01", "🇺🇸 美国 GIA 01"],
+      icon: "globe.asia.australia.fill",
+    },
+    {
+      id: "国外网站",
+      label: "国外网站",
+      selected: "🇭🇰 香港 IEPL 01",
+      candidates: ["🇭🇰 香港 IEPL 01", "🇸🇬 狮城 BGP 02", "🇯🇵 日本东京 01", "DIRECT"],
+      icon: "network",
+    },
+    {
+      id: "苹果服务",
+      label: "苹果服务",
+      selected: "DIRECT",
+      candidates: ["DIRECT", "🇭🇰 香港 IEPL 01", "节点选择"],
+      icon: "apple.logo",
+    },
+    {
+      id: "漏网之鱼",
+      label: "漏网之鱼",
+      selected: "节点选择",
+      candidates: ["节点选择", "DIRECT", "REJECT"],
+      icon: "shield.checkerboard",
+    },
+  ],
+  updatedAt: new Date().toISOString(),
+}
+
 // 支持在桌面小组件参数 (Widget.parameter) 中识别的 key 与列表
 export const WIDGET_OPTIONS = [
+  { id: "loon", name: "Loon", desc: "自适应代理控制面板（桌面切分流/直连/代理模式/切策略节点/流量监控）", defaultFamily: "systemMedium" },
+  { id: "loon_traffic", name: "Loon (流量统计)", desc: "自适应上下行累计流量、策略组/延迟/剩余流量监控看板", defaultFamily: "systemMedium" },
   { id: "qx", name: "Quantumult X", desc: "自适应代理控制面板（桌面切模式/切策略节点/流量监控）", defaultFamily: "systemMedium" },
   { id: "qx_traffic", name: "Quantumult X (流量统计)", desc: "自适应上下行累计流量、策略组/延迟/剩余流量监控看板", defaultFamily: "systemMedium" },
   { id: "media", name: "Media Nexus", desc: "中号影视与媒体库总览看板", defaultFamily: "systemMedium" },

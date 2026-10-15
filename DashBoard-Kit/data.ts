@@ -8,10 +8,13 @@ import {
   DEFAULT_VPN,
   DEFAULT_WORKBUDDY,
   DEFAULT_FUEL,
+  DEFAULT_LOON,
   DEFAULT_QBITTORRENT,
   DEFAULT_QX,
   DualQuotaData,
   FuelCardData,
+  LoonData,
+  LoonPolicyItem,
   QbittorrentData,
   QuantumultXData,
   QxPolicyItem,
@@ -1476,6 +1479,41 @@ const CHINA_IP_APIS = [
   "https://checkip.amazonaws.com",
 ]
 
+// ── 代理节点实时延迟测量 ────────────────────────────────────────────
+// 测速地址用 gstatic 的 204（Loon / 圈X / Surge 测节点延迟用的都是这类地址）。
+// 不要换成 cp.cloudflare.com / ip-api.com：实测同一节点下差异极大
+// （gstatic 120ms，cp.cloudflare 535ms，msft 1155ms），换了数字会虚高数倍。
+const LATENCY_TEST_URL = "http://www.gstatic.com/generate_204"
+
+/**
+ * 测量当前代理出口的实时延迟。
+ *
+ * 两个关键点（都踩过坑）：
+ * 1. 必须**独立计时**，绝不能和「出口 IP 查询」放进同一个 Promise.all 里共用 t0——
+ *    那样等的是两个请求都完成，测到的是较慢那个的耗时（曾因此虚高到 1000+ms）。
+ * 2. 连测多次取**最小值**：首次请求常含冷启动开销（实测 194ms → 120ms），
+ *    最小值最接近链路真实 RTT，也更接近 Loon 里显示的节点延迟。
+ *
+ * 返回 "123 ms"，全部失败返回 ""（调用方保留上一次的值）。
+ */
+async function measureProxyLatency(attempts = 3): Promise<string> {
+  let best = -1
+  for (let i = 0; i < attempts; i++) {
+    const t0 = Date.now()
+    try {
+      const r = await fetch(LATENCY_TEST_URL, { timeout: 5 })
+      if (r.ok || r.status === 204) {
+        const dt = Date.now() - t0
+        if (best < 0 || dt < best) best = dt
+      }
+    } catch {
+      // 单次失败不影响后续尝试
+    }
+  }
+  return best >= 0 ? `${Math.max(8, best)} ms` : ""
+}
+
+
 const RISK_KEYWORDS = {
   dataCenter: [
     "数据中心",
@@ -2272,6 +2310,66 @@ function flagFromCountry(countryOrCode: string): string {
 }
 
 /**
+ * 只取订阅响应头里的 `subscription-userinfo`，**不下载订阅正文**。
+ *
+ * ⚠️ 性能要点：原来用 `method: "GET"` 拉订阅，会把整个订阅文件（常见 1~5MB）全部下载下来，
+ * 而代码只用到了响应头那一个字段 —— 每 15 分钟白下几 MB，走代理，是明显的耗电发热源。
+ * 实测 HEAD 返回 0 字节、Range 返回 1 字节，都能拿到该头。
+ *
+ * 顺序：HEAD → Range: bytes=0-0 → 完整 GET（兜底，兼容不支持 HEAD/Range 的机场）。
+ */
+const SUB_UA = "Loon/3.2.1 (iPhone; iOS 17.5)"
+
+function readSubscriptionUserinfo(res: any): string {
+  const hdrs: any = res && res.headers
+  if (typeof hdrs?.get === "function") {
+    return (
+      hdrs.get("subscription-userinfo") ||
+      hdrs.get("Subscription-Userinfo") ||
+      hdrs.get("SUBSCRIPTION-USERINFO") ||
+      ""
+    )
+  }
+  if (hdrs && typeof hdrs === "object") {
+    for (const k of Object.keys(hdrs)) {
+      if (k.toLowerCase() === "subscription-userinfo") return String(hdrs[k])
+    }
+  }
+  return ""
+}
+
+async function fetchSubscriptionUserinfo(subUrl: string, ua: string = SUB_UA): Promise<string> {
+  const base = { headers: { "User-Agent": ua }, timeout: 8 }
+
+  // ① HEAD：最省，理想情况只传响应头
+  try {
+    const res = await fetch(subUrl, { ...base, method: "HEAD" })
+    const info = readSubscriptionUserinfo(res)
+    if (info) return info
+  } catch {}
+
+  // ② Range 只取 1 字节（很多机场不支持 HEAD，但支持 Range）
+  try {
+    const res = await fetch(subUrl, {
+      ...base,
+      method: "GET",
+      headers: { "User-Agent": ua, Range: "bytes=0-0" },
+    })
+    const info = readSubscriptionUserinfo(res)
+    if (info) return info
+  } catch {}
+
+  // ③ 兜底：完整 GET（仅在以上都不行时才会真正下载正文）
+  try {
+    const res = await fetch(subUrl, { ...base, method: "GET" })
+    return readSubscriptionUserinfo(res)
+  } catch {
+    return ""
+  }
+}
+
+
+/**
  * 解析机场订阅响应头 subscription-userinfo: upload=123; download=456; total=789; expire=1790000000
  */
 function parseSubscriptionUserinfo(headerVal: string): {
@@ -2575,27 +2673,10 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
 
     if (subUrl) {
       try {
-        const subRes = await fetch(subUrl, {
-          method: "GET",
-          headers: { "User-Agent": "Quantumult%20X/1.4.4 (iPhone; iOS 17.5)" },
-          timeout: 5,
-        })
-        const hdrs: any = subRes.headers
-        let userInfo = ""
-        if (typeof hdrs?.get === "function") {
-          userInfo =
-            hdrs.get("subscription-userinfo") ||
-            hdrs.get("Subscription-Userinfo") ||
-            hdrs.get("SUBSCRIPTION-USERINFO") ||
-            ""
-        } else if (hdrs && typeof hdrs === "object") {
-          for (const k of Object.keys(hdrs)) {
-            if (k.toLowerCase() === "subscription-userinfo") {
-              userInfo = String(hdrs[k])
-              break
-            }
-          }
-        }
+        const userInfo = await fetchSubscriptionUserinfo(
+          subUrl,
+          "Quantumult%20X/1.4.4 (iPhone; iOS 17.5)"
+        )
         const parsed = parseSubscriptionUserinfo(userInfo)
         if (parsed) {
           usedGb = parsed.usedGb
@@ -2612,27 +2693,22 @@ export async function refreshQxData(): Promise<QuantumultXData | null> {
     }
 
     // 3. 测量实时代理延迟与当前出口地区
+    // 延迟必须独立计时，不能与出口查询共用 t0（详见 measureProxyLatency 注释）
     let latencyMs = current.latencyMs
     let outboundTag = current.outboundTag
-    try {
-      const t0 = Date.now()
-      const [pingRes, ipInfo] = await Promise.all([
-        fetch("http://cp.cloudflare.com/generate_204", { timeout: 3 }).catch(() => null),
-        fetch(IP_API_URL, { timeout: 3.5 })
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null),
-      ])
-      if (pingRes) {
-        const dt = Math.max(8, Date.now() - t0)
-        latencyMs = `${dt} ms`
-      }
-      if (ipInfo && ipInfo.status === "success") {
-        const flag = flagFromCountry(ipInfo.countryCode || ipInfo.country || "")
-        const region = ipInfo.country || ipInfo.regionName || "海外"
-        const firstOctet = String(ipInfo.query || "").split(".")[0]
-        outboundTag = `${flag} ${region}${firstOctet ? ` · ${firstOctet}.*` : ""}`
-      }
-    } catch {}
+    const [measuredLatency, ipInfo] = await Promise.all([
+      measureProxyLatency(3),
+      fetch(IP_API_URL, { timeout: 3.5 })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ])
+    if (measuredLatency) latencyMs = measuredLatency
+    if (ipInfo && ipInfo.status === "success") {
+      const flag = flagFromCountry(ipInfo.countryCode || ipInfo.country || "")
+      const region = ipInfo.country || ipInfo.regionName || "海外"
+      const firstOctet = String(ipInfo.query || "").split(".")[0]
+      outboundTag = `${flag} ${region}${firstOctet ? ` · ${firstOctet}.*` : ""}`
+    }
 
     const nextData: QuantumultXData = {
       serviceId: "qx",
@@ -2754,5 +2830,548 @@ export async function switchQxPolicyNode(policyId: string): Promise<QuantumultXD
   return updated
 }
 
+// ============================================================
+// 11. Loon 深度联动（Plugin / OpenAPI 本地桥接 + 桌面切节点/模式 + 订阅流量）
+// ============================================================
+export const LOON_BRIDGE_URL_KEY = "dashboard_kit_loon_bridge_url"
+export const LOON_SUB_URL_KEY = "dashboard_kit_loon_sub_url"
+export const LOON_SUB_NAME_KEY = "dashboard_kit_loon_sub_name"
+export const LOON_POLICIES_KEY = "dashboard_kit_loon_policies"
+export const LOON_CACHE_KEY = "dashboard_kit_loon_cache_v1"
 
+const LOON_FILE_CACHE_PATH =
+  FileManager.appGroupDocumentsDirectory + "/dashboard_kit_loon_cache.json"
 
+export const LOON_PLUGIN_GUIDE_TEXT = `# 方式一（推荐）：在 Loon「插件 (Plugin) -> 添加插件」中填入远程插件链接：
+https://raw.githubusercontent.com/SylvanRoe/scripting/refs/heads/main/DashBoard-Kit/loon_dashboard.plugin
+
+# 方式二：在 Loon 配置文件 [Script] 下直接添加（三条都加，命中最稳的是 IP 直连那条）：
+http-request ^http:\\/\\/1\\.1\\.1\\.1\\/loon-bridge script-path=https://raw.githubusercontent.com/SylvanRoe/scripting/refs/heads/main/DashBoard-Kit/loon_dashboard_bridge.js?v=2,timeout=20,tag=LoonDashboardBridgeIP,enable=true
+http-request ^http:\\/\\/cp\\.cloudflare\\.com\\/loon-bridge script-path=https://raw.githubusercontent.com/SylvanRoe/scripting/refs/heads/main/DashBoard-Kit/loon_dashboard_bridge.js?v=2,timeout=20,tag=LoonDashboardBridge,enable=true
+http-request ^http:\\/\\/loon\\.(lan|local)\\/api script-path=https://raw.githubusercontent.com/SylvanRoe/scripting/refs/heads/main/DashBoard-Kit/loon_dashboard_bridge.js?v=2,timeout=20,tag=LoonDashboardBridgeLocal,enable=true
+
+# 重要：不要用 loon.lan 这类假域名作为唯一入口 —— DNS 解析失败会导致 HTTP 请求根本形成不了，
+# Loon 的 http-request 脚本永远没机会匹配。实测可用的是 http://1.1.1.1/loon-bridge（IP 直连，无需 DNS）。`
+
+/** 桥接候选地址：按顺序尝试，第一个返回合法 JSON 的会被记住，后续优先用它。
+ * 注意：必须用【能正常解析的真实域名】，否则 DNS 就会失败，请求根本不会形成，
+ * Loon 的 http-request 脚本也就永远没机会匹配（loon.lan 这类假域名在 Loon 下不可靠）。
+ *
+ * 实测（2026-10-13）：
+ *   http://1.1.1.1/loon-bridge            → 256ms，正常返回 16 组数据  ✅ 放第一位
+ *   http://cp.cloudflare.com/loon-bridge  → 879ms，返回 0 字节，永远失败 ❌
+ *   http://loon.lan/api                   → DNS 必失败，白等 209ms       ❌
+ * 所以能用 IP 直连的那条排最前，避免每次刷新都先白等近 1 秒。
+ */
+export const LOON_BRIDGE_CANDIDATES = [
+  "http://1.1.1.1/loon-bridge",
+  "http://cp.cloudflare.com/loon-bridge",
+  "http://loon.lan/api",
+]
+
+const LOON_BRIDGE_ACTIVE_KEY = "dashboard_kit_loon_bridge_active"
+
+export function getLoonBridgeCandidates(): string[] {
+  const list: string[] = []
+  try {
+    if (Keychain.contains(LOON_BRIDGE_URL_KEY)) {
+      const custom = (Keychain.get(LOON_BRIDGE_URL_KEY) || "").trim()
+      if (custom) list.push(custom)
+    }
+  } catch {}
+  try {
+    const active =
+      Storage.get<string>(LOON_BRIDGE_ACTIVE_KEY, { shared: true }) ||
+      Storage.get<string>(LOON_BRIDGE_ACTIVE_KEY)
+    if (active && list.indexOf(active) < 0) list.push(active)
+  } catch {}
+  for (const c of LOON_BRIDGE_CANDIDATES) {
+    if (list.indexOf(c) < 0) list.push(c)
+  }
+  return list
+}
+
+function rememberLoonBridge(url: string) {
+  try {
+    Storage.set(LOON_BRIDGE_ACTIVE_KEY, url, { shared: true })
+    Storage.set(LOON_BRIDGE_ACTIVE_KEY, url)
+  } catch {}
+}
+
+/**
+ * 依次尝试候选地址调用桥接，返回第一个可用的 JSON 结果。
+ * @param params 如 "action=status"
+ */
+export async function callLoonBridge(
+  params: string,
+  timeout = 1.5
+): Promise<{ ok: boolean; json?: any; url?: string; error?: string }> {
+  let lastErr = ""
+  for (const base of getLoonBridgeCandidates()) {
+    const url = base.replace(/\/+$/, "") + "?" + params
+    try {
+      const res = await fetch(url, { timeout })
+      if (!res || !res.ok) {
+        lastErr = `HTTP ${res ? res.status : "无响应"}`
+        continue
+      }
+      const text = await res.text()
+      let json: any = null
+      try {
+        json = JSON.parse(text)
+      } catch {
+        lastErr = "响应不是 JSON"
+        continue
+      }
+      if (json && json.ok) {
+        rememberLoonBridge(base)
+        return { ok: true, json, url: base }
+      }
+      lastErr = "桥接返回 ok=false"
+    } catch (e: any) {
+      lastErr = String((e && e.message) || e)
+    }
+  }
+  return { ok: false, error: lastErr || "无可用桥接地址" }
+}
+
+const LOON_MODE_LABELS: Record<"filter" | "all_proxy" | "all_direct", string> = {
+  filter: "分流模式",
+  all_proxy: "全局代理",
+  all_direct: "全局直连",
+}
+
+export const LOON_POLICY_OVERRIDES_KEY = "dashboard_kit_loon_policy_overrides"
+
+/** 手动指定某些策略组的显示值，格式：每行 `组名=节点名`（优先级高于自动读取/推断） */
+export function readLoonPolicyOverrides(): Record<string, string> {
+  const out: Record<string, string> = {}
+  try {
+    const raw = Keychain.contains(LOON_POLICY_OVERRIDES_KEY)
+      ? Keychain.get(LOON_POLICY_OVERRIDES_KEY) || ""
+      : ""
+    for (const line of raw.split(/[\n;]/)) {
+      const t = line.trim()
+      if (!t) continue
+      const i = t.indexOf("=")
+      if (i > 0) out[t.slice(0, i).trim()] = t.slice(i + 1).trim()
+    }
+  } catch {}
+  return out
+}
+
+const LOON_BUILTIN_POLICIES = ["DIRECT", "REJECT", "REJECT-DROP", "REJECT-TINYGIF", "REJECT-NO-DROP", "PROXY"]
+
+/**
+ * 兼容不同版本的桥接脚本：
+ * - v6+ 返回纯名字数组 ["美国节点", ...]
+ * - v5 返回对象数组 [{type:"url-test", name:"美国节点"}, ...]
+ */
+function normalizeLoonSubPolicies(raw: any): Record<string, string[]> {
+  const out: Record<string, string[]> = {}
+  if (!raw || typeof raw !== "object") return out
+  for (const key of Object.keys(raw)) {
+    const arr = (raw as any)[key]
+    if (!Array.isArray(arr)) continue
+    const names: string[] = []
+    for (const it of arr) {
+      if (typeof it === "string" && it) names.push(it)
+      else if (it && typeof it === "object" && it.name) names.push(String(it.name))
+    }
+    if (names.length > 0) out[key] = names
+  }
+  return out
+}
+
+/**
+ * 策略组没有显式记录选中值时（getPolicy/getSelectedPolicy 返回 null）的推断：
+ * Loon 会把 DIRECT/REJECT 这类内置策略排在候选列表最前面，
+ * 真正生效的是配置里声明的第一个成员 —— 即跳过内置项后的第一个。
+ */
+function inferLoonSelection(list: string[]): string {
+  for (const item of list) {
+    if (LOON_BUILTIN_POLICIES.indexOf(String(item).trim().toUpperCase()) < 0) return item
+  }
+  return list.length > 0 ? list[0] : ""
+}
+
+export function hasLoonConfigured(): boolean {  try {
+    const sub = Keychain.contains(LOON_SUB_URL_KEY) ? Keychain.get(LOON_SUB_URL_KEY) || "" : ""
+    const bridge = Keychain.contains(LOON_BRIDGE_URL_KEY) ? Keychain.get(LOON_BRIDGE_URL_KEY) || "" : ""
+    return !!(sub.trim() || bridge.trim())
+  } catch {
+    return false
+  }
+}
+
+export function saveLoonData(data: LoonData) {
+  try {
+    Storage.set(LOON_CACHE_KEY, data, { shared: true })
+    Storage.set(LOON_CACHE_KEY, data)
+    FileManager.writeAsStringSync(LOON_FILE_CACHE_PATH, JSON.stringify(data))
+  } catch {}
+}
+
+export function getLoonData(): LoonData {
+  try {
+    const fromStorage =
+      Storage.get<LoonData>(LOON_CACHE_KEY, { shared: true }) ||
+      Storage.get<LoonData>(LOON_CACHE_KEY)
+
+    let fromFile: LoonData | null = null
+    if (FileManager.existsSync(LOON_FILE_CACHE_PATH)) {
+      try {
+        const raw = FileManager.readAsStringSync(LOON_FILE_CACHE_PATH)
+        if (raw) fromFile = JSON.parse(raw)
+      } catch {}
+    }
+
+    let local = fromStorage
+    if (fromFile && fromFile.serviceId === "loon") {
+      const tFile = Date.parse(fromFile.updatedAt || "") || 0
+      const tStor = Date.parse(fromStorage?.updatedAt || "") || 0
+      if (!local || tFile >= tStor) {
+        local = fromFile
+      }
+    }
+
+    if (local && local.serviceId === "loon" && Array.isArray(local.policies)) {
+      return {
+        ...DEFAULT_LOON,
+        ...local,
+        serviceId: "loon",
+      }
+    }
+  } catch {}
+  return DEFAULT_LOON
+}
+
+function iconForLoonGroup(name: string, index: number): string {
+  const n = (name || "").toLowerCase()
+  if (n.includes("apple") || n.includes("苹果")) return "apple.logo"
+  if (n.includes("ai") || n.includes("chatgpt") || n.includes("openai") || n.includes("copilot")) return "sparkles"
+  if (
+    n.includes("stream") ||
+    n.includes("media") ||
+    n.includes("netflix") ||
+    n.includes("disney") ||
+    n.includes("油管") ||
+    n.includes("影视") ||
+    n.includes("媒体")
+  )
+    return "play.tv.fill"
+  if (n.includes("telegram") || n.includes("tg") || n.includes("电报")) return "paperplane.fill"
+  if (n.includes("game") || n.includes("游戏")) return "gamecontroller.fill"
+  if (n.includes("direct") || n.includes("直连")) return "bolt.horizontal.fill"
+  if (n.includes("reject") || n.includes("广告") || n.includes("拦截")) return "shield.slash.fill"
+  if (n.includes("final") || n.includes("漏网") || n.includes("其它") || n.includes("其他")) return "shield.checkerboard"
+  if (n.includes("hk") || n.includes("香港")) return "building.2.fill"
+  if (n.includes("tw") || n.includes("台湾")) return "sun.max.fill"
+  if (n.includes("jp") || n.includes("日本")) return "ferry.fill"
+  if (n.includes("us") || n.includes("美国")) return "flag.fill"
+  if (n.includes("sg") || n.includes("狮城") || n.includes("新加坡")) return "leaf.fill"
+  const defaultIcons = ["globe.asia.australia.fill", "network", "bolt.shield", "antenna.radiowaves.left.and.right"]
+  return defaultIcons[index % defaultIcons.length]
+}
+
+export async function refreshLoonData(): Promise<LoonData | null> {
+  try {
+    const current = getLoonData()
+    const subUrl = (Keychain.contains(LOON_SUB_URL_KEY) ? Keychain.get(LOON_SUB_URL_KEY) || "" : "").trim()
+    const subName = (
+      (Keychain.contains(LOON_SUB_NAME_KEY) ? Keychain.get(LOON_SUB_NAME_KEY) : "") ||
+      "Loon 代理"
+    ).trim()
+
+    let runningMode: "filter" | "all_proxy" | "all_direct" = current.runningMode || "filter"
+    let runningModeLabel = current.runningModeLabel || LOON_MODE_LABELS[runningMode]
+    let bridgeConnected = false
+    let bridgeError = ""
+    let policies: LoonPolicyItem[] = current.policies.map((p) => ({ ...p }))
+    let loonVersion = current.loonVersion || "Loon 3.2+"
+    let ssid = current.ssid || ""
+    let policyGroupCount = current.policyGroupCount || "16"
+
+    // 1. 尝试调用 Loon 本地 Bridge 获取真实策略组与运行模式
+    try {
+      // sub_timeout 必须明显小于本调用的 timeout：
+      // 桥接脚本内部探查候选节点是会耗时的，若它比调用方先超时，
+      // 就会触发候选回退 —— 而每次回退都会让 Loon 把整个桥接脚本再跑一遍（白烧 CPU）。
+      const bridgeCall = await callLoonBridge("action=status&sub_timeout=1500", 2.4)
+      if (bridgeCall.ok && bridgeCall.json) {
+        bridgeConnected = true
+        const json: any = bridgeCall.json
+        if (true) {
+          if (json.version) {
+            const vStr = String(json.version).trim()
+            loonVersion = vStr.toLowerCase().startsWith("loon") ? vStr : `Loon ${vStr}`
+          }
+          if (json.ssid) ssid = String(json.ssid)
+
+          // 运行模式解析
+          if (typeof json.running_model === "number") {
+            if (json.running_model === 0) runningMode = "all_direct"
+            else if (json.running_model === 2) runningMode = "all_proxy"
+            else runningMode = "filter"
+          } else if (typeof json.running_mode === "string") {
+            const rm = json.running_mode.toLowerCase()
+            if (rm === "all_direct" || rm === "direct") runningMode = "all_direct"
+            else if (rm === "all_proxy" || rm === "proxy") runningMode = "all_proxy"
+            else runningMode = "filter"
+          }
+          runningModeLabel = LOON_MODE_LABELS[runningMode] || "分流模式"
+
+          // 策略组解析
+          // 注意：Loon 可能用字符串 "null" 表示“无值”，这里先过滤掉，避免显示成假的节点名
+          const rawSelect = json.policy_select || {}
+          const policySelect: Record<string, string> = {}
+          for (const k of Object.keys(rawSelect)) {
+            const v = rawSelect[k]
+            if (typeof v === "string" && v && v !== "null" && v !== "undefined") {
+              policySelect[k] = v
+            }
+          }
+          const subPoliciesMap = normalizeLoonSubPolicies(json.sub_policies)
+          const allGroups: string[] =
+            Array.isArray(json.all_policy_groups) && json.all_policy_groups.length > 0
+              ? json.all_policy_groups
+              : Object.keys(policySelect)
+
+          if (allGroups.length > 0) {
+            policyGroupCount = String(allGroups.length)
+
+            let selectedGroupNames: string[] = []
+            const savedCustom = Keychain.contains(LOON_POLICIES_KEY)
+              ? Keychain.get(LOON_POLICIES_KEY) || ""
+              : ""
+            if (savedCustom.trim()) {
+              selectedGroupNames = savedCustom
+                .split(/[,，\n|]/)
+                .map((s) => s.trim())
+                .filter((s) => s && allGroups.includes(s))
+            }
+
+            if (selectedGroupNames.length === 0) {
+              const priorityNames = [
+                "节点选择",
+                "PROXY",
+                "Proxy",
+                "节点",
+                "国外网站",
+                "国外流量",
+                "GFW",
+                "AI",
+                "ChatGPT",
+                "OpenAI",
+                "流媒体",
+                "全球直连",
+                "漏网之鱼",
+                "FINAL",
+                "苹果服务",
+              ]
+              for (const pn of priorityNames) {
+                if (selectedGroupNames.length >= 4) break
+                const matched = allGroups.find(
+                  (g) => g.toLowerCase() === pn.toLowerCase() || g.includes(pn)
+                )
+                if (matched && !selectedGroupNames.includes(matched)) {
+                  selectedGroupNames.push(matched)
+                }
+              }
+              for (const g of allGroups) {
+                if (selectedGroupNames.length >= 4) break
+                if (!selectedGroupNames.includes(g)) selectedGroupNames.push(g)
+              }
+            }
+
+            policies = selectedGroupNames.slice(0, 4).map((gName, idx) => {
+              // 优先级：手动覆盖 > Loon 实际记录值/推断值 > “未知”
+              // 不要凭空编造值，避免把真实选择误导成 DIRECT
+              const overrides = readLoonPolicyOverrides()
+              const cands = subPoliciesMap[gName]
+              let curSelected = policySelect[gName] || ""
+              if (!curSelected && cands && cands.length > 0) {
+                // Loon 没记录这个组的选中值 —— 用候选列表推断（跳过 DIRECT/REJECT）
+                curSelected = inferLoonSelection(cands)
+              }
+              if (overrides[gName]) curSelected = overrides[gName]
+              if (!curSelected) curSelected = "未知"
+              const subs: string[] =
+                Array.isArray(subPoliciesMap[gName]) && subPoliciesMap[gName].length > 0
+                  ? subPoliciesMap[gName]
+                  : [curSelected]
+              if (!subs.includes(curSelected)) subs.unshift(curSelected)
+
+              return {
+                id: gName,
+                label: gName,
+                selected: curSelected,
+                candidates: subs,
+                icon: iconForLoonGroup(gName, idx),
+              }
+            })
+          }
+        }
+      } else {
+        bridgeError = bridgeCall.error || "桥接无响应"
+      }
+    } catch (e) {
+      bridgeError = String((e as any)?.message || e)
+      console.log("调用 Loon 桥接失败:", e)
+    }
+
+    // 2. 若配置了机场订阅链接，拉取真实流量与到期时间
+    let usedGb = current.usedGb
+    let totalGb = current.totalGb
+    let remainGb = current.remainGb
+    let remainPct = current.remainPct
+    let expireText = current.expireText
+    let downloadTraffic = current.downloadTraffic || "102.6 GB"
+    let uploadTraffic = current.uploadTraffic || "5.8 GB"
+
+    if (subUrl) {
+      try {
+        const userInfo = await fetchSubscriptionUserinfo(subUrl)
+        const parsed = parseSubscriptionUserinfo(userInfo)
+        if (parsed) {
+          usedGb = parsed.usedGb
+          totalGb = parsed.totalGb
+          remainGb = parsed.remainGb
+          remainPct = parsed.remainPct
+          expireText = parsed.expireText
+          downloadTraffic = parsed.downloadTraffic
+          uploadTraffic = parsed.uploadTraffic
+        }
+      } catch (e) {
+        console.log("拉取 Loon 机场订阅流量失败:", e)
+      }
+    }
+
+    // 3. 测量实时代理延迟与当前出口地区
+    // 延迟必须独立计时，不能与出口查询共用 t0（详见 measureProxyLatency 注释）
+    let latencyMs = current.latencyMs
+    let outboundTag = current.outboundTag
+    const [measuredLatency, ipInfo] = await Promise.all([
+      measureProxyLatency(3),
+      fetch(IP_API_URL, { timeout: 3.5 })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ])
+    if (measuredLatency) latencyMs = measuredLatency
+    if (ipInfo && ipInfo.status === "success") {
+      const flag = flagFromCountry(ipInfo.countryCode || ipInfo.country || "")
+      const region = ipInfo.country || ipInfo.regionName || "海外"
+      const firstOctet = String(ipInfo.query || "").split(".")[0]
+      outboundTag = `${flag} ${region}${firstOctet ? ` · ${firstOctet}.*` : ""}`
+    }
+
+    const nextData: LoonData = {
+      serviceId: "loon",
+      runningMode,
+      runningModeLabel,
+      bridgeConnected,
+      bridgeError,
+      subName,
+      usedGb,
+      totalGb,
+      remainGb,
+      remainPct,
+      expireText,
+      downloadTraffic,
+      uploadTraffic,
+      policyGroupCount,
+      activeNodeCount: String(policies.length || 8),
+      latencyMs,
+      outboundTag,
+      loonVersion,
+      ssid,
+      policies,
+      updatedAt: new Date().toISOString(),
+    }
+
+    saveLoonData(nextData)
+    return nextData
+  } catch (e) {
+    console.log("refreshLoonData error:", e)
+    return null
+  }
+}
+
+/**
+ * 桌面交互按钮：循环切换 Loon 运行模式（分流模式 -> 全局代理 -> 全局直连）
+ */
+export async function switchLoonRunningMode(): Promise<LoonData> {
+  const current = getLoonData()
+  const order: ("filter" | "all_proxy" | "all_direct")[] = ["filter", "all_proxy", "all_direct"]
+  const idx = order.indexOf(current.runningMode)
+  const nextMode = order[(idx + 1) % order.length]
+  const nextLabel = LOON_MODE_LABELS[nextMode]
+
+  const updated: LoonData = {
+    ...current,
+    runningMode: nextMode,
+    runningModeLabel: nextLabel,
+    updatedAt: new Date().toISOString(),
+  }
+  // 先立即落盘，确保桌面小组件毫秒级刷新 UI
+  saveLoonData(updated)
+
+  const bridgeCall = await callLoonBridge(`action=set_mode&mode=${nextMode}`, 2.0)
+  if (bridgeCall.ok) {
+    updated.bridgeConnected = true
+    updated.bridgeError = ""
+  } else {
+    updated.bridgeConnected = false
+    updated.bridgeError = bridgeCall.error || "桥接无响应"
+  }
+  saveLoonData(updated)
+
+  return updated
+}
+
+/**
+ * 桌面交互按钮：点击某个策略组直接切换到下一个候选节点
+ */
+export async function switchLoonPolicyNode(policyId: string): Promise<LoonData> {
+  const current = getLoonData()
+  let targetNode = ""
+
+  const nextPolicies = current.policies.map((p) => {
+    if (p.id === policyId || p.label === policyId) {
+      const cands = Array.isArray(p.candidates) && p.candidates.length > 0 ? p.candidates : [p.selected]
+      const curIdx = cands.indexOf(p.selected)
+      const nextNode = cands[(curIdx + 1) % cands.length]
+      targetNode = nextNode
+      return {
+        ...p,
+        selected: nextNode,
+      }
+    }
+    return p
+  })
+
+  const updated: LoonData = {
+    ...current,
+    policies: nextPolicies,
+    updatedAt: new Date().toISOString(),
+  }
+  // 先立即落盘，确保桌面小组件毫秒级刷新 UI
+  saveLoonData(updated)
+
+  if (targetNode && targetNode !== "未知") {
+    const bridgeCall = await callLoonBridge(
+      `action=set_policy&policy=${encodeURIComponent(policyId)}&node=${encodeURIComponent(targetNode)}`,
+      2.0
+    )
+    if (bridgeCall.ok) {
+      updated.bridgeConnected = true
+      updated.bridgeError = ""
+    } else {
+      updated.bridgeConnected = false
+      updated.bridgeError = bridgeCall.error || "桥接无响应"
+    }
+    saveLoonData(updated)
+  }
+
+  return updated
+}

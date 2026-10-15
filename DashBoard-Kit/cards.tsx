@@ -12,11 +12,19 @@ import {
   VStack,
   ZStack,
 } from "scripting"
-import { RefreshWidgetIntent, SwitchQxModeIntent, SwitchQxPolicyIntent } from "./app_intents"
+import {
+  RefreshWidgetIntent,
+  SwitchLoonModeIntent,
+  SwitchLoonPolicyIntent,
+  SwitchQxModeIntent,
+  SwitchQxPolicyIntent,
+} from "./app_intents"
 import { THEME, formatTime, remainColor } from "./theme"
 import {
   DualQuotaData,
   FuelCardData,
+  LOON_LOGO_IMAGE,
+  LoonData,
   MediaNexusData,
   MetricBalanceData,
   QB_LOGO_IMAGE,
@@ -139,6 +147,23 @@ export function ProgressBar({
     </ZStack>
   )
 }
+
+// ── 桥接状态指示（Loon 卡片）：已连接绿点，未连接琥珀点 + 警示三角形 ──
+export function BridgeStatus({ connected, size = 5 }: { connected?: boolean; size?: number }) {
+  return (
+    <HStack spacing={3} alignment="center">
+      <Circle fill={connected ? "#10B981" : "#F59E0B"} frame={{ width: size, height: size }} />
+      {!connected ? (
+        <Image
+          systemName="exclamationmark.triangle.fill"
+          font={{ name: "system", size: size + 3 }}
+          foregroundStyle="#F59E0B"
+        />
+      ) : null}
+    </HStack>
+  )
+}
+
 
 // ═════════════════════════════════════════════════════════════════
 // 1. 中号媒体看板：Media Nexus 风格（精确像素级复刻原图）
@@ -2097,5 +2122,703 @@ export function QuantumultXTrafficCard({ data, family }: { data: QuantumultXData
   return <QuantumultXTrafficSmallCard data={data} />
 }
 
+// ============================================================
+// 13. Loon 小号看板（分流模式切换 + 策略组循环切换 + 剩余流量/延迟）
+// ============================================================
+export function LoonSmallCard({ data }: { data: LoonData }) {
+  const pColor = remainColor(data.remainPct)
+  const cRowBg = { light: "rgba(15,23,42,0.035)", dark: "rgba(255,255,255,0.06)" } as any
+  const topPolicies = (data.policies || []).slice(0, 2)
 
+  const modeColor =
+    data.runningMode === "all_proxy"
+      ? ({ light: "#7C3AED", dark: "#A78BFA" } as any)
+      : data.runningMode === "all_direct"
+      ? ({ light: "#059669", dark: "#34D399" } as any)
+      : ({ light: "#0284C7", dark: "#38BDF8" } as any)
 
+  const modeBg =
+    data.runningMode === "all_proxy"
+      ? ({ light: "rgba(124,58,237,0.10)", dark: "rgba(167,139,250,0.16)" } as any)
+      : data.runningMode === "all_direct"
+      ? ({ light: "rgba(5,150,105,0.10)", dark: "rgba(52,211,153,0.16)" } as any)
+      : ({ light: "rgba(2,132,199,0.10)", dark: "rgba(56,189,248,0.16)" } as any)
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 13, bottom: 11, leading: 13, trailing: 13 }}
+      widgetBackground={THEME.bg}
+    >
+      {/* 1. 顶栏：Loon 图标 + 标题 + 在线绿点 + 刷新按钮 */}
+      <HStack spacing={4} alignment="center" frame={{ height: 18 }}>
+        <BrandHeaderIcon iconImage={LOON_LOGO_IMAGE} size={15} />
+        <Text
+          font={11.5}
+          fontWeight="bold"
+          foregroundStyle={THEME.text}
+          lineLimit={1}
+          minScaleFactor={0.8}
+          allowsTightening={true}
+        >
+          Loon
+        </Text>
+        <BridgeStatus connected={data.bridgeConnected} size={5} />
+        <Spacer minLength={2} />
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={6} />
+
+      {/* 2. 可点击切换运行模式胶囊 + 实时延迟 */}
+      <HStack spacing={6} alignment="center">
+        <Button intent={SwitchLoonModeIntent(undefined)} buttonStyle="plain">
+          <HStack
+            spacing={3.5}
+            alignment="center"
+            padding={{ top: 3, bottom: 3, leading: 7, trailing: 7 }}
+            background={modeBg}
+            clipShape={{ type: "rect", cornerRadius: 6 }}
+            fixedSize={{ horizontal: true, vertical: false }}
+          >
+            <Image
+              systemName={
+                data.runningMode === "all_proxy"
+                  ? "globe"
+                  : data.runningMode === "all_direct"
+                  ? "bolt.horizontal.fill"
+                  : "arrow.triangle.branch"
+              }
+              font={{ name: "system", size: 9.5 }}
+              foregroundStyle={modeColor}
+            />
+            <Text font={10} fontWeight="bold" foregroundStyle={modeColor} lineLimit={1}>
+              {data.runningModeLabel}
+            </Text>
+            <Image
+              systemName="arrow.triangle.2.circlepath"
+              font={{ name: "system", size: 8.5 }}
+              foregroundStyle={modeColor}
+            />
+          </HStack>
+        </Button>
+        <Spacer minLength={2} />
+        <Text
+          font={10}
+          fontWeight="bold"
+          foregroundStyle={THEME.green}
+          monospacedDigit
+          lineLimit={1}
+          minScaleFactor={0.75}
+          fixedSize={{ horizontal: true, vertical: false }}
+        >
+          {data.latencyMs}
+        </Text>
+      </HStack>
+
+      <Spacer minLength={5} />
+
+      {/* 3. 核心策略组可点击切换列表（前 2 组） */}
+      <VStack alignment="leading" spacing={4}>
+        {topPolicies.map((p) => (
+          <Button key={p.id} intent={SwitchLoonPolicyIntent(p.id)} buttonStyle="plain">
+            <HStack
+              spacing={4}
+              alignment="center"
+              padding={{ top: 3.5, bottom: 3.5, leading: 6, trailing: 6 }}
+              background={cRowBg}
+              clipShape={{ type: "rect", cornerRadius: 6 }}
+              frame={{ maxWidth: "infinity" }}
+            >
+              <Text font={9.5} fontWeight="medium" foregroundStyle={THEME.dim} lineLimit={1}>
+                {p.label.replace(/选择|策略|组$/g, "")}
+              </Text>
+              <Spacer minLength={4} />
+              <Text
+                font={10}
+                fontWeight="bold"
+                foregroundStyle={THEME.text}
+                lineLimit={1}
+                minScaleFactor={0.8}
+              >
+                {p.selected}
+              </Text>
+              <Image
+                systemName="chevron.right"
+                font={{ name: "system", size: 8 }}
+                foregroundStyle={THEME.dim}
+              />
+            </HStack>
+          </Button>
+        ))}
+      </VStack>
+
+      <Spacer minLength={6} />
+
+      {/* 4. 机场订阅剩余流量进度条 */}
+      <HStack spacing={6} alignment="center">
+        <ProgressBar value={data.remainPct} color={pColor} height={4.5} />
+        <Text font={10} fontWeight="bold" foregroundStyle={pColor} monospacedDigit lineLimit={1}>
+          {`${Math.round(data.remainPct)}%`}
+        </Text>
+      </HStack>
+
+      <Spacer minLength={0} />
+
+      {/* 5. 底栏：剩余流量 · 更新时间 */}
+      <HStack spacing={4} alignment="center">
+        <Text font={8.5} foregroundStyle={THEME.dim} lineLimit={1}>
+          {`余 ${data.remainGb}`}
+        </Text>
+        <Spacer />
+        <Text font={8.5} foregroundStyle={THEME.dim} monospacedDigit lineLimit={1}>
+          {`更新于 ${formatTime(data.updatedAt)}`}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// ============================================================
+// 14. Loon 中号看板（左栏流量/出口监控 + 右栏 2x2 策略组桌面直切矩阵）
+// ============================================================
+export function LoonMediumCard({ data }: { data: LoonData }) {
+  const cTitle = { light: "#1E293B", dark: "#F8FAFC" } as any
+  const cLabel = { light: "#64748B", dark: "#94A3B8" } as any
+  const cCellBg = { light: "#F8FAFC", dark: "#1E293B" } as any
+  const cCellBorder = { light: "rgba(15,23,42,0.06)", dark: "rgba(255,255,255,0.08)" } as any
+  const pColor = remainColor(data.remainPct)
+
+  const modeColor =
+    data.runningMode === "all_proxy"
+      ? ({ light: "#7C3AED", dark: "#A78BFA" } as any)
+      : data.runningMode === "all_direct"
+      ? ({ light: "#059669", dark: "#34D399" } as any)
+      : ({ light: "#0284C7", dark: "#38BDF8" } as any)
+
+  const modeBg =
+    data.runningMode === "all_proxy"
+      ? ({ light: "rgba(124,58,237,0.10)", dark: "rgba(167,139,250,0.16)" } as any)
+      : data.runningMode === "all_direct"
+      ? ({ light: "rgba(5,150,105,0.10)", dark: "rgba(52,211,153,0.16)" } as any)
+      : ({ light: "rgba(2,132,199,0.10)", dark: "rgba(56,189,248,0.16)" } as any)
+
+  const policies = (data.policies || []).slice(0, 4)
+  const row1 = policies.slice(0, 2)
+  const row2 = policies.slice(2, 4)
+
+  const renderPolicyCell = (p: any) => (
+    <Button key={p.id} intent={SwitchLoonPolicyIntent(p.id)} buttonStyle="plain">
+      <ZStack frame={{ maxWidth: "infinity" }}>
+        <RoundedRectangle
+          fill={cCellBg}
+          cornerRadius={7}
+          stroke={{
+            shapeStyle: cCellBorder,
+            strokeStyle: { lineWidth: 0.8 },
+          }}
+        />
+        <VStack
+          alignment="leading"
+          spacing={2.5}
+          padding={{ top: 5, bottom: 5, leading: 7, trailing: 7 }}
+          frame={{ maxWidth: "infinity" }}
+        >
+          <HStack spacing={3} alignment="center">
+            <Image
+              systemName={p.icon || "network"}
+              font={{ name: "system", size: 8.5 }}
+              foregroundStyle={modeColor}
+            />
+            <Text
+              font={9.5}
+              fontWeight="medium"
+              foregroundStyle={cLabel}
+              lineLimit={1}
+              minScaleFactor={0.8}
+              allowsTightening={true}
+            >
+              {p.label}
+            </Text>
+            <Spacer minLength={2} />
+            <Image
+              systemName="arrow.triangle.2.circlepath"
+              font={{ name: "system", size: 8 }}
+              foregroundStyle={cLabel}
+            />
+          </HStack>
+          <Text
+            font={10.5}
+            fontWeight="bold"
+            foregroundStyle={cTitle}
+            lineLimit={1}
+            minScaleFactor={0.8}
+          >
+            {p.selected}
+          </Text>
+        </VStack>
+      </ZStack>
+    </Button>
+  )
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 14, bottom: 12, leading: 16, trailing: 16 }}
+      widgetBackground={{ light: "#FFFFFF", dark: "#0F172A" } as any}
+    >
+      {/* 1. 顶部标题栏 */}
+      <HStack spacing={6} alignment="center">
+        <BrandHeaderIcon iconImage={LOON_LOGO_IMAGE} size={18} />
+        <Text font={15.5} fontWeight="bold" foregroundStyle={cTitle}>
+          Loon
+        </Text>
+        <BridgeStatus connected={data.bridgeConnected} size={6} />
+        <Spacer />
+        <Button intent={SwitchLoonModeIntent(undefined)} buttonStyle="plain">
+          <HStack
+            spacing={4}
+            alignment="center"
+            padding={{ top: 3, bottom: 3, leading: 8, trailing: 8 }}
+            background={modeBg}
+            clipShape={{ type: "rect", cornerRadius: 7 }}
+          >
+            <Image
+              systemName={
+                data.runningMode === "all_proxy"
+                  ? "globe"
+                  : data.runningMode === "all_direct"
+                  ? "bolt.horizontal.fill"
+                  : "arrow.triangle.branch"
+              }
+              font={{ name: "system", size: 9.5 }}
+              foregroundStyle={modeColor}
+            />
+            <Text font={10.5} fontWeight="bold" foregroundStyle={modeColor} lineLimit={1}>
+              {data.runningModeLabel}
+            </Text>
+            <Image
+              systemName="arrow.triangle.2.circlepath"
+              font={{ name: "system", size: 8.5 }}
+              foregroundStyle={modeColor}
+            />
+          </HStack>
+        </Button>
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      {/* 2. 中部黄金分割 */}
+      <HStack alignment="center" spacing={0}>
+        {/* 左半区 */}
+        <VStack alignment="leading" spacing={4} frame={{ width: 112 }}>
+          <HStack spacing={4} alignment="center">
+            <Text font={9.5} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+              剩余流量
+            </Text>
+            <Spacer />
+            <Text font={9} foregroundStyle={cLabel} lineLimit={1} minScaleFactor={0.8}>
+              {data.expireText}
+            </Text>
+          </HStack>
+
+          <HStack alignment="lastTextBaseline" spacing={2}>
+            <Text font={17.5} fontWeight="bold" foregroundStyle={pColor} monospacedDigit lineLimit={1}>
+              {data.remainGb.replace(/\s*GB$/i, "")}
+            </Text>
+            <Text font={9} fontWeight="medium" foregroundStyle={cLabel}>
+              GB
+            </Text>
+          </HStack>
+
+          <ProgressBar value={data.remainPct} color={pColor} height={5} />
+
+          <HStack spacing={3} alignment="center">
+            <Image systemName="link" font={{ name: "system", size: 9 }} foregroundStyle={modeColor} />
+            <Text font={9.5} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1}>
+              {data.latencyMs}
+            </Text>
+          </HStack>
+
+          <HStack spacing={3} alignment="center">
+            <Image
+              systemName="location.fill"
+              font={{ name: "system", size: 9 }}
+              foregroundStyle={modeColor}
+            />
+            <Text
+              font={9.5}
+              fontWeight="medium"
+              foregroundStyle={cTitle}
+              lineLimit={1}
+              minScaleFactor={0.75}
+              allowsTightening={true}
+            >
+              {data.outboundTag}
+            </Text>
+          </HStack>
+        </VStack>
+
+        <RoundedRectangle
+          fill={cCellBorder}
+          cornerRadius={0.5}
+          frame={{ width: 1, height: 92 }}
+        />
+
+        <VStack alignment="leading" spacing={5} padding={{ leading: 10 }} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={5} alignment="center">
+            {row1.map(renderPolicyCell)}
+          </HStack>
+          <HStack spacing={5} alignment="center">
+            {row2.map(renderPolicyCell)}
+          </HStack>
+        </VStack>
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      {/* 3. 底栏 */}
+      <HStack spacing={4} alignment="center">
+        <Text font={9} foregroundStyle={cLabel} lineLimit={1} minScaleFactor={0.8}>
+          {`${data.loonVersion || "Loon"} · ${data.policyGroupCount || "0"} 组`}
+        </Text>
+        <Spacer />
+        <Text font={9} foregroundStyle={cLabel} monospacedDigit lineLimit={1}>
+          {`更新于 ${formatTime(data.updatedAt)}`}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// ============================================================
+// 15. Loon 流量统计小号看板
+// ============================================================
+export function LoonTrafficSmallCard({ data }: { data: LoonData }) {
+  const dlStr = data.downloadTraffic || data.usedGb || "0 GB"
+  const ulStr = data.uploadTraffic || "0 GB"
+  const pCount = data.policyGroupCount || String((data.policies || []).length || 0)
+  const cDivider = { light: "rgba(0,0,0,0.08)", dark: "rgba(255,255,255,0.12)" } as any
+  const cAccent = { light: "#0284C7", dark: "#38BDF8" } as any
+  const cDl = { light: "#16A34A", dark: "#22C55E" } as any
+  const cUl = { light: "#D97706", dark: "#F59E0B" } as any
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 13, bottom: 11, leading: 13, trailing: 13 }}
+      widgetBackground={THEME.bg}
+    >
+      <HStack spacing={4} alignment="center" frame={{ height: 18 }}>
+        <BrandHeaderIcon iconImage={LOON_LOGO_IMAGE} size={15} />
+        <Text
+          font={11.5}
+          fontWeight="bold"
+          foregroundStyle={THEME.text}
+          lineLimit={1}
+          minScaleFactor={0.8}
+          allowsTightening={true}
+        >
+          Loon
+        </Text>
+        <BridgeStatus connected={data.bridgeConnected} size={5} />
+        <Spacer minLength={2} />
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      <HStack alignment="center" spacing={0}>
+        <VStack alignment="center" spacing={2} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image systemName="arrow.down.circle.fill" font={{ name: "system", size: 10 }} foregroundStyle={cDl} />
+            <Text font={9.5} fontWeight="medium" foregroundStyle={THEME.dim}>
+              累计下行
+            </Text>
+          </HStack>
+          <Text
+            font={16}
+            fontWeight="bold"
+            foregroundStyle={THEME.text}
+            monospacedDigit
+            lineLimit={1}
+            minScaleFactor={0.7}
+          >
+            {dlStr}
+          </Text>
+        </VStack>
+
+        <RoundedRectangle fill={cDivider} cornerRadius={0.5} frame={{ width: 1, height: 28 }} />
+
+        <VStack alignment="center" spacing={2} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image systemName="arrow.up.circle.fill" font={{ name: "system", size: 10 }} foregroundStyle={cUl} />
+            <Text font={9.5} fontWeight="medium" foregroundStyle={THEME.dim}>
+              累计上行
+            </Text>
+          </HStack>
+          <Text
+            font={16}
+            fontWeight="bold"
+            foregroundStyle={THEME.text}
+            monospacedDigit
+            lineLimit={1}
+            minScaleFactor={0.7}
+          >
+            {ulStr}
+          </Text>
+        </VStack>
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      <HStack alignment="center" spacing={0}>
+        <VStack alignment="center" spacing={2} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image systemName="cpu" font={{ name: "system", size: 9 }} foregroundStyle={cAccent} />
+            <Text font={9} foregroundStyle={THEME.dim}>
+              策略组数
+            </Text>
+          </HStack>
+          <Text font={11.5} fontWeight="bold" foregroundStyle={THEME.text} monospacedDigit>
+            {pCount}
+          </Text>
+        </VStack>
+
+        <VStack alignment="center" spacing={2} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image systemName="link" font={{ name: "system", size: 9 }} foregroundStyle={cAccent} />
+            <Text font={9} foregroundStyle={THEME.dim}>
+              实时延迟
+            </Text>
+          </HStack>
+          <Text font={11.5} fontWeight="bold" foregroundStyle={THEME.text} monospacedDigit>
+            {data.latencyMs}
+          </Text>
+        </VStack>
+      </HStack>
+
+      <Spacer minLength={6} />
+
+      <HStack spacing={4} alignment="center">
+        <Button intent={SwitchLoonModeIntent(undefined)} buttonStyle="plain">
+          <Text font={8.5} foregroundStyle={THEME.dim} lineLimit={1}>
+            {`${data.runningModeLabel} · 余 ${data.remainGb}`}
+          </Text>
+        </Button>
+        <Spacer />
+        <Text font={8.5} foregroundStyle={THEME.dim} monospacedDigit lineLimit={1}>
+          {`更新于 ${formatTime(data.updatedAt)}`}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// ============================================================
+// 16. Loon 流量统计中号看板
+// ============================================================
+export function LoonTrafficMediumCard({ data }: { data: LoonData }) {
+  const dlStr = data.downloadTraffic || data.usedGb || "0 GB"
+  const ulStr = data.uploadTraffic || "0 GB"
+  const pCount = data.policyGroupCount || String((data.policies || []).length || 0)
+  const versionStr = data.loonVersion || "Loon"
+  const pColor = remainColor(data.remainPct)
+
+  const cTitle = { light: "#1E293B", dark: "#F8FAFC" } as any
+  const cLabel = { light: "#64748B", dark: "#94A3B8" } as any
+  const cDivider = { light: "rgba(0,0,0,0.08)", dark: "rgba(255,255,255,0.12)" } as any
+  const cAccent = { light: "#0284C7", dark: "#38BDF8" } as any
+  const cDl = { light: "#16A34A", dark: "#22C55E" } as any
+  const cUl = { light: "#D97706", dark: "#F59E0B" } as any
+
+  const modeColor =
+    data.runningMode === "all_proxy"
+      ? ({ light: "#7C3AED", dark: "#A78BFA" } as any)
+      : data.runningMode === "all_direct"
+      ? ({ light: "#059669", dark: "#34D399" } as any)
+      : ({ light: "#0284C7", dark: "#38BDF8" } as any)
+
+  const modeBg =
+    data.runningMode === "all_proxy"
+      ? ({ light: "rgba(124,58,237,0.10)", dark: "rgba(167,139,250,0.16)" } as any)
+      : data.runningMode === "all_direct"
+      ? ({ light: "rgba(5,150,105,0.10)", dark: "rgba(52,211,153,0.16)" } as any)
+      : ({ light: "rgba(2,132,199,0.10)", dark: "rgba(56,189,248,0.16)" } as any)
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 14, bottom: 12, leading: 16, trailing: 16 }}
+      widgetBackground={{ light: "#FFFFFF", dark: "#0F172A" } as any}
+    >
+      <HStack spacing={6} alignment="center">
+        <BrandHeaderIcon iconImage={LOON_LOGO_IMAGE} size={18} />
+        <Text font={15.5} fontWeight="bold" foregroundStyle={cTitle}>
+          Loon
+        </Text>
+        <BridgeStatus connected={data.bridgeConnected} size={6} />
+        <Spacer />
+        <Text font={10.5} fontWeight="medium" foregroundStyle={cLabel} monospacedDigit>
+          {`更新于 ${formatTime(data.updatedAt)}`}
+        </Text>
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      <HStack alignment="center" spacing={0}>
+        <VStack alignment="center" spacing={3} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={4} alignment="center">
+            <Image systemName="arrow.down.circle.fill" font={{ name: "system", size: 11.5 }} foregroundStyle={cDl} />
+            <Text font={11} fontWeight="medium" foregroundStyle={cLabel}>
+              累计下行
+            </Text>
+          </HStack>
+          <Text
+            font={23}
+            fontWeight="bold"
+            foregroundStyle={cTitle}
+            monospacedDigit
+            lineLimit={1}
+            minScaleFactor={0.75}
+          >
+            {dlStr}
+          </Text>
+        </VStack>
+
+        <RoundedRectangle fill={cDivider} cornerRadius={0.5} frame={{ width: 1, height: 38 }} />
+
+        <VStack alignment="center" spacing={3} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={4} alignment="center">
+            <Image systemName="arrow.up.circle.fill" font={{ name: "system", size: 11.5 }} foregroundStyle={cUl} />
+            <Text font={11} fontWeight="medium" foregroundStyle={cLabel}>
+              累计上行
+            </Text>
+          </HStack>
+          <Text
+            font={23}
+            fontWeight="bold"
+            foregroundStyle={cTitle}
+            monospacedDigit
+            lineLimit={1}
+            minScaleFactor={0.75}
+          >
+            {ulStr}
+          </Text>
+        </VStack>
+      </HStack>
+
+      <Spacer minLength={9} />
+
+      <HStack alignment="center" spacing={0}>
+        <VStack alignment="center" spacing={2.5} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image systemName="cpu" font={{ name: "system", size: 10 }} foregroundStyle={cAccent} />
+            <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+              策略组数
+            </Text>
+          </HStack>
+          <Text font={13} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1}>
+            {pCount}
+          </Text>
+        </VStack>
+
+        <VStack alignment="center" spacing={2.5} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image systemName="link" font={{ name: "system", size: 10 }} foregroundStyle={cAccent} />
+            <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+              实时延迟
+            </Text>
+          </HStack>
+          <Text font={13} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1}>
+            {data.latencyMs}
+          </Text>
+        </VStack>
+
+        <VStack alignment="center" spacing={2.5} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image systemName="gauge.with.dots.needle.bottom.50percent" font={{ name: "system", size: 10 }} foregroundStyle={cAccent} />
+            <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+              剩余流量
+            </Text>
+          </HStack>
+          <Text font={13} fontWeight="bold" foregroundStyle={pColor} monospacedDigit lineLimit={1}>
+            {data.remainGb}
+          </Text>
+        </VStack>
+
+        <VStack alignment="center" spacing={2.5} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={3} alignment="center">
+            <Image
+              systemName={
+                data.runningMode === "all_proxy"
+                  ? "globe"
+                  : data.runningMode === "all_direct"
+                  ? "bolt.horizontal.fill"
+                  : "arrow.triangle.branch"
+              }
+              font={{ name: "system", size: 10 }}
+              foregroundStyle={modeColor}
+            />
+            <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+              运行模式
+            </Text>
+          </HStack>
+          <Button intent={SwitchLoonModeIntent(undefined)} buttonStyle="plain">
+            <HStack
+              spacing={2}
+              alignment="center"
+              padding={{ top: 1, bottom: 1, leading: 6, trailing: 6 }}
+              background={modeBg}
+              clipShape={{ type: "rect", cornerRadius: 5 }}
+            >
+              <Text font={11} fontWeight="bold" foregroundStyle={modeColor} lineLimit={1}>
+                {data.runningModeLabel}
+              </Text>
+              <Image
+                systemName="arrow.triangle.2.circlepath"
+                font={{ name: "system", size: 8 }}
+                foregroundStyle={modeColor}
+              />
+            </HStack>
+          </Button>
+        </VStack>
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      <HStack spacing={4} alignment="center">
+        <Text font={9.5} foregroundStyle={cLabel} lineLimit={1} minScaleFactor={0.8}>
+          {`${versionStr} · 总额 ${data.totalGb}`}
+        </Text>
+        <Spacer />
+        <Text font={9.5} fontWeight="bold" foregroundStyle={pColor} monospacedDigit lineLimit={1}>
+          {`剩 ${Math.round(data.remainPct)}% · ${data.expireText}`}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// ============================================================
+// 自适应分发器
+// ============================================================
+export function LoonCard({ data, family }: { data: LoonData; family?: string }) {
+  if (family === "systemMedium" || family === "systemLarge") {
+    return <LoonMediumCard data={data} />
+  }
+  return <LoonSmallCard data={data} />
+}
+
+export function LoonTrafficCard({ data, family }: { data: LoonData; family?: string }) {
+  if (family === "systemMedium" || family === "systemLarge") {
+    return <LoonTrafficMediumCard data={data} />
+  }
+  return <LoonTrafficSmallCard data={data} />
+}

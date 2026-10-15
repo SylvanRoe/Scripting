@@ -6,10 +6,13 @@ import {
   refreshDeepSeekData,
   refreshEmbyData,
   refreshFuelData,
+  refreshLoonData,
   refreshQbittorrentData,
   refreshQxData,
   refreshVpnData,
   refreshWorkBuddyData,
+  switchLoonPolicyNode,
+  switchLoonRunningMode,
   switchQxPolicyNode,
   switchQxRunningMode,
 } from "./data"
@@ -32,6 +35,7 @@ export const RefreshWidgetIntent = AppIntentManager.register({
         refreshFuelData().catch(() => null),
         refreshQbittorrentData().catch(() => null),
         refreshQxData().catch(() => null),
+        refreshLoonData().catch(() => null),
       ])
     } finally {
       Widget.reloadAll()
@@ -59,6 +63,32 @@ export const SwitchQxPolicyIntent = AppIntentManager.register({
   perform: async (policyId: string) => {
     try {
       await switchQxPolicyNode(policyId || "Proxy")
+    } finally {
+      Widget.reloadAll()
+    }
+  },
+})
+
+// Loon 桌面交互：点击切换运行模式（分流模式 / 全局代理 / 全局直连）
+export const SwitchLoonModeIntent = AppIntentManager.register({
+  name: "SwitchLoonRunningMode",
+  protocol: AppIntentProtocol.AppIntent,
+  perform: async (_params: undefined) => {
+    try {
+      await switchLoonRunningMode()
+    } finally {
+      Widget.reloadAll()
+    }
+  },
+})
+
+// Loon 桌面交互：点击策略组卡片切换下一个候选节点
+export const SwitchLoonPolicyIntent = AppIntentManager.register({
+  name: "SwitchLoonPolicyNode",
+  protocol: AppIntentProtocol.AppIntent,
+  perform: async (policyId: string) => {
+    try {
+      await switchLoonPolicyNode(policyId || "节点选择")
     } finally {
       Widget.reloadAll()
     }

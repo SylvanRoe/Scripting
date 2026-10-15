@@ -1,0 +1,14 @@
+#!name = Loon DashBoard-Kit 交互小组件
+#!desc = 为 DashBoard-Kit iOS 桌面小组件提供本地 OpenAPI 桥接，支持在桌面直接切换 Loon 运行模式与策略组节点，并读取实时配置状态。桥接入点使用可正常解析/无需 DNS 的地址，避免假域名 DNS 失败导致脚本不触发。
+#!author = SylvanRoe & SylvanRoe
+#!homepage = https://github.com/SylvanRoe/scripting
+#!icon = https://raw.githubusercontent.com/Loon0x00/Loon0x00.github.io/main/static/img/loon.png
+#!date = 2026-10-11 02:20:00
+#!tag = 工具,小组件,面板
+#!system = iOS,iPadOS,macOS
+#!type = normal
+
+[Script]
+http-request ^http:\/\/cp\.cloudflare\.com\/loon-bridge script-path=https://raw.githubusercontent.com/SylvanRoe/scripting/refs/heads/main/DashBoard-Kit/loon_dashboard_bridge.js?v=6,timeout=20,tag=LoonDashboardBridge,enable=true
+http-request ^http:\/\/1\.1\.1\.1\/loon-bridge script-path=https://raw.githubusercontent.com/SylvanRoe/scripting/refs/heads/main/DashBoard-Kit/loon_dashboard_bridge.js?v=6,timeout=20,tag=LoonDashboardBridgeIP,enable=true
+http-request ^http:\/\/loon\.(lan|local)\/api script-path=https://raw.githubusercontent.com/SylvanRoe/scripting/refs/heads/main/DashBoard-Kit/loon_dashboard_bridge.js?v=6,timeout=20,tag=LoonDashboardBridgeLocal,enable=true

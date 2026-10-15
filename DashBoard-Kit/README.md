@@ -19,6 +19,8 @@
 
 | 参数关键字 | 看板类型 | 尺寸 | 功能简介 |
 | :--- | :--- | :--- | :--- |
+| `loon` | **Loon** | 小号 / 中号自适应 | 桌面直接点击切换运行模式（分流/全局代理/直连）与策略组节点，实时监控机场剩余流量、落地出口与延迟 |
+| `loon_traffic` 或 `loon2` / `loon流量` | **Loon (流量统计)** | 小号 / 中号自适应 | 自适应上下行累计流量、策略组数、实时延迟、剩余流量与运行模式监控看板 |
 | `qx` 或 `quantumult` / `圈x` | **Quantumult X** | 小号 / 中号自适应 | 方案三深度联动：桌面直接点击切换运行模式（分流/全局/直连）与策略组节点，实时监控机场剩余流量、落地出口与延迟 |
 | `qx_traffic` 或 `qx2` / `圈x流量` | **Quantumult X (流量统计)** | 小号 / 中号自适应 | 暗黑风上下行累计流量、策略组数、实时延迟、剩余流量与运行模式监控看板 |
 | `media` 或 `moviepilot` / `emby` | **Media Nexus** | 中号 (Medium) | 聚合展示近 7 日入库、今日入库、电影/剧集/分集总览、最近入库片单及存储余量 |
@@ -39,6 +41,7 @@
 
 1. **首次配置**：在 Scripting App 中直接**点击运行** `DashBoard-Kit`，即可进入可视化配置管理面板。
 2. **配置各服务连接**：
+   * **Loon**：在 Loon「插件 (Plugin) -> ➕」中添加远程插件链接 `https://raw.githubusercontent.com/SylvanRoe/Scripting/refs/heads/main/DashBoard-Kit/loon_dashboard.plugin` 并开启；可在脚本内填入机场订阅链接获取真实剩余流量，或自定义展示的 4 个策略组。
    * **Quantumult X**：在圈X「重写 -> 引用」中添加远程重写订阅 `https://raw.githubusercontent.com/SylvanRoe/Scripting/refs/heads/main/DashBoard-Kit/qx_dashboard.conf` 并开启重写开关；可在脚本内填入机场订阅链接获取真实剩余流量，或自定义展示的 4 个策略组。
    * **MoviePilot / Emby**：填入服务器局域网或公网地址及 API Key。
    * **DeepSeek**：填入平台 User Token 或官方开放平台 API Key。
