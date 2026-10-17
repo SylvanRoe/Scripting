@@ -198,15 +198,54 @@ function extractVoice(detail: any): { usedMin: number; totalMin: number } {
 }
 
 /**
- * 智能解析联通凭据输入，支持两种格式：
+ * 在任意 JSON 结构中深度查找 Cookie 字段。
+ * 兼容多种 BoxJS 存储形状：
+ *   - {"Cookie":"ecs_token=...; c_mobile=..."}          （直存）
+ *   - {"ChinaUnicom":{"Settings":{"Cookie":"..."}}}   （嵌套）
+ *   - {"val":"..."} / 数组包裹 等
+ */
+function deepFindCookie(node: any, depth = 0): string | null {
+  if (node == null || depth > 6) return null
+  if (typeof node === "string") {
+    const s = node.trim()
+    return s.includes("=") && s.length > 16 ? s : null
+  }
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = deepFindCookie(item, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+  if (typeof node === "object") {
+    // 优先直接取 Cookie 字段
+    for (const key of ["Cookie", "cookie", "COOKIE"]) {
+      const v = (node as any)[key]
+      if (typeof v === "string" && v.trim()) return v.trim()
+    }
+    // 否则递归子节点
+    for (const k of Object.keys(node)) {
+      const found = deepFindCookie((node as any)[k], depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+  return null
+}
+
+/**
+ * 智能解析联通凭据输入，支持三种格式：
  *
  * 1. BoxJS 路径键（推荐）：`@ZayiaComponentService.ChinaUnicom.Settings`
  *    - 解析出 BoxJS key（ZayiaComponentService）与子路径（ChinaUnicom.Settings）
- *    - 通过 BoxJS HTTP API 读取，自动取到末级或其下的 Cookie 字段
- *    - 也兼容省略 @ 前缀、或带 .Cookie 后缀的写法
+ *    - 通过 BoxJS HTTP API 读取，深度查找 Cookie 字段
+ *    - 兼容省略 @ 前缀、带 .Cookie 后缀、只填 key 等写法
  *
- * 2. 原始 Cookie 字符串：`c_mobile=1xxxxxxxxxx; u_account=...; ...`
- *    - 含 `=` 且不以 @ 开头时视为原始 Cookie，直接使用
+ * 2. BoxJS JSON 值：`{"Cookie":"ecs_token=...; c_mobile=..."}`
+ *    - 直接粘贴 BoxJS 里的 val 内容，自动提取 Cookie 字段
+ *
+ * 3. 原始 Cookie 字符串：`ecs_token=...; c_mobile=1xxxxxxxxxx; ...`
+ *    - 含 `=` 且不以 @ 或 { 开头时视为原始 Cookie，直接使用
  */
 export function parseUnicomCredential(raw: string): {
   isBoxJsPath: boolean
@@ -215,10 +254,21 @@ export function parseUnicomCredential(raw: string): {
   subPath: string
 } {
   const input = String(raw || "").trim()
+
+  // 直接粘贴的 BoxJS JSON 值：{"Cookie":"..."}
+  if (input.startsWith("{")) {
+    try {
+      const obj = JSON.parse(input)
+      const c = deepFindCookie(obj)
+      if (c) return { isBoxJsPath: false, cookie: c, boxKey: "", subPath: "" }
+    } catch {}
+  }
+
   // 原始 Cookie 字符串：含 = 且不以 @ 开头
   if (input && input.includes("=") && !input.startsWith("@")) {
     return { isBoxJsPath: false, cookie: input, boxKey: "", subPath: "" }
   }
+
   // BoxJS 路径键
   const path = input.replace(/^@+/, "")
   const parts = path.split(".").filter(Boolean)
@@ -242,30 +292,37 @@ async function fetchCookieFromBoxJsPath(
     const data: any = await res.json()
     const rawVal = data?.val
     if (!rawVal) return null
-    let node: any
-    try {
-      node = typeof rawVal === "string" ? JSON.parse(rawVal) : rawVal
-    } catch {
-      return null
-    }
-    // 按子路径逐级取值；任一级失败则回退到 ChinaUnicom.Settings.Cookie
-    if (subPath) {
-      for (const p of subPath.split(".")) {
-        if (node == null) break
-        node = node[p]
+
+    let root: any = rawVal
+    if (typeof root === "string") {
+      try {
+        root = JSON.parse(root)
+      } catch {
+        // val 本身不是 JSON，可能直接就是 Cookie 字符串
+        return root.includes("=") ? root.trim() : null
       }
     }
-    if (node == null) {
-      node = typeof rawVal === "string" ? JSON.parse(rawVal) : rawVal
-      node = node?.ChinaUnicom?.Settings?.Cookie
+
+    // 1) 按 subPath 逐级取值（精确匹配优先）
+    if (subPath) {
+      let cur: any = root
+      let ok = true
+      for (const p of subPath.split(".")) {
+        if (cur == null || typeof cur !== "object") {
+          ok = false
+          break
+        }
+        cur = cur[p]
+      }
+      if (ok && cur != null) {
+ if (typeof cur === "string" && cur.includes("=")) return cur.trim()
+        const found = deepFindCookie(cur)
+        if (found) return found
+      }
     }
-    // 末级是对象时取其 Cookie 字段；是字符串时直接作为 Cookie
-    if (node && typeof node === "object") {
-      const c = node.Cookie ?? node.cookie
-      return typeof c === "string" && c.trim() ? c.trim() : null
-    }
-    if (typeof node === "string" && node.trim()) return node.trim()
-    return null
+
+    // 2) 回退：整树深度查找 Cookie 字段（兼容 {"Cookie":"..."} 直存）
+    return deepFindCookie(root)
   } catch {
     return null
   }

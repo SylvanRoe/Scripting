@@ -1269,7 +1269,7 @@ async function configureUnicom() {
     const input = await gPrompt({
       title: "配置 中国联通 · 凭据",
       message:
-        "推荐填写 BoxJS 路径键（自动从你的 BoxJS 读取 Cookie）：\n@ZayiaComponentService.ChinaUnicom.Settings\n\n也支持直接粘贴原始 Cookie 字符串（c_mobile=...; u_account=...）。\n\n如使用自建 BoxJS，请先在下方「配置 BoxJS 地址」中设置地址。",
+        "支持三种填写方式（推荐第 1 种）：\n\n1️⃣ BoxJS 路径键（自动读取）：\n@ZayiaComponentService.ChinaUnicom.Settings\n\n2️⃣ BoxJS 中的 JSON 值原文：\n{\"Cookie\":\"ecs_token=...; c_mobile=...\"}\n\n3️⃣ 原始 Cookie 字符串：\necs_token=...; c_mobile=1xxxxxxxxxx; ...\n\n如使用自建 BoxJS，请先在下方「配置 BoxJS 地址」中设置地址。",
       defaultValue: cur || "@ZayiaComponentService.ChinaUnicom.Settings",
       placeholder: "@ZayiaComponentService.ChinaUnicom.Settings",
       confirmLabel: "保存并同步",
@@ -1284,7 +1284,7 @@ async function configureUnicom() {
         `✓ 联通数据已同步！\n\n话费余额：${res.feeBalance} ${res.feeUnit}\n通用流量：${res.flowUnlimited ? "不限量" : `${res.flowUsedGb} / ${res.flowTotalGb} GB`}\n语音：${res.voiceTotalMin > 0 ? `${res.voiceUsedMin} / ${res.voiceTotalMin} 分钟` : `已用 ${res.voiceUsedMin} 分钟`}`
       )
     } else {
-      await gAlert("⚠️ 同步失败，请检查：\n1. BoxJS 路径键是否正确\n2. BoxJS 地址是否可访问\n3. 或改用原始 Cookie 字符串")
+      await gAlert("⚠️ 同步失败，请检查：\n1. BoxJS 路径键 / JSON 值是否正确\n2. BoxJS 地址是否可访问\n3. 或改用原始 Cookie 字符串")
     }
     return
   }
