@@ -1256,7 +1256,7 @@ async function configureUnicom() {
     message: "请手动粘贴联通营业厅 Cookie（必填）；BoxJS 自动读取为可选",
     cancelButton: true,
     actions: [
-      { label: "🍪 手动配置 Cookie（推荐）" },
+      { label: "🍪 配置凭据（BoxJS 路径键 / Cookie）" },
       { label: "📦 开启 BoxJS 自动读取 Cookie" },
       { label: "⚡️ 立即同步话费与流量并刷新小组件" },
       { label: "🗑 清除已保存的凭据" },
@@ -1267,11 +1267,11 @@ async function configureUnicom() {
   if (choice === 0) {
     const cur = settings.cookie || ""
     const input = await gPrompt({
-      title: "配置 中国联通 · Cookie",
+      title: "配置 中国联通 · 凭据",
       message:
-        "请粘贴联通营业厅 Cookie（登录 m.client.10010.com 后获取，包含 c_mobile / u_account 等字段）。\n\n获取方式：使用支持 BoxJS 的代理工具抓包，或从支持该服务的面板同步。",
-      defaultValue: cur,
-      placeholder: "c_mobile=1xxxxxxxxxx; u_account=...; ...",
+        "推荐填写 BoxJS 路径键（自动从你的 BoxJS 读取 Cookie）：\n@ZayiaComponentService.ChinaUnicom.Settings\n\n也支持直接粘贴原始 Cookie 字符串（c_mobile=...; u_account=...）。\n\n如使用自建 BoxJS，请先在下方「配置 BoxJS 地址」中设置地址。",
+      defaultValue: cur || "@ZayiaComponentService.ChinaUnicom.Settings",
+      placeholder: "@ZayiaComponentService.ChinaUnicom.Settings",
       confirmLabel: "保存并同步",
       cancelLabel: "取消",
     })
@@ -1284,7 +1284,7 @@ async function configureUnicom() {
         `✓ 联通数据已同步！\n\n话费余额：${res.feeBalance} ${res.feeUnit}\n通用流量：${res.flowUnlimited ? "不限量" : `${res.flowUsedGb} / ${res.flowTotalGb} GB`}\n语音：${res.voiceTotalMin > 0 ? `${res.voiceUsedMin} / ${res.voiceTotalMin} 分钟` : `已用 ${res.voiceUsedMin} 分钟`}`
       )
     } else {
-      await gAlert("⚠️ 同步失败，请检查 Cookie 是否有效或已过期。")
+      await gAlert("⚠️ 同步失败，请检查：\n1. BoxJS 路径键是否正确\n2. BoxJS 地址是否可访问\n3. 或改用原始 Cookie 字符串")
     }
     return
   }

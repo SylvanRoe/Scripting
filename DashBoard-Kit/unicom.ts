@@ -197,29 +197,89 @@ function extractVoice(detail: any): { usedMin: number; totalMin: number } {
   return { usedMin: used, totalMin: Math.max(0, total) }
 }
 
-async function fetchCookieFromBoxJs(boxJsUrl: string): Promise<string | null> {
+/**
+ * 智能解析联通凭据输入，支持两种格式：
+ *
+ * 1. BoxJS 路径键（推荐）：`@ZayiaComponentService.ChinaUnicom.Settings`
+ *    - 解析出 BoxJS key（ZayiaComponentService）与子路径（ChinaUnicom.Settings）
+ *    - 通过 BoxJS HTTP API 读取，自动取到末级或其下的 Cookie 字段
+ *    - 也兼容省略 @ 前缀、或带 .Cookie 后缀的写法
+ *
+ * 2. 原始 Cookie 字符串：`c_mobile=1xxxxxxxxxx; u_account=...; ...`
+ *    - 含 `=` 且不以 @ 开头时视为原始 Cookie，直接使用
+ */
+export function parseUnicomCredential(raw: string): {
+  isBoxJsPath: boolean
+  cookie: string
+  boxKey: string
+  subPath: string
+} {
+  const input = String(raw || "").trim()
+  // 原始 Cookie 字符串：含 = 且不以 @ 开头
+  if (input && input.includes("=") && !input.startsWith("@")) {
+    return { isBoxJsPath: false, cookie: input, boxKey: "", subPath: "" }
+  }
+  // BoxJS 路径键
+  const path = input.replace(/^@+/, "")
+  const parts = path.split(".").filter(Boolean)
+  const boxKey = parts[0] || "ZayiaComponentService"
+  const subPath = parts.slice(1).join(".")
+  return { isBoxJsPath: true, cookie: "", boxKey, subPath }
+}
+
+async function fetchCookieFromBoxJsPath(
+  boxKey: string,
+  subPath: string,
+  boxJsUrl: string
+): Promise<string | null> {
   try {
-    const base = String(boxJsUrl || "").replace(/\/+$/, "")
-    const res = await fetch(`${base}/query/data/ZayiaComponentService`, {
+    const base = String(boxJsUrl || "https://boxjs.com").replace(/\/+$/, "")
+    const res = await fetch(`${base}/query/data/${encodeURIComponent(boxKey)}`, {
       headers: { Accept: "application/json" },
-      timeout: 4,
+      timeout: 5,
     })
     if (!res.ok) return null
     const data: any = await res.json()
     const rawVal = data?.val
     if (!rawVal) return null
-    let root: any
+    let node: any
     try {
-      root = typeof rawVal === "string" ? JSON.parse(rawVal) : rawVal
+      node = typeof rawVal === "string" ? JSON.parse(rawVal) : rawVal
     } catch {
       return null
     }
-    const cookie = root?.ChinaUnicom?.Settings?.Cookie
-    if (cookie && typeof cookie === "string" && cookie.trim()) return cookie.trim()
+    // 按子路径逐级取值；任一级失败则回退到 ChinaUnicom.Settings.Cookie
+    if (subPath) {
+      for (const p of subPath.split(".")) {
+        if (node == null) break
+        node = node[p]
+      }
+    }
+    if (node == null) {
+      node = typeof rawVal === "string" ? JSON.parse(rawVal) : rawVal
+      node = node?.ChinaUnicom?.Settings?.Cookie
+    }
+    // 末级是对象时取其 Cookie 字段；是字符串时直接作为 Cookie
+    if (node && typeof node === "object") {
+      const c = node.Cookie ?? node.cookie
+      return typeof c === "string" && c.trim() ? c.trim() : null
+    }
+    if (typeof node === "string" && node.trim()) return node.trim()
     return null
   } catch {
     return null
   }
+}
+
+/** 解析用户输入，最终拿到可用于请求的原始 Cookie 字符串 */
+async function resolveUnicomCookie(
+  raw: string,
+  boxJsUrl: string
+): Promise<string> {
+  const parsed = parseUnicomCredential(raw)
+  if (!parsed.isBoxJsPath) return parsed.cookie
+  if (!parsed.boxKey) return ""
+  return (await fetchCookieFromBoxJsPath(parsed.boxKey, parsed.subPath, boxJsUrl)) || ""
 }
 
 export function hasUnicomConfigured(): boolean {
@@ -268,10 +328,9 @@ function formatGb(mb: number): string {
 export async function refreshUnicomData(): Promise<UnicomData | null> {
   try {
     const settings = getUnicomSettings()
-    let cookie = (settings.cookie || "").trim()
-    if (!cookie && settings.enableBoxJs && (settings.boxJsUrl || "").trim()) {
-      cookie = (await fetchCookieFromBoxJs((settings.boxJsUrl || "").trim())) || ""
-    }
+    const boxJsUrl = (settings.boxJsUrl || "https://boxjs.com").trim()
+    // 智能解析：支持 BoxJS 路径键（@ZayiaComponentService.ChinaUnicom.Settings）或原始 Cookie
+    let cookie = await resolveUnicomCookie(settings.cookie || "", boxJsUrl)
     if (!cookie) return null
 
     const [feeRes, detailRes] = await Promise.all([

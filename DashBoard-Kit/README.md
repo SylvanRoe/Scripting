@@ -42,7 +42,7 @@
 
 1. **首次配置**：在 Scripting App 中直接**点击运行** `DashBoard-Kit`，即可进入可视化配置管理面板。
 2. **配置各服务连接**：
-   * **中国联通**：在脚本内「中国联通 (话费/流量)」中填入联通营业厅 Cookie，或开启 BoxJS 自动读取（需 BoxJS 内含 `ZayiaComponentService.ChinaUnicom.Settings.Cookie`）。
+   * **中国联通**：在脚本内「中国联通 (话费/流量)」中填写 BoxJS 路径键 `@ZayiaComponentService.ChinaUnicom.Settings`（推荐，自动从 BoxJS 读取 Cookie），或直接粘贴原始 Cookie 字符串；自建 BoxJS 需先设置 BoxJS 地址。
    * **Loon**：在 Loon「插件 (Plugin) -> ➕」中添加远程插件链接 `https://raw.githubusercontent.com/SylvanRoe/Scripting/refs/heads/main/DashBoard-Kit/loon_dashboard.plugin` 并开启；可在脚本内填入机场订阅链接获取真实剩余流量，或自定义展示的 4 个策略组。
    * **Quantumult X**：在圈X「重写 -> 引用」中添加远程重写订阅 `https://raw.githubusercontent.com/SylvanRoe/Scripting/refs/heads/main/DashBoard-Kit/qx_dashboard.conf` 并开启重写开关；可在脚本内填入机场订阅链接获取真实剩余流量，或自定义展示的 4 个策略组。
    * **MoviePilot / Emby**：填入服务器局域网或公网地址及 API Key。
