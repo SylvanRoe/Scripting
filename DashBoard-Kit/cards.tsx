@@ -2904,16 +2904,31 @@ export function UnicomSmallCard({ data }: { data: UnicomData }) {
           font={{ name: "system", size: 9.5 }}
           foregroundStyle={THEME.dim}
         />
-        <Text font={9.5} foregroundStyle={THEME.dim} lineLimit={1}>
+        <Text
+          font={9}
+          foregroundStyle={THEME.dim}
+          lineLimit={1}
+          minScaleFactor={0.7}
+          allowsTightening={true}
+          fixedSize={{ horizontal: true, vertical: false }}
+        >
           {data.flowUnlimited ? "不限量" : "通用流量"}
         </Text>
-        <Spacer />
+        <Spacer minLength={4} />
         {data.flowUnlimited ? (
-          <Text font={10} fontWeight="bold" foregroundStyle={THEME.text} monospacedDigit>
+          <Text font={10} fontWeight="bold" foregroundStyle={THEME.text} monospacedDigit lineLimit={1}>
             {(`已用 ${data.flowUsedGb} GB`)}
           </Text>
         ) : (
-          <Text font={10} fontWeight="bold" foregroundStyle={flowColor} monospacedDigit>
+          <Text
+            font={9.5}
+            fontWeight="bold"
+            foregroundStyle={flowColor}
+            monospacedDigit
+            lineLimit={1}
+            minScaleFactor={0.6}
+            allowsTightening={true}
+          >
             {(`${data.flowUsedGb}/${data.flowTotalGb} GB`)}
           </Text>
         )}
@@ -2962,34 +2977,23 @@ export function UnicomMediumCard({ data }: { data: UnicomData }) {
       ? Math.max(0, Math.min(100, Math.round((data.voiceUsedMin / Math.max(1, data.voiceTotalMin)) * 100)))
       : 0
 
-  const renderCell = (
-    icon: string,
-    label: string,
-    value: string,
-    valueColor: any,
-    sub?: string
-  ) => (
+  const renderCell = (icon: string, label: string, value: string, valueColor: any) => (
     <ZStack frame={{ maxWidth: "infinity" }}>
       <RoundedRectangle
         fill={cCellBg}
         cornerRadius={7}
         stroke={{ shapeStyle: cCellBorder, strokeStyle: { lineWidth: 0.8 } }}
       />
-      <VStack alignment="leading" spacing={2.5} padding={{ top: 6, bottom: 6, leading: 8, trailing: 8 }}>
+      <VStack alignment="leading" spacing={2.5} padding={{ top: 7, bottom: 7, leading: 8, trailing: 8 }}>
         <HStack spacing={3} alignment="center">
-          <Image systemName={icon} font={{ name: "system", size: 9 }} foregroundStyle={valueColor} />
+          <Image systemName={icon} font={{ name: "system", size: 9.5 }} foregroundStyle={valueColor} />
           <Text font={9.5} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1} minScaleFactor={0.8}>
             {label}
           </Text>
         </HStack>
-        <Text font={11.5} fontWeight="bold" foregroundStyle={valueColor} lineLimit={1} minScaleFactor={0.7}>
+        <Text font={12.5} fontWeight="bold" foregroundStyle={valueColor} lineLimit={1} minScaleFactor={0.7}>
           {value}
         </Text>
-        {sub ? (
-          <Text font={8} foregroundStyle={cLabel} lineLimit={1} minScaleFactor={0.8}>
-            {sub}
-          </Text>
-        ) : null}
       </VStack>
     </ZStack>
   )
@@ -3097,26 +3101,23 @@ export function UnicomMediumCard({ data }: { data: UnicomData }) {
               "antenna.radiowaves.left.and.right",
               "通用流量",
               data.flowUnlimited ? "不限量" : `${Math.round(data.flowPct)}%`,
-              flowColor,
-              `已用 ${data.flowUsedGb} GB`
+              flowColor
             )}
           </HStack>
           <HStack spacing={5} frame={{ maxWidth: "infinity" }}>
             {renderCell(
               "phone.badge.waveform.fill",
               "语音余量",
-              data.voiceTotalMin > 0 ? `${Math.max(0, data.voiceTotalMin - data.voiceUsedMin)} 分钟` : "不限量",
-              THEME.purple,
-              `已用 ${data.voiceUsedMin} 分钟`
+              data.voiceTotalMin > 0
+                ? `${Math.max(0, data.voiceTotalMin - data.voiceUsedMin)} 分钟`
+                : "不限量",
+              THEME.purple
             )}
             {renderCell(
               "chart.bar.fill",
-              "流量用量",
-              data.flowUnlimited ? `${data.flowUsedGb} GB` : `${data.flowUsedGb}/${data.flowTotalGb}`,
-              THEME.blue,
-              data.flowUnlimited
-                ? "不限量套餐"
-                : `剩余 ${Math.max(0, Number(data.flowTotalGb) - Number(data.flowUsedGb)).toFixed(2)} GB`
+              "已用流量",
+              data.flowUnlimited ? `${data.flowUsedGb} GB` : `${data.flowUsedGb} GB`,
+              THEME.blue
             )}
           </HStack>
         </VStack>

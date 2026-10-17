@@ -1253,7 +1253,7 @@ async function configureUnicom() {
   const settings = getUnicomSettings()
   const choice = await Dialog.actionSheet({
     title: "配置 中国联通 (话费/流量/语音)",
-    message: "支持从 BoxJS 读取 Cookie，或手动粘贴联通营业厅 Cookie",
+    message: "请手动粘贴联通营业厅 Cookie（必填）；BoxJS 自动读取为可选",
     cancelButton: true,
     actions: [
       { label: "🍪 手动配置 Cookie（推荐）" },
