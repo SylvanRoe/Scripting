@@ -176,25 +176,14 @@ function extractGeneralFlow(detail: any): FlowUsage {
   }
 }
 
+// 语音解析：与官方 App 接口字段对齐（resources.type=Voice，remainResource=剩余，userResource=已用）
 function extractVoice(detail: any): { usedMin: number; totalMin: number } {
   const resource = detail?.resources?.find(
     (i: any) => String(i.type).toLowerCase() === "voice"
   )
-  const summary = detail?.voiceSumList?.find(
-    (i: any) => String(i.voicetype) === "1" || String(i.flowtype) === "1"
-  )
-  const details = resource?.details ?? []
-  const factor = String(detail?.canuseVoiceAllUnit || "分钟").toUpperCase() === "分钟" ? 1 : 1
-  const used = Math.max(
-    0,
-    num(summary?.xusedvalue) ?? sumField(details, "use") ??
-      (num(resource?.userResource) === undefined ? 0 : (num(resource?.userResource) as number) * factor)
-  )
-  const remain =
-    num(summary?.xcanusevalue) ?? sumField(details, "remain") ??
-    (num(resource?.remainResource) === undefined ? undefined : (num(resource?.remainResource) as number) * factor)
-  const total = remain === undefined ? 0 : used + remain
-  return { usedMin: used, totalMin: Math.max(0, total) }
+  const remain = Math.max(0, num(resource?.remainResource) ?? 0)
+  const used = Math.max(0, num(resource?.userResource) ?? 0)
+  return { usedMin: used, totalMin: remain + used }
 }
 
 /**
@@ -341,7 +330,8 @@ async function resolveUnicomCookie(
 
 export function hasUnicomConfigured(): boolean {
   const s = getUnicomSettings()
-  return !!(s.cookie && s.cookie.trim())
+  // BoxJS 开启（默认开启）或已填手动凭据，均视为已配置
+  return s.enableBoxJs !== false || !!(s.cookie && s.cookie.trim())
 }
 
 export function saveUnicomData(data: UnicomData) {
@@ -386,37 +376,45 @@ export async function refreshUnicomData(): Promise<UnicomData | null> {
   try {
     const settings = getUnicomSettings()
     const boxJsUrl = (settings.boxJsUrl || "https://boxjs.com").trim()
-    // 智能解析：支持 BoxJS 路径键（@ZayiaComponentService.ChinaUnicom.Settings）或原始 Cookie
-    let cookie = await resolveUnicomCookie(settings.cookie || "", boxJsUrl)
+
+    // 凭据获取顺序（与官方脚本一致，BoxJS 优先，实现零填写自动同步）：
+    // 1) 开启 BoxJS 时，自动从 BoxJS 读取 ZayiaComponentService（覆盖手动值，保证始终最新）
+    // 2) BoxJS 读取失败时，解析手动输入（路径键 / JSON 原文 / 原始 Cookie 均可）
+    let cookie = ""
+    if (settings.enableBoxJs !== false) {
+      cookie = (await fetchCookieFromBoxJsPath("ZayiaComponentService", "", boxJsUrl)) || ""
+    }
+    if (!cookie) {
+      cookie = await resolveUnicomCookie(settings.cookie || "", boxJsUrl)
+    }
     if (!cookie) return null
 
+    // 接口请求方式与官方 App 完全对齐：两个接口均为 GET，仅带 Host / UA / cookie
     const [feeRes, detailRes] = await Promise.all([
       fetch(buildFeeUrl(cookie), {
         headers: { Host: "m.client.10010.com", "User-Agent": UNICOM_UA, cookie },
         timeout: 6,
       }).catch(() => null),
       fetch(DETAIL_ENDPOINT, {
-        headers: {
-          Host: "m.client.10010.com",
-          "User-Agent": UNICOM_UA,
-          cookie,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        method: "POST",
-        body: "{}",
+        headers: { Host: "m.client.10010.com", "User-Agent": UNICOM_UA, cookie },
         timeout: 6,
       }).catch(() => null),
     ])
 
     let feeBalance = ""
+    let feeUnit = "元"
     if (feeRes && feeRes.ok) {
       const feeJson: any = await feeRes.json().catch(() => null)
       if (feeJson && feeJson.code === "Y") {
-        // feeResource 形如 "1234"（分）或带小数；userResource 为已用
-        const raw = num(feeJson.feeResource)
-        if (raw !== undefined) {
-          feeBalance = (raw / 100).toFixed(2)
+        // feeResource 为对象：{ feePersent: "38.60", newUnit: "元", dynamicFeeTitle: "剩余话费" }
+        const feeObj = feeJson.feeResource
+        if (feeObj && typeof feeObj === "object") {
+          feeBalance = String(feeObj.feePersent ?? "0")
+          feeUnit = String(feeObj.newUnit || "元")
+        } else {
+          // 兼容旧版：feeResource 为分值数字
+          const raw = num(feeObj)
+          if (raw !== undefined) feeBalance = (raw / 100).toFixed(2)
         }
       }
     }
@@ -425,7 +423,8 @@ export async function refreshUnicomData(): Promise<UnicomData | null> {
     let voice = { usedMin: 0, totalMin: 0 }
     if (detailRes && detailRes.ok) {
       const detailJson: any = await detailRes.json().catch(() => null)
-      if (detailJson && detailJson.code === "Y") {
+      // 官方详情接口成功码：0000 或 Y
+      if (detailJson && (detailJson.code === "Y" || detailJson.code === "0000")) {
         flow = extractGeneralFlow(detailJson)
         voice = extractVoice(detailJson)
       }
@@ -441,7 +440,7 @@ export async function refreshUnicomData(): Promise<UnicomData | null> {
     const data: UnicomData = {
       serviceId: "unicom",
       feeBalance: feeBalance || "--",
-      feeUnit: "元",
+      feeUnit: feeUnit || "元",
       flowUsedGb: formatGb(flow.usedMB),
       flowTotalGb: unlimited ? "" : formatGb(flow.totalMB),
       flowPct: pct,

@@ -1253,13 +1253,14 @@ async function configureUnicom() {
   const settings = getUnicomSettings()
   const choice = await Dialog.actionSheet({
     title: "配置 中国联通 (话费/流量/语音)",
-    message: "请手动粘贴联通营业厅 Cookie（必填）；BoxJS 自动读取为可选",
+    message:
+      "默认自动从 BoxJS 同步（ZayiaComponentService），无需手动填写 Cookie。\n仅当 BoxJS 不可用时，才需要手动配置凭据。",
     cancelButton: true,
     actions: [
-      { label: "🍪 配置凭据（BoxJS 路径键 / Cookie）" },
-      { label: "📦 开启 BoxJS 自动读取 Cookie" },
+      { label: "🍪 手动配置凭据（可选兜底）" },
+      { label: "📦 BoxJS 地址设置（默认 boxjs.com）" },
       { label: "⚡️ 立即同步话费与流量并刷新小组件" },
-      { label: "🗑 清除已保存的凭据" },
+      { label: "🗑 清除手动凭据" },
     ],
   })
   if (choice === null || choice === undefined || choice < 0) return
@@ -1267,11 +1268,11 @@ async function configureUnicom() {
   if (choice === 0) {
     const cur = settings.cookie || ""
     const input = await gPrompt({
-      title: "配置 中国联通 · 凭据",
+      title: "配置 中国联通 · 手动凭据（可选）",
       message:
-        "支持三种填写方式（推荐第 1 种）：\n\n1️⃣ BoxJS 路径键（自动读取）：\n@ZayiaComponentService.ChinaUnicom.Settings\n\n2️⃣ BoxJS 中的 JSON 值原文：\n{\"Cookie\":\"ecs_token=...; c_mobile=...\"}\n\n3️⃣ 原始 Cookie 字符串：\necs_token=...; c_mobile=1xxxxxxxxxx; ...\n\n如使用自建 BoxJS，请先在下方「配置 BoxJS 地址」中设置地址。",
-      defaultValue: cur || "@ZayiaComponentService.ChinaUnicom.Settings",
-      placeholder: "@ZayiaComponentService.ChinaUnicom.Settings",
+        "一般情况下无需填写，脚本会自动从 BoxJS 同步。\n\n仅当 BoxJS 不可用时，才需要在此手动填写，支持三种方式：\n\n1️⃣ BoxJS 路径键：\n@ZayiaComponentService.ChinaUnicom.Settings\n\n2️⃣ BoxJS 中的 JSON 值原文：\n{\"Cookie\":\"ecs_token=...; c_mobile=...\"}\n\n3️⃣ 原始 Cookie 字符串：\necs_token=...; c_mobile=1xxxxxxxxxx; ...\n\n留空则始终走 BoxJS 自动同步。",
+      defaultValue: cur,
+      placeholder: "留空 = 自动从 BoxJS 同步",
       confirmLabel: "保存并同步",
       cancelLabel: "取消",
     })
@@ -1284,30 +1285,34 @@ async function configureUnicom() {
         `✓ 联通数据已同步！\n\n话费余额：${res.feeBalance} ${res.feeUnit}\n通用流量：${res.flowUnlimited ? "不限量" : `${res.flowUsedGb} / ${res.flowTotalGb} GB`}\n语音：${res.voiceTotalMin > 0 ? `${res.voiceUsedMin} / ${res.voiceTotalMin} 分钟` : `已用 ${res.voiceUsedMin} 分钟`}`
       )
     } else {
-      await gAlert("⚠️ 同步失败，请检查：\n1. BoxJS 路径键 / JSON 值是否正确\n2. BoxJS 地址是否可访问\n3. 或改用原始 Cookie 字符串")
+      await gAlert(
+        "⚠️ 同步失败，请检查：\n1. BoxJS 地址是否可访问（默认 https://boxjs.com）\n2. BoxJS 内是否存在 ZayiaComponentService\n3. 网络是否正常"
+      )
     }
     return
   }
 
   if (choice === 1) {
-    const enableBoxJs = !settings.enableBoxJs
-    let boxJsUrl = settings.boxJsUrl || "https://boxjs.com"
-    if (enableBoxJs) {
-      const input = await gPrompt({
-        title: "配置 BoxJS 地址",
-        message:
-          "请输入你的 BoxJS 地址（需包含 ZayiaComponentService 的 ChinaUnicom.Settings.Cookie）：",
-        defaultValue: boxJsUrl,
-        placeholder: "https://boxjs.com",
-        keyboardType: "URL",
-        confirmLabel: "保存",
-        cancelLabel: "取消",
-      })
-      if (input === null) return
-      boxJsUrl = input.trim() || "https://boxjs.com"
-    }
-    saveUnicomSettings({ enableBoxJs, boxJsUrl })
-    await gAlert(enableBoxJs ? "✓ 已开启 BoxJS 自动读取 Cookie" : "✓ 已关闭 BoxJS，将使用手动 Cookie")
+    const curUrl = settings.boxJsUrl || "https://boxjs.com"
+    const input = await gPrompt({
+      title: "配置 BoxJS 地址",
+      message:
+        "脚本会自动从该地址读取 ZayiaComponentService 下的联通 Cookie。\n使用官方 BoxJS 保持默认即可；自建 BoxJS 请填写你的地址。",
+      defaultValue: curUrl,
+      placeholder: "https://boxjs.com",
+      keyboardType: "URL",
+      confirmLabel: "保存并同步",
+      cancelLabel: "取消",
+    })
+    if (input === null) return
+    saveUnicomSettings({ boxJsUrl: input.trim() || "https://boxjs.com", enableBoxJs: true })
+    const res = await refreshUnicomData()
+    Widget.reloadAll()
+    await gAlert(
+      res
+        ? `✓ BoxJS 地址已保存并同步成功！\n\n话费余额：${res.feeBalance} ${res.feeUnit}`
+        : "⚠️ 地址已保存，但同步失败，请检查该地址是否可访问。"
+    )
     return
   }
 
@@ -1319,16 +1324,16 @@ async function configureUnicom() {
         `✓ 联通数据已同步！\n\n话费余额：${res.feeBalance} ${res.feeUnit}\n通用流量：${res.flowUnlimited ? "不限量" : `${res.flowUsedGb} / ${res.flowTotalGb} GB`}\n语音：${res.voiceTotalMin > 0 ? `${res.voiceUsedMin} / ${res.voiceTotalMin} 分钟` : `已用 ${res.voiceUsedMin} 分钟`}`
       )
     } else {
-      await gAlert("⚠️ 同步失败，请先配置有效的 Cookie。")
+      await gAlert("⚠️ 同步失败，请检查 BoxJS 地址是否可访问或网络是否正常。")
     }
     return
   }
 
   if (choice === 3) {
-    const ok = await gConfirm("确定要清除已保存的联通 Cookie 凭据吗？")
+    const ok = await gConfirm("确定要清除手动填写的联通凭据吗？\n（清除后将仅通过 BoxJS 自动同步）")
     if (!ok) return
     saveUnicomSettings({ cookie: "" })
-    await gAlert("已清除凭据，联通看板已恢复为默认演示数据。")
+    await gAlert("已清除手动凭据，后续将仅通过 BoxJS 自动同步。")
     return
   }
 }
