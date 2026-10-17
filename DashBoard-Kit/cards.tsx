@@ -31,8 +31,10 @@ import {
   QX_LOGO_IMAGE,
   QbittorrentData,
   QuantumultXData,
+  UNICOM_LOGO_IMAGE,
   VpnNodeData,
 } from "./types"
+import { UNICOM_LOGO_PATH, type UnicomData } from "./unicom"
 
 // ── 品牌图标渲染（支持 SVG、UIImage、本地图片、SF Symbol）──
 export function BrandHeaderIcon({
@@ -2821,4 +2823,324 @@ export function LoonTrafficCard({ data, family }: { data: LoonData; family?: str
     return <LoonTrafficMediumCard data={data} />
   }
   return <LoonTrafficSmallCard data={data} />
+}
+
+
+// ============================================================
+// 14. 中国联通看板（小号：话费大字 + 流量/语音；中号：左监控 + 右 2x2 矩阵）
+// 遵循 DashBoard-Kit 统一 UI 风格，自动适配深/浅色模式
+// ============================================================
+
+// 联通官方 Logo（本地资源，失败时回退 SF Symbol）
+function UnicomLogo({ size }: { size: number }) {
+  try {
+    if (FileManager.existsSync(UNICOM_LOGO_PATH)) {
+      return <Image filePath={UNICOM_LOGO_PATH} resizable={true} frame={{ width: size, height: size }} />
+    }
+  } catch {}
+  return (
+    <Image
+      systemName="antenna.radiowaves.left.and.right"
+      font={{ name: "system", size: size }}
+      foregroundStyle="#E60012"
+    />
+  )
+}
+
+// 小号卡片：话费余额大字 + 通用流量进度条 + 语音
+export function UnicomSmallCard({ data }: { data: UnicomData }) {
+  const flowColor = remainColor(data.flowUnlimited ? 100 : data.flowPct)
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 13, bottom: 11, leading: 13, trailing: 13 }}
+      widgetBackground={THEME.bg}
+    >
+      <HStack spacing={4} alignment="center" frame={{ height: 18 }}>
+        <UnicomLogo size={15} />
+        <Text
+          font={11.5}
+          fontWeight="bold"
+          foregroundStyle={THEME.text}
+          lineLimit={1}
+          minScaleFactor={0.8}
+          allowsTightening={true}
+        >
+          中国联通
+        </Text>
+        <Circle fill="#10B981" frame={{ width: 5, height: 5 }} />
+        <Spacer minLength={2} />
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={6} />
+
+      <Text font={10.5} fontWeight="medium" foregroundStyle={THEME.dim}>
+        话费余额
+      </Text>
+      <HStack alignment="lastTextBaseline" spacing={2}>
+        <Text
+          font={27}
+          fontWeight="bold"
+          foregroundStyle={{ light: "#E60012", dark: "#FF5A5F" } as any}
+          monospacedDigit
+          lineLimit={1}
+          minScaleFactor={0.7}
+        >
+          {data.feeBalance}
+        </Text>
+        <Text font={11} fontWeight="bold" foregroundStyle={THEME.dim}>
+          {data.feeUnit}
+        </Text>
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      <HStack spacing={4} alignment="center">
+        <Image
+          systemName="antenna.radiowaves.left.and.right"
+          font={{ name: "system", size: 9.5 }}
+          foregroundStyle={THEME.dim}
+        />
+        <Text font={9.5} foregroundStyle={THEME.dim} lineLimit={1}>
+          {data.flowUnlimited ? "不限量" : "通用流量"}
+        </Text>
+        <Spacer />
+        {data.flowUnlimited ? (
+          <Text font={10} fontWeight="bold" foregroundStyle={THEME.text} monospacedDigit>
+            {(`已用 ${data.flowUsedGb} GB`)}
+          </Text>
+        ) : (
+          <Text font={10} fontWeight="bold" foregroundStyle={flowColor} monospacedDigit>
+            {(`${data.flowUsedGb}/${data.flowTotalGb} GB`)}
+          </Text>
+        )}
+      </HStack>
+      <Spacer minLength={4} />
+      <ProgressBar
+        value={data.flowUnlimited ? 0 : data.flowPct}
+        color={data.flowUnlimited ? THEME.green : flowColor}
+        height={4.5}
+      />
+
+      <Spacer minLength={6} />
+
+      <HStack spacing={4} alignment="center">
+        <Image
+          systemName="phone.badge.waveform.fill"
+          font={{ name: "system", size: 9 }}
+          foregroundStyle={THEME.dim}
+        />
+        <Text font={9} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
+          {data.voiceTotalMin > 0
+            ? `语音 ${data.voiceUsedMin}/${data.voiceTotalMin} 分钟`
+            : `语音已用 ${data.voiceUsedMin} 分钟`}
+        </Text>
+        <Spacer />
+        <Text font={8.5} foregroundStyle={THEME.dim} monospacedDigit>
+          {(`更新于 ${formatTime(data.updatedAt)}`)}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// 中号卡片：左侧流量/语音监控 + 竖向分割线 + 右侧 2x2 矩阵
+export function UnicomMediumCard({ data }: { data: UnicomData }) {
+  const cTitle = { light: "#1E293B", dark: "#F8FAFC" } as any
+  const cLabel = { light: "#64748B", dark: "#94A3B8" } as any
+  const cDivider = { light: "rgba(0,0,0,0.08)", dark: "rgba(255,255,255,0.12)" } as any
+  const cCellBg = { light: "#F8FAFC", dark: "#1E293B" } as any
+  const cCellBorder = { light: "rgba(15,23,42,0.06)", dark: "rgba(255,255,255,0.08)" } as any
+  const cFee = { light: "#E60012", dark: "#FF5A5F" } as any
+
+  const flowColor = remainColor(data.flowUnlimited ? 100 : data.flowPct)
+  const voicePct =
+    data.voiceTotalMin > 0
+      ? Math.max(0, Math.min(100, Math.round((data.voiceUsedMin / Math.max(1, data.voiceTotalMin)) * 100)))
+      : 0
+
+  const renderCell = (
+    icon: string,
+    label: string,
+    value: string,
+    valueColor: any,
+    sub?: string
+  ) => (
+    <ZStack frame={{ maxWidth: "infinity" }}>
+      <RoundedRectangle
+        fill={cCellBg}
+        cornerRadius={7}
+        stroke={{ shapeStyle: cCellBorder, strokeStyle: { lineWidth: 0.8 } }}
+      />
+      <VStack alignment="leading" spacing={2.5} padding={{ top: 6, bottom: 6, leading: 8, trailing: 8 }}>
+        <HStack spacing={3} alignment="center">
+          <Image systemName={icon} font={{ name: "system", size: 9 }} foregroundStyle={valueColor} />
+          <Text font={9.5} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1} minScaleFactor={0.8}>
+            {label}
+          </Text>
+        </HStack>
+        <Text font={11.5} fontWeight="bold" foregroundStyle={valueColor} lineLimit={1} minScaleFactor={0.7}>
+          {value}
+        </Text>
+        {sub ? (
+          <Text font={8} foregroundStyle={cLabel} lineLimit={1} minScaleFactor={0.8}>
+            {sub}
+          </Text>
+        ) : null}
+      </VStack>
+    </ZStack>
+  )
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 14, bottom: 12, leading: 16, trailing: 16 }}
+      widgetBackground={{ light: "#FFFFFF", dark: "#0F172A" } as any}
+    >
+      <HStack spacing={6} alignment="center">
+        <UnicomLogo size={18} />
+        <Text font={15.5} fontWeight="bold" foregroundStyle={cTitle}>
+          中国联通
+        </Text>
+        <Circle fill="#10B981" frame={{ width: 6, height: 6 }} />
+        <Spacer />
+        <Text font={10.5} fontWeight="medium" foregroundStyle={cLabel} monospacedDigit>
+          {(`更新于 ${formatTime(data.updatedAt)}`)}
+        </Text>
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      <HStack alignment="center" spacing={0}>
+        <VStack alignment="leading" spacing={5} frame={{ width: 118 }}>
+          <VStack alignment="leading" spacing={2}>
+            <HStack spacing={4} alignment="center">
+              <Image
+                systemName="bolt.horizontal.circle.fill"
+                font={{ name: "system", size: 10 }}
+                foregroundStyle={cFee}
+              />
+              <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+                话费余额
+              </Text>
+            </HStack>
+            <HStack alignment="lastTextBaseline" spacing={2}>
+              <Text font={19} fontWeight="bold" foregroundStyle={cFee} monospacedDigit lineLimit={1}>
+                {data.feeBalance}
+              </Text>
+              <Text font={10} fontWeight="bold" foregroundStyle={cLabel}>
+                {data.feeUnit}
+              </Text>
+            </HStack>
+          </VStack>
+
+          <VStack alignment="leading" spacing={2.5}>
+            <HStack spacing={4} alignment="center">
+              <Image
+                systemName="antenna.radiowaves.left.and.right"
+                font={{ name: "system", size: 10 }}
+                foregroundStyle={flowColor}
+              />
+              <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+                通用流量
+              </Text>
+              <Spacer minLength={2} />
+              <Text font={9} fontWeight="bold" foregroundStyle={flowColor} monospacedDigit lineLimit={1}>
+                {data.flowUnlimited ? "不限量" : `${Math.round(data.flowPct)}%`}
+              </Text>
+            </HStack>
+            <ProgressBar value={data.flowUnlimited ? 0 : data.flowPct} color={data.flowUnlimited ? THEME.green : flowColor} height={4.5} />
+            <Text font={9.5} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1} minScaleFactor={0.8}>
+              {data.flowUnlimited ? `已用 ${data.flowUsedGb} GB` : `${data.flowUsedGb} / ${data.flowTotalGb} GB`}
+            </Text>
+          </VStack>
+
+          <VStack alignment="leading" spacing={2.5}>
+            <HStack spacing={4} alignment="center">
+              <Image
+                systemName="phone.badge.waveform.fill"
+                font={{ name: "system", size: 10 }}
+                foregroundStyle={THEME.purple}
+              />
+              <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+                语音余量
+              </Text>
+              <Spacer minLength={2} />
+              <Text font={9} fontWeight="bold" foregroundStyle={THEME.purple} monospacedDigit lineLimit={1}>
+                {data.voiceTotalMin > 0 ? `${voicePct}%` : "不限量"}
+              </Text>
+            </HStack>
+            <ProgressBar value={voicePct} color={THEME.purple} height={4.5} />
+            <Text font={9.5} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1} minScaleFactor={0.8}>
+              {data.voiceTotalMin > 0
+                ? `${data.voiceUsedMin} / ${data.voiceTotalMin} 分钟`
+                : `已用 ${data.voiceUsedMin} 分钟`}
+            </Text>
+          </VStack>
+        </VStack>
+
+        <Spacer minLength={9} />
+
+        <RoundedRectangle fill={cDivider} cornerRadius={0.5} frame={{ width: 1, height: 72 }} />
+
+        <Spacer minLength={9} />
+
+        <VStack alignment="leading" spacing={5} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={5} frame={{ maxWidth: "infinity" }}>
+            {renderCell("bolt.horizontal.circle.fill", "话费余额", `${data.feeBalance} ${data.feeUnit}`, cFee)}
+            {renderCell(
+              "antenna.radiowaves.left.and.right",
+              "通用流量",
+              data.flowUnlimited ? "不限量" : `${Math.round(data.flowPct)}%`,
+              flowColor,
+              `已用 ${data.flowUsedGb} GB`
+            )}
+          </HStack>
+          <HStack spacing={5} frame={{ maxWidth: "infinity" }}>
+            {renderCell(
+              "phone.badge.waveform.fill",
+              "语音余量",
+              data.voiceTotalMin > 0 ? `${Math.max(0, data.voiceTotalMin - data.voiceUsedMin)} 分钟` : "不限量",
+              THEME.purple,
+              `已用 ${data.voiceUsedMin} 分钟`
+            )}
+            {renderCell(
+              "chart.bar.fill",
+              "流量用量",
+              data.flowUnlimited ? `${data.flowUsedGb} GB` : `${data.flowUsedGb}/${data.flowTotalGb}`,
+              THEME.blue,
+              data.flowUnlimited
+                ? "不限量套餐"
+                : `剩余 ${Math.max(0, Number(data.flowTotalGb) - Number(data.flowUsedGb)).toFixed(2)} GB`
+            )}
+          </HStack>
+        </VStack>
+      </HStack>
+
+      <Spacer minLength={7} />
+
+      <HStack spacing={6} alignment="center">
+        <Text font={9.5} foregroundStyle={cLabel} lineLimit={1} minScaleFactor={0.8}>
+          数据来源：联通营业厅 · BoxJS/手动 Cookie
+        </Text>
+        <Spacer />
+        <Text font={9.5} foregroundStyle={cLabel} monospacedDigit>
+          {(`更新于 ${formatTime(data.updatedAt)}`)}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// 统一根据尺寸自适应的 UnicomCard
+export function UnicomCard({ data, family }: { data: UnicomData; family?: string }) {
+  if (family === "systemMedium" || family === "systemLarge") {
+    return <UnicomMediumCard data={data} />
+  }
+  return <UnicomSmallCard data={data} />
 }

@@ -85,6 +85,7 @@ import {
   refreshMediaData,
   refreshQbittorrentData,
   refreshQxData,
+  refreshUnicomData,
   refreshVpnData,
   refreshWorkBuddyData,
   saveQxSettings,
@@ -92,6 +93,10 @@ import {
   switchLoonRunningMode,
   switchQxPolicyNode,
   switchQxRunningMode,
+  getUnicomData,
+  getUnicomSettings,
+  hasUnicomConfigured,
+  saveUnicomSettings,
 } from "./data"
 import {
   completeAntigravityOAuth,
@@ -109,6 +114,7 @@ import {
   LOON_LOGO_IMAGE,
   QB_LOGO_IMAGE,
   QX_LOGO_IMAGE,
+  UNICOM_LOGO_IMAGE,
   WIDGET_OPTIONS,
   WORKBUDDY_ICON_IMAGE,
 } from "./types"
@@ -196,6 +202,9 @@ function OptionBrandIcon({ id }: { id: string }) {
   }
   if (id === "loon" || id === "loon_traffic") {
     return <BrandHeaderIcon iconImage={LOON_LOGO_IMAGE} size={20} />
+  }
+  if (id === "unicom") {
+    return <BrandHeaderIcon iconImage={UNICOM_LOGO_IMAGE} size={20} />
   }
   if (id === "vpn") {
     return (
@@ -1239,6 +1248,91 @@ async function configureLoon() {
   }
 }
 
+/** 引导配置中国联通（Cookie 凭据 + 数据同步） */
+async function configureUnicom() {
+  const settings = getUnicomSettings()
+  const choice = await Dialog.actionSheet({
+    title: "配置 中国联通 (话费/流量/语音)",
+    message: "支持从 BoxJS 读取 Cookie，或手动粘贴联通营业厅 Cookie",
+    cancelButton: true,
+    actions: [
+      { label: "🍪 手动配置 Cookie（推荐）" },
+      { label: "📦 开启 BoxJS 自动读取 Cookie" },
+      { label: "⚡️ 立即同步话费与流量并刷新小组件" },
+      { label: "🗑 清除已保存的凭据" },
+    ],
+  })
+  if (choice === null || choice === undefined || choice < 0) return
+
+  if (choice === 0) {
+    const cur = settings.cookie || ""
+    const input = await gPrompt({
+      title: "配置 中国联通 · Cookie",
+      message:
+        "请粘贴联通营业厅 Cookie（登录 m.client.10010.com 后获取，包含 c_mobile / u_account 等字段）。\n\n获取方式：使用支持 BoxJS 的代理工具抓包，或从支持该服务的面板同步。",
+      defaultValue: cur,
+      placeholder: "c_mobile=1xxxxxxxxxx; u_account=...; ...",
+      confirmLabel: "保存并同步",
+      cancelLabel: "取消",
+    })
+    if (input === null) return
+    saveUnicomSettings({ cookie: input.trim() })
+    const res = await refreshUnicomData()
+    Widget.reloadAll()
+    if (res) {
+      await gAlert(
+        `✓ 联通数据已同步！\n\n话费余额：${res.feeBalance} ${res.feeUnit}\n通用流量：${res.flowUnlimited ? "不限量" : `${res.flowUsedGb} / ${res.flowTotalGb} GB`}\n语音：${res.voiceTotalMin > 0 ? `${res.voiceUsedMin} / ${res.voiceTotalMin} 分钟` : `已用 ${res.voiceUsedMin} 分钟`}`
+      )
+    } else {
+      await gAlert("⚠️ 同步失败，请检查 Cookie 是否有效或已过期。")
+    }
+    return
+  }
+
+  if (choice === 1) {
+    const enableBoxJs = !settings.enableBoxJs
+    let boxJsUrl = settings.boxJsUrl || "https://boxjs.com"
+    if (enableBoxJs) {
+      const input = await gPrompt({
+        title: "配置 BoxJS 地址",
+        message:
+          "请输入你的 BoxJS 地址（需包含 ZayiaComponentService 的 ChinaUnicom.Settings.Cookie）：",
+        defaultValue: boxJsUrl,
+        placeholder: "https://boxjs.com",
+        keyboardType: "URL",
+        confirmLabel: "保存",
+        cancelLabel: "取消",
+      })
+      if (input === null) return
+      boxJsUrl = input.trim() || "https://boxjs.com"
+    }
+    saveUnicomSettings({ enableBoxJs, boxJsUrl })
+    await gAlert(enableBoxJs ? "✓ 已开启 BoxJS 自动读取 Cookie" : "✓ 已关闭 BoxJS，将使用手动 Cookie")
+    return
+  }
+
+  if (choice === 2) {
+    const res = await refreshUnicomData()
+    Widget.reloadAll()
+    if (res) {
+      await gAlert(
+        `✓ 联通数据已同步！\n\n话费余额：${res.feeBalance} ${res.feeUnit}\n通用流量：${res.flowUnlimited ? "不限量" : `${res.flowUsedGb} / ${res.flowTotalGb} GB`}\n语音：${res.voiceTotalMin > 0 ? `${res.voiceUsedMin} / ${res.voiceTotalMin} 分钟` : `已用 ${res.voiceUsedMin} 分钟`}`
+      )
+    } else {
+      await gAlert("⚠️ 同步失败，请先配置有效的 Cookie。")
+    }
+    return
+  }
+
+  if (choice === 3) {
+    const ok = await gConfirm("确定要清除已保存的联通 Cookie 凭据吗？")
+    if (!ok) return
+    saveUnicomSettings({ cookie: "" })
+    await gAlert("已清除凭据，联通看板已恢复为默认演示数据。")
+    return
+  }
+}
+
 export default function ConfigView() {
   const dismiss = Navigation.useDismiss()
   const hasMedia = hasMediaConfigured()
@@ -1251,6 +1345,7 @@ export default function ConfigView() {
   const hasQb = hasQbConfigured()
   const hasQx = hasQxConfigured()
   const hasLoon = hasLoonConfigured()
+  const hasUnicom = hasUnicomConfigured()
 
   useEffect(() => {
     // 首次进入设置面板后 500ms 轻量触发
@@ -1314,6 +1409,23 @@ export default function ConfigView() {
               controlSize="mini"
               action={async () => {
                 await configureLoon()
+              }}
+            />
+          </HStack>
+          <HStack spacing={10} alignment="center">
+            <Image
+              systemName="circle.fill"
+              font={{ name: "system", size: 8 }}
+              foregroundStyle={hasUnicom ? "#10B981" : "#F59E0B"}
+            />
+            <Text font={14} fontWeight="medium">中国联通 (话费/流量)</Text>
+            <Spacer />
+            <Button
+              title={hasUnicom ? "已配置 · 管理" : "Cookie 配置"}
+              buttonStyle="bordered"
+              controlSize="mini"
+              action={async () => {
+                await configureUnicom()
               }}
             />
           </HStack>
@@ -1671,6 +1783,8 @@ export default function ConfigView() {
                     await refreshQbittorrentData().catch(() => null)
                   } else if (opt.id === "loon" || opt.id === "loon_traffic") {
                     await refreshLoonData().catch(() => null)
+                  } else if (opt.id === "unicom") {
+                    await refreshUnicomData().catch(() => null)
                   } else if (opt.id === "qx" || opt.id === "qx_traffic") {
                     await refreshQxData().catch(() => null)
                   } else if (opt.id === "media") {
@@ -1688,7 +1802,15 @@ export default function ConfigView() {
                   } catch {}
 
                   let previewFamily = opt.defaultFamily as any
-                  if (opt.id === "loon") {
+                  if (opt.id === "unicom") {
+                    const chosen = await gActionSheet("请选择 中国联通 预览尺寸", [
+                      "中号组件 (话费/流量/语音 全面监控)",
+                      "小号组件 (话费余额 + 流量进度条)",
+                      "取消",
+                    ])
+                    if (!chosen || chosen === "取消") return
+                    previewFamily = chosen.includes("小号") ? "systemSmall" : "systemMedium"
+                  } else if (opt.id === "loon") {
                     const chosen = await gActionSheet("请选择 Loon 预览尺寸", [
                       "中号组件 (流量监控 + 2x2 策略组桌面直切矩阵)",
                       "小号组件 (精简模式切换 + 主力策略组 + 流量)",

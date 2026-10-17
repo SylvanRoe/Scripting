@@ -15,6 +15,7 @@ import {
   switchLoonRunningMode,
   switchQxPolicyNode,
   switchQxRunningMode,
+  refreshUnicomData,
 } from "./data"
 
 // 统一刷新 Intent
@@ -36,6 +37,7 @@ export const RefreshWidgetIntent = AppIntentManager.register({
         refreshQbittorrentData().catch(() => null),
         refreshQxData().catch(() => null),
         refreshLoonData().catch(() => null),
+        refreshUnicomData().catch(() => null),
       ])
     } finally {
       Widget.reloadAll()

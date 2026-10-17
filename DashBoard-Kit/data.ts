@@ -3375,3 +3375,20 @@ export async function switchLoonPolicyNode(policyId: string): Promise<LoonData> 
 
   return updated
 }
+
+// 转发中国联通模块导出，便于统一从 data 入口引用
+export {
+  DEFAULT_UNICOM,
+  UNICOM_BOXJS_KEY,
+  UNICOM_CACHE_KEY,
+  UNICOM_COOKIE_KEY,
+  UNICOM_LOGO_PATH,
+  getUnicomData,
+  getUnicomSettings,
+  hasUnicomConfigured,
+  refreshUnicomData,
+  saveUnicomData,
+  saveUnicomSettings,
+  type UnicomData,
+  type UnicomSettings,
+} from "./unicom"

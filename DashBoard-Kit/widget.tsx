@@ -9,6 +9,7 @@ import {
   QbittorrentCard,
   QuantumultXCard,
   QuantumultXTrafficCard,
+  UnicomCard,
   VpnNodeCard,
 } from "./cards"
 import {
@@ -34,6 +35,8 @@ import {
   refreshQxData,
   refreshVpnData,
   refreshWorkBuddyData,
+  getUnicomData,
+  refreshUnicomData,
 } from "./data"
 
 // ── 刷新节奏（发热/耗电主要取决于这里）────────────────────────────
@@ -100,6 +103,13 @@ export function getWidgetView(paramOverride?: string, familyOverride?: string) {
   else if (target.includes("cpamp") || target.includes("cpa")) param = "cpamp"
   else if (target.includes("vpn") || target.includes("node") || target.includes("ip") || target.includes("节点")) param = "vpn"
   else if (target.includes("qbittorrent") || target.includes("qb") || target.includes("qbit")) param = "qbittorrent"
+  else if (
+    target === "unicom" ||
+    target.includes("联通") ||
+    target.includes("10010") ||
+    target.includes("cucc")
+  )
+    param = "unicom"
   else if (target.includes("fuel") || target.includes("oil") || target.includes("油价")) param = "fuel"
   else if (
     target === "loon_traffic" ||
@@ -126,6 +136,8 @@ export function getWidgetView(paramOverride?: string, familyOverride?: string) {
     return <LoonTrafficCard data={getLoonData()} family={family} />
   } else if (param === "loon") {
     return <LoonCard data={getLoonData()} family={family} />
+  } else if (param === "unicom") {
+    return <UnicomCard data={getUnicomData()} family={family} />
   } else if (param === "qx_traffic") {
     return <QuantumultXTrafficCard data={getQxData()} family={family} />
   } else if (param === "qx") {
@@ -210,6 +222,12 @@ async function main() {
       const elapsed = Date.now() - (Date.parse(curQx.updatedAt || "") || 0)
       if (elapsed > FRESH_TTL_MS) {
         await refreshQxData().catch(() => null)
+      }
+    } else if (p.includes("unicom") || p.includes("联通") || p.includes("10010")) {
+      const curUnicom = getUnicomData()
+      const elapsed = Date.now() - (Date.parse(curUnicom.updatedAt || "") || 0)
+      if (elapsed > FRESH_TTL_MS) {
+        await refreshUnicomData().catch(() => null)
       }
     } else {
       // 未带参数时，优先按默认组件刷新
