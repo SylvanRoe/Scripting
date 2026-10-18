@@ -2847,9 +2847,25 @@ function UnicomLogo({ size }: { size: number }) {
   )
 }
 
-// 小号卡片：话费余额大字 + 通用流量进度条 + 语音
+// 小号卡片：话费余额大字 + 剩余流量进度条 + 剩余通话
 export function UnicomSmallCard({ data }: { data: UnicomData }) {
-  const flowColor = remainColor(data.flowUnlimited ? 100 : data.flowPct)
+  const flowRemainGb =
+    data.flowRemainGb ||
+    (data.flowUnlimited
+      ? ""
+      : Math.max(0, (Number(data.flowTotalGb) || 0) - (Number(data.flowUsedGb) || 0)).toFixed(2))
+  const flowRemainPct =
+    data.flowRemainPct !== undefined
+      ? data.flowRemainPct
+      : data.flowUnlimited
+        ? 100
+        : Math.max(0, Math.min(100, Math.round((100 - (data.flowPct || 0)) * 10) / 10))
+  const voiceRemainMin =
+    data.voiceRemainMin !== undefined
+      ? data.voiceRemainMin
+      : Math.max(0, (data.voiceTotalMin || 0) - (data.voiceUsedMin || 0))
+
+  const flowColor = remainColor(flowRemainPct)
 
   return (
     <VStack
@@ -2902,41 +2918,36 @@ export function UnicomSmallCard({ data }: { data: UnicomData }) {
         <Image
           systemName="antenna.radiowaves.left.and.right"
           font={{ name: "system", size: 9.5 }}
-          foregroundStyle={THEME.dim}
+          foregroundStyle={flowColor}
         />
         <Text
-          font={9}
+          font={9.5}
+          fontWeight="medium"
           foregroundStyle={THEME.dim}
           lineLimit={1}
-          minScaleFactor={0.7}
+          minScaleFactor={0.8}
           allowsTightening={true}
           fixedSize={{ horizontal: true, vertical: false }}
         >
-          {data.flowUnlimited ? "不限量" : "通用流量"}
+          剩余流量
         </Text>
         <Spacer minLength={4} />
-        {data.flowUnlimited ? (
-          <Text font={10} fontWeight="bold" foregroundStyle={THEME.text} monospacedDigit lineLimit={1}>
-            {(`已用 ${data.flowUsedGb} GB`)}
-          </Text>
-        ) : (
-          <Text
-            font={9.5}
-            fontWeight="bold"
-            foregroundStyle={flowColor}
-            monospacedDigit
-            lineLimit={1}
-            minScaleFactor={0.6}
-            allowsTightening={true}
-          >
-            {(`${data.flowUsedGb}/${data.flowTotalGb} GB`)}
-          </Text>
-        )}
+        <Text
+          font={10}
+          fontWeight="bold"
+          foregroundStyle={flowColor}
+          monospacedDigit
+          lineLimit={1}
+          minScaleFactor={0.7}
+          allowsTightening={true}
+        >
+          {data.flowUnlimited ? "不限量" : `${flowRemainGb} GB`}
+        </Text>
       </HStack>
       <Spacer minLength={4} />
       <ProgressBar
-        value={data.flowUnlimited ? 0 : data.flowPct}
-        color={data.flowUnlimited ? THEME.green : flowColor}
+        value={data.flowUnlimited ? 100 : flowRemainPct}
+        color={flowColor}
         height={4.5}
       />
 
@@ -2950,8 +2961,8 @@ export function UnicomSmallCard({ data }: { data: UnicomData }) {
         />
         <Text font={9} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
           {data.voiceTotalMin > 0
-            ? `语音 ${data.voiceUsedMin}/${data.voiceTotalMin} 分钟`
-            : `语音已用 ${data.voiceUsedMin} 分钟`}
+            ? `剩余通话 ${voiceRemainMin} 分钟`
+            : (data.voiceUsedMin > 0 ? `已用 ${data.voiceUsedMin} 分钟` : "通话不限量")}
         </Text>
         <Spacer />
         <Text font={8.5} foregroundStyle={THEME.dim} monospacedDigit>
@@ -2962,7 +2973,7 @@ export function UnicomSmallCard({ data }: { data: UnicomData }) {
   )
 }
 
-// 中号卡片：左侧流量/语音监控 + 竖向分割线 + 右侧 2x2 矩阵
+// 中号卡片：左侧话费/流量/语音监控 + 竖向分割线 + 右侧 2x2 矩阵
 export function UnicomMediumCard({ data }: { data: UnicomData }) {
   const cTitle = { light: "#1E293B", dark: "#F8FAFC" } as any
   const cLabel = { light: "#64748B", dark: "#94A3B8" } as any
@@ -2971,11 +2982,28 @@ export function UnicomMediumCard({ data }: { data: UnicomData }) {
   const cCellBorder = { light: "rgba(15,23,42,0.06)", dark: "rgba(255,255,255,0.08)" } as any
   const cFee = { light: "#E60012", dark: "#FF5A5F" } as any
 
-  const flowColor = remainColor(data.flowUnlimited ? 100 : data.flowPct)
-  const voicePct =
+  const flowRemainGb =
+    data.flowRemainGb ||
+    (data.flowUnlimited
+      ? ""
+      : Math.max(0, (Number(data.flowTotalGb) || 0) - (Number(data.flowUsedGb) || 0)).toFixed(2))
+  const flowRemainPct =
+    data.flowRemainPct !== undefined
+      ? data.flowRemainPct
+      : data.flowUnlimited
+        ? 100
+        : Math.max(0, Math.min(100, Math.round((100 - (data.flowPct || 0)) * 10) / 10))
+  const voiceRemainMin =
+    data.voiceRemainMin !== undefined
+      ? data.voiceRemainMin
+      : Math.max(0, (data.voiceTotalMin || 0) - (data.voiceUsedMin || 0))
+  const voiceRemainPct =
     data.voiceTotalMin > 0
-      ? Math.max(0, Math.min(100, Math.round((data.voiceUsedMin / Math.max(1, data.voiceTotalMin)) * 100)))
-      : 0
+      ? Math.max(0, Math.min(100, Math.round((voiceRemainMin / Math.max(1, data.voiceTotalMin)) * 100)))
+      : 100
+
+  const flowColor = remainColor(flowRemainPct)
+  const voiceColor = remainColor(voiceRemainPct)
 
   const renderCell = (icon: string, label: string, value: string, valueColor: any) => (
     <ZStack frame={{ maxWidth: "infinity" }}>
@@ -3051,16 +3079,20 @@ export function UnicomMediumCard({ data }: { data: UnicomData }) {
                 foregroundStyle={flowColor}
               />
               <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
-                通用流量
+                剩余流量
               </Text>
               <Spacer minLength={2} />
               <Text font={9} fontWeight="bold" foregroundStyle={flowColor} monospacedDigit lineLimit={1}>
-                {data.flowUnlimited ? "不限量" : `${Math.round(data.flowPct)}%`}
+                {data.flowUnlimited ? "不限量" : `${Math.round(flowRemainPct)}%`}
               </Text>
             </HStack>
-            <ProgressBar value={data.flowUnlimited ? 0 : data.flowPct} color={data.flowUnlimited ? THEME.green : flowColor} height={4.5} />
+            <ProgressBar
+              value={data.flowUnlimited ? 100 : flowRemainPct}
+              color={flowColor}
+              height={4.5}
+            />
             <Text font={9.5} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1} minScaleFactor={0.8}>
-              {data.flowUnlimited ? `已用 ${data.flowUsedGb} GB` : `${data.flowUsedGb} / ${data.flowTotalGb} GB`}
+              {data.flowUnlimited ? "不限量" : `${flowRemainGb} GB`}
             </Text>
           </VStack>
 
@@ -3069,21 +3101,19 @@ export function UnicomMediumCard({ data }: { data: UnicomData }) {
               <Image
                 systemName="phone.badge.waveform.fill"
                 font={{ name: "system", size: 10 }}
-                foregroundStyle={THEME.purple}
+                foregroundStyle={voiceColor}
               />
               <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
-                语音余量
+                剩余通话
               </Text>
               <Spacer minLength={2} />
-              <Text font={9} fontWeight="bold" foregroundStyle={THEME.purple} monospacedDigit lineLimit={1}>
-                {data.voiceTotalMin > 0 ? `${voicePct}%` : "不限量"}
+              <Text font={9} fontWeight="bold" foregroundStyle={voiceColor} monospacedDigit lineLimit={1}>
+                {data.voiceTotalMin > 0 ? `${voiceRemainPct}%` : "不限量"}
               </Text>
             </HStack>
-            <ProgressBar value={voicePct} color={THEME.purple} height={4.5} />
+            <ProgressBar value={voiceRemainPct} color={voiceColor} height={4.5} />
             <Text font={9.5} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1} minScaleFactor={0.8}>
-              {data.voiceTotalMin > 0
-                ? `${data.voiceUsedMin} / ${data.voiceTotalMin} 分钟`
-                : `已用 ${data.voiceUsedMin} 分钟`}
+              {data.voiceTotalMin > 0 ? `${voiceRemainMin} 分钟` : "不限量"}
             </Text>
           </VStack>
         </VStack>
@@ -3099,24 +3129,22 @@ export function UnicomMediumCard({ data }: { data: UnicomData }) {
             {renderCell("bolt.horizontal.circle.fill", "话费余额", `${data.feeBalance} ${data.feeUnit}`, cFee)}
             {renderCell(
               "antenna.radiowaves.left.and.right",
-              "通用流量",
-              data.flowUnlimited ? "不限量" : `${Math.round(data.flowPct)}%`,
+              "剩余流量",
+              data.flowUnlimited ? "不限量" : `${flowRemainGb} GB`,
               flowColor
             )}
           </HStack>
           <HStack spacing={5} frame={{ maxWidth: "infinity" }}>
             {renderCell(
               "phone.badge.waveform.fill",
-              "语音余量",
-              data.voiceTotalMin > 0
-                ? `${Math.max(0, data.voiceTotalMin - data.voiceUsedMin)} 分钟`
-                : "不限量",
-              THEME.purple
+              "剩余通话",
+              data.voiceTotalMin > 0 ? `${voiceRemainMin} 分钟` : "不限量",
+              voiceColor
             )}
             {renderCell(
               "chart.bar.fill",
               "已用流量",
-              data.flowUnlimited ? `${data.flowUsedGb} GB` : `${data.flowUsedGb} GB`,
+              `${data.flowUsedGb} GB`,
               THEME.blue
             )}
           </HStack>

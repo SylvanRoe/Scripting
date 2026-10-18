@@ -77,10 +77,13 @@ export interface UnicomData {
   feeUnit: string // "元"
   flowUsedGb: string // "12.35"
   flowTotalGb: string // "30.00" 或 "" 表示不限量
-  flowPct: number // 0~100，不限量时为 0
+  flowRemainGb: string // "17.65" 或 "" 表示不限量
+  flowPct: number // 0~100 (已用百分比)
+  flowRemainPct: number // 0~100 (剩余百分比，不限量为 100)
   flowUnlimited: boolean
   voiceUsedMin: number // 已用分钟
   voiceTotalMin: number // 总分钟，<=0 表示不限量
+  voiceRemainMin: number // 剩余分钟
   updatedAt: string
 }
 
@@ -90,10 +93,13 @@ export const DEFAULT_UNICOM: UnicomData = {
   feeUnit: "元",
   flowUsedGb: "12.35",
   flowTotalGb: "30.00",
+  flowRemainGb: "17.65",
   flowPct: 41.2,
+  flowRemainPct: 58.8,
   flowUnlimited: false,
   voiceUsedMin: 120,
   voiceTotalMin: 300,
+  voiceRemainMin: 180,
   updatedAt: new Date().toISOString(),
 }
 
@@ -142,6 +148,7 @@ function sumField(items: any[], field: string): number | undefined {
 interface FlowUsage {
   totalMB: number
   usedMB: number
+  remainMB: number
   hasFiniteTotal: boolean
 }
 
@@ -169,21 +176,26 @@ function extractGeneralFlow(detail: any): FlowUsage {
   const inferred = reportedRemain === undefined ? 0 : used + reportedRemain
   const rawTotal = hasNegative ? 0 : detailTotal ?? inferred
   const total = Number.isFinite(rawTotal) ? Math.max(0, rawTotal) : 0
+  const remain = Math.max(
+    0,
+    reportedRemain !== undefined ? reportedRemain : Math.max(0, total - used)
+  )
   return {
     totalMB: total,
     usedMB: used,
+    remainMB: remain,
     hasFiniteTotal: total > 0,
   }
 }
 
 // 语音解析：与官方 App 接口字段对齐（resources.type=Voice，remainResource=剩余，userResource=已用）
-function extractVoice(detail: any): { usedMin: number; totalMin: number } {
+function extractVoice(detail: any): { usedMin: number; totalMin: number; remainMin: number } {
   const resource = detail?.resources?.find(
     (i: any) => String(i.type).toLowerCase() === "voice"
   )
   const remain = Math.max(0, num(resource?.remainResource) ?? 0)
   const used = Math.max(0, num(resource?.userResource) ?? 0)
-  return { usedMin: used, totalMin: remain + used }
+  return { usedMin: used, totalMin: remain + used, remainMin: remain }
 }
 
 /**
@@ -361,7 +373,21 @@ export function getUnicomData(): UnicomData {
       if (!local || tFile >= tStor) local = fromFile
     }
     if (local && local.serviceId === "unicom") {
-      return { ...DEFAULT_UNICOM, ...local, serviceId: "unicom" }
+      const merged: UnicomData = { ...DEFAULT_UNICOM, ...local, serviceId: "unicom" }
+      if (!merged.flowRemainGb && !merged.flowUnlimited && merged.flowTotalGb) {
+        const t = Number(merged.flowTotalGb) || 0
+        const u = Number(merged.flowUsedGb) || 0
+        merged.flowRemainGb = Math.max(0, t - u).toFixed(2)
+      }
+      if (merged.flowRemainPct === undefined) {
+        merged.flowRemainPct = merged.flowUnlimited
+          ? 100
+          : Math.max(0, Math.min(100, Math.round((100 - (merged.flowPct || 0)) * 10) / 10))
+      }
+      if (merged.voiceRemainMin === undefined) {
+        merged.voiceRemainMin = Math.max(0, (merged.voiceTotalMin || 0) - (merged.voiceUsedMin || 0))
+      }
+      return merged
     }
   } catch {}
   return DEFAULT_UNICOM
@@ -419,8 +445,8 @@ export async function refreshUnicomData(): Promise<UnicomData | null> {
       }
     }
 
-    let flow: FlowUsage = { totalMB: 0, usedMB: 0, hasFiniteTotal: false }
-    let voice = { usedMin: 0, totalMin: 0 }
+    let flow: FlowUsage = { totalMB: 0, usedMB: 0, remainMB: 0, hasFiniteTotal: false }
+    let voice = { usedMin: 0, totalMin: 0, remainMin: 0 }
     if (detailRes && detailRes.ok) {
       const detailJson: any = await detailRes.json().catch(() => null)
       // 官方详情接口成功码：0000 或 Y
@@ -436,6 +462,9 @@ export async function refreshUnicomData(): Promise<UnicomData | null> {
     const pct = unlimited
       ? 0
       : Math.max(0, Math.min(100, Math.round((flow.usedMB / Math.max(1, flow.totalMB)) * 1000) / 10))
+    const remainPct = unlimited
+      ? 100
+      : Math.max(0, Math.min(100, Math.round((flow.remainMB / Math.max(1, flow.totalMB)) * 1000) / 10))
 
     const data: UnicomData = {
       serviceId: "unicom",
@@ -443,10 +472,13 @@ export async function refreshUnicomData(): Promise<UnicomData | null> {
       feeUnit: feeUnit || "元",
       flowUsedGb: formatGb(flow.usedMB),
       flowTotalGb: unlimited ? "" : formatGb(flow.totalMB),
+      flowRemainGb: unlimited ? "" : formatGb(flow.remainMB),
       flowPct: pct,
+      flowRemainPct: remainPct,
       flowUnlimited: unlimited,
       voiceUsedMin: Math.round(voice.usedMin),
       voiceTotalMin: Math.round(voice.totalMin),
+      voiceRemainMin: Math.round(voice.remainMin),
       updatedAt: new Date().toISOString(),
     }
     saveUnicomData(data)
