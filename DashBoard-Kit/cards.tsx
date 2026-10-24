@@ -208,7 +208,7 @@ export function MediaNexusCard({ data }: { data: MediaNexusData }) {
         <HStack alignment="center" spacing={18}>
           <VStack alignment="center" spacing={3}>
             <Text font={21} fontWeight="bold" foregroundStyle={cGreen} monospacedDigit lineLimit={1}>
-              {`+${data.recent7Days}`}
+              {data.recent7Days > 0 ? `+${data.recent7Days}` : "0"}
             </Text>
             <Text font={10.5} fontWeight="regular" foregroundStyle={cLabel} lineLimit={1}>
               近7日入库
@@ -216,7 +216,7 @@ export function MediaNexusCard({ data }: { data: MediaNexusData }) {
           </VStack>
           <VStack alignment="center" spacing={3}>
             <Text font={21} fontWeight="bold" foregroundStyle={cGreen} monospacedDigit lineLimit={1}>
-              {`+${data.todayAdded}`}
+              {data.todayAdded > 0 ? `+${data.todayAdded}` : "0"}
             </Text>
             <Text font={10.5} fontWeight="regular" foregroundStyle={cLabel} lineLimit={1}>
               今日入库

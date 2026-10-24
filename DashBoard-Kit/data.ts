@@ -1132,6 +1132,36 @@ export function getMediaNexusData(): MediaNexusData {
   return DEFAULT_MEDIA_NEXUS
 }
 
+/** 安全解析各类日期格式为本地时间戳 (毫秒) */
+function parseMediaDateMs(raw: any): number {
+  if (!raw) return 0
+  if (typeof raw === "number") return raw > 1e11 ? raw : raw * 1000
+  if (typeof raw === "string") {
+    const s = raw.trim()
+    if (!s) return 0
+    // 如果带时区标示（如 ISO8601 中的 Z、+08:00、-05:00）
+    if (s.includes("Z") || /[+-]\d{2}(?::?\d{2})?$/.test(s)) {
+      const parsed = Date.parse(s)
+      if (!isNaN(parsed)) return parsed
+    }
+    // 常规本地时间字符串："YYYY-MM-DD HH:mm:ss" 或 "YYYY/MM/DD HH:mm:ss" 或带 T
+    const m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/)
+    if (m) {
+      return new Date(
+        Number(m[1]),
+        Number(m[2]) - 1,
+        Number(m[3]),
+        Number(m[4] || 0),
+        Number(m[5] || 0),
+        Number(m[6] || 0)
+      ).getTime()
+    }
+    const fallback = Date.parse(s.replace(" ", "T"))
+    if (!isNaN(fallback)) return fallback
+  }
+  return 0
+}
+
 /** 刷新 MoviePilot 数据：统计数据 + 入库转移历史 */
 async function refreshMoviePilot(base: string, apiKey: string): Promise<MediaNexusData | null> {
   const headers = { Accept: "application/json" }
@@ -1153,10 +1183,20 @@ async function refreshMoviePilot(base: string, apiKey: string): Promise<MediaNex
     const episodeCount = Number(stats?.episode_count ?? 0)
     const freeStorage = stats?.free_storage ? String(stats.free_storage) : ""
 
-    const rawList: any[] = Array.isArray(histData?.data?.list) ? histData.data.list : []
-    const now = Date.now()
-    const oneDayMs = 24 * 3600 * 1000
-    const sevenDaysMs = 7 * oneDayMs
+    const rawList: any[] = Array.isArray(histData?.data?.list)
+      ? histData.data.list
+      : Array.isArray(histData?.data)
+      ? histData.data
+      : Array.isArray(histData)
+      ? histData
+      : []
+
+    const now = new Date()
+    const nowMs = now.getTime()
+    // 今日零点（本地自然日起点）
+    const startOfTodayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime()
+    // 近7日（包含今天及前6天，共7个自然日）
+    const sevenDaysAgoMs = startOfTodayMs - 6 * 86400000
 
     let todayCount = 0
     let weekCount = 0
@@ -1165,12 +1205,19 @@ async function refreshMoviePilot(base: string, apiKey: string): Promise<MediaNex
 
     for (let i = 0; i < rawList.length; i++) {
       const item = rawList[i]
+      // 过滤转移失败或忽略的记录（若 status 字段存在且为 false/0/"false" 则跳过）
+      const isFailed =
+        item.status === false ||
+        item.status === 0 ||
+        item.status === "false" ||
+        item.status === "failed"
+      if (isFailed) continue
+
       // 统计近7日与今日新增
-      if (item.date) {
-        const itemTime = new Date(item.date.replace(" ", "T")).getTime()
-        const diff = now - itemTime
-        if (diff <= oneDayMs) todayCount++
-        if (diff <= sevenDaysMs) weekCount++
+      const itemTime = parseMediaDateMs(item.date || item.created_at || item.time)
+      if (itemTime > 0) {
+        if (itemTime >= startOfTodayMs && itemTime <= nowMs + 60000) todayCount++
+        if (itemTime >= sevenDaysAgoMs && itemTime <= nowMs + 60000) weekCount++
       }
 
       // 前两条记录用于桌面组件卡片展示
@@ -1196,8 +1243,8 @@ async function refreshMoviePilot(base: string, apiKey: string): Promise<MediaNex
     const data: MediaNexusData = {
       title: "MoviePilot",
       statusText: "服务在线",
-      recent7Days: weekCount > 0 ? weekCount : Math.max(1, Math.round(movies * 0.05) || 12),
-      todayAdded: todayCount > 0 ? todayCount : 1,
+      recent7Days: weekCount,
+      todayAdded: todayCount,
       movies: movies || DEFAULT_MEDIA_NEXUS.movies,
       shows: tvCount || DEFAULT_MEDIA_NEXUS.shows,
       episodes: episodeCount || DEFAULT_MEDIA_NEXUS.episodes,
@@ -1230,7 +1277,7 @@ async function refreshEmby(base: string, apiKey: string): Promise<MediaNexusData
       fetch(`${base}/System/Info`, { headers, allowInsecureRequest: insecure }).then((r: any) => r.json()).catch(() => null),
       fetch(`${base}/Items/Counts`, { headers, allowInsecureRequest: insecure }).then((r: any) => r.json()).catch(() => null),
       fetch(
-        `${base}/Items?SortBy=DateCreated&SortOrder=Descending&IncludeItemTypes=Movie,Episode&Recursive=true&Limit=2`,
+        `${base}/Items?SortBy=DateCreated&SortOrder=Descending&IncludeItemTypes=Movie,Episode&Recursive=true&Limit=100&Fields=DateCreated,ProductionYear`,
         { headers, allowInsecureRequest: insecure }
       ).then((r: any) => r.json()).catch(() => null),
     ])
@@ -1242,8 +1289,26 @@ async function refreshEmby(base: string, apiKey: string): Promise<MediaNexusData
     const series = Number(countsRes?.SeriesCount ?? 0)
     const episodes = Number(countsRes?.EpisodeCount ?? 0)
 
-    const rawItems = Array.isArray(latestRes?.Items) ? latestRes.Items : []
-    const recentItems = rawItems.map((it: any, index: number) => {
+    const rawItems: any[] = Array.isArray(latestRes?.Items) ? latestRes.Items : []
+
+    const now = new Date()
+    const nowMs = now.getTime()
+    const startOfTodayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime()
+    const sevenDaysAgoMs = startOfTodayMs - 6 * 86400000
+
+    let todayCount = 0
+    let weekCount = 0
+
+    for (let i = 0; i < rawItems.length; i++) {
+      const it = rawItems[i]
+      const itemTime = parseMediaDateMs(it.DateCreated)
+      if (itemTime > 0) {
+        if (itemTime >= startOfTodayMs && itemTime <= nowMs + 60000) todayCount++
+        if (itemTime >= sevenDaysAgoMs && itemTime <= nowMs + 60000) weekCount++
+      }
+    }
+
+    const recentItems = rawItems.slice(0, 2).map((it: any, index: number) => {
       let title = it.Name || "未知影片"
       if (it.SeriesName) {
         const s = it.ParentIndexNumber ? `S${it.ParentIndexNumber}` : ""
@@ -1261,8 +1326,8 @@ async function refreshEmby(base: string, apiKey: string): Promise<MediaNexusData
     const data: MediaNexusData = {
       title: serverName,
       statusText: "当前在线",
-      recent7Days: Math.max(1, Math.round(movies * 0.05) || 12),
-      todayAdded: Math.max(1, Math.round(movies * 0.01) || 3),
+      recent7Days: weekCount,
+      todayAdded: todayCount,
       movies: movies || DEFAULT_MEDIA_NEXUS.movies,
       shows: series || DEFAULT_MEDIA_NEXUS.shows,
       episodes: episodes || DEFAULT_MEDIA_NEXUS.episodes,
