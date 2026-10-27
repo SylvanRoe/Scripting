@@ -59,6 +59,7 @@
 
 ## 相关链接与代理工具辅助脚本
 
+- [中国移动 Quantumult X 远程重写引用订阅](cmcc_cookie.conf)（在 QX 规则资源直接添加链接，自动包含 MITM 与抓取重写）
 - [中国移动 Quantumult X 获取凭据重写脚本](cmcc_cookie.js)（用于 QX 自动抓取移动登录信封，自动同步至小组件）
 - [安装 Scripting App (App Store)](https://apps.apple.com/app/apple-store/id6479691128)
 - [Scripting 官方网站](https://www.scripting.fun/index.html)
