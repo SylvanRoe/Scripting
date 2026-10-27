@@ -19,6 +19,9 @@ export const LOON_LOGO_IMAGE = loadIcon("assets/loon.png")
 // 中国联通官方红色中国结图标
 export const UNICOM_LOGO_IMAGE = loadIcon("assets/unicom.png")
 
+// 中国移动官方蓝色双环图标
+export const CMCC_LOGO_IMAGE = loadIcon("assets/cmcc.png")
+
 // qBittorrent 官方图标
 export const QB_LOGO_IMAGE = loadIcon("assets/qbittorrent.png")
 
@@ -455,6 +458,7 @@ export const DEFAULT_LOON: LoonData = {
 
 // 支持在桌面小组件参数 (Widget.parameter) 中识别的 key 与列表
 export const WIDGET_OPTIONS = [
+  { id: "cmcc", name: "中国移动", desc: "话费余额/通用流量/移动积分自适应监控看板（支持 BoxJS 或登录信封）", defaultFamily: "systemMedium" },
   { id: "unicom", name: "中国联通", desc: "话费余额/通用流量/语音余量自适应监控看板（支持 BoxJS 或手动 Cookie）", defaultFamily: "systemMedium" },
   { id: "loon", name: "Loon", desc: "自适应代理控制面板（桌面切分流/直连/代理模式/切策略节点/流量监控）", defaultFamily: "systemMedium" },
   { id: "loon_traffic", name: "Loon (流量统计)", desc: "自适应上下行累计流量、策略组/延迟/剩余流量监控看板", defaultFamily: "systemMedium" },

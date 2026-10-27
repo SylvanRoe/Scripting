@@ -35,6 +35,7 @@ import {
   VpnNodeData,
 } from "./types"
 import { UNICOM_LOGO_PATH, type UnicomData } from "./unicom"
+import { CMCC_LOGO_PATH, type CmccData } from "./cmcc"
 
 // ── 品牌图标渲染（支持 SVG、UIImage、本地图片、SF Symbol）──
 export function BrandHeaderIcon({
@@ -3173,3 +3174,327 @@ export function UnicomCard({ data, family }: { data: UnicomData; family?: string
   }
   return <UnicomSmallCard data={data} />
 }
+
+// ─────────────────────────────────────────────────────────────
+// 13. 中国移动小组件（小号/中号自适应）
+// ─────────────────────────────────────────────────────────────
+function CmccLogo({ size }: { size: number }) {
+  try {
+    if (FileManager.existsSync(CMCC_LOGO_PATH)) {
+      return <Image filePath={CMCC_LOGO_PATH} resizable={true} frame={{ width: size, height: size }} />
+    }
+  } catch {}
+  return (
+    <Image
+      systemName="antenna.radiowaves.left.and.right"
+      font={{ name: "system", size }}
+      foregroundStyle="#0085D0"
+    />
+  )
+}
+
+// 小号卡片：话费余额大字 + 剩余流量进度条 + 移动积分
+export function CmccSmallCard({ data }: { data: CmccData }) {
+  const flowRemainGb = data.flowRemainGb || "0.00"
+  const flowRemainPct =
+    data.flowRemainPct !== undefined
+      ? data.flowRemainPct
+      : data.flowUnlimited
+        ? 100
+        : Math.max(0, Math.min(100, Math.round((100 - (data.flowPct || 0)) * 10) / 10))
+
+  const flowColor = remainColor(flowRemainPct)
+  const cCmccBlue = { light: "#0085D0", dark: "#00A8FF" } as any
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 13, bottom: 11, leading: 13, trailing: 13 }}
+      widgetBackground={THEME.bg}
+    >
+      <HStack spacing={4} alignment="center" frame={{ height: 18 }}>
+        <CmccLogo size={15} />
+        <Text
+          font={11.5}
+          fontWeight="bold"
+          foregroundStyle={THEME.text}
+          lineLimit={1}
+          minScaleFactor={0.8}
+          allowsTightening={true}
+        >
+          中国移动
+        </Text>
+        <Circle fill="#10B981" frame={{ width: 5, height: 5 }} />
+        <Spacer minLength={2} />
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={6} />
+
+      <Text font={10.5} fontWeight="medium" foregroundStyle={THEME.dim}>
+        话费余额
+      </Text>
+      <HStack alignment="lastTextBaseline" spacing={2}>
+        <Text
+          font={27}
+          fontWeight="bold"
+          foregroundStyle={cCmccBlue}
+          monospacedDigit
+          lineLimit={1}
+          minScaleFactor={0.7}
+        >
+          {data.feeBalance}
+        </Text>
+        <Text font={11} fontWeight="bold" foregroundStyle={THEME.dim}>
+          {data.feeUnit}
+        </Text>
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      <HStack spacing={4} alignment="center">
+        <Image
+          systemName="antenna.radiowaves.left.and.right"
+          font={{ name: "system", size: 9.5 }}
+          foregroundStyle={flowColor}
+        />
+        <Text
+          font={9.5}
+          fontWeight="medium"
+          foregroundStyle={THEME.dim}
+          lineLimit={1}
+          minScaleFactor={0.8}
+          allowsTightening={true}
+          fixedSize={{ horizontal: true, vertical: false }}
+        >
+          剩余流量
+        </Text>
+        <Spacer minLength={4} />
+        <Text
+          font={10}
+          fontWeight="bold"
+          foregroundStyle={flowColor}
+          monospacedDigit
+          lineLimit={1}
+          minScaleFactor={0.7}
+          allowsTightening={true}
+        >
+          {data.flowUnlimited ? "不限量" : `${flowRemainGb} GB`}
+        </Text>
+      </HStack>
+      <Spacer minLength={4} />
+      <ProgressBar
+        value={data.flowUnlimited ? 100 : flowRemainPct}
+        color={flowColor}
+        height={4.5}
+      />
+
+      <Spacer minLength={6} />
+
+      <HStack spacing={4} alignment="center">
+        <Image
+          systemName="gift.fill"
+          font={{ name: "system", size: 9 }}
+          foregroundStyle={THEME.dim}
+        />
+        <Text font={9} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
+          {data.points > 0 ? `积分 ${data.points}` : `账号 ${data.tel || "已连接"}`}
+        </Text>
+        <Spacer />
+        <Text font={8.5} foregroundStyle={THEME.dim} monospacedDigit>
+          {(`更新于 ${formatTime(data.updatedAt)}`)}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// 中号卡片：左侧话费/流量/消费监控 + 竖向分割线 + 右侧 2x2 矩阵
+export function CmccMediumCard({ data }: { data: CmccData }) {
+  const cTitle = { light: "#1E293B", dark: "#F8FAFC" } as any
+  const cLabel = { light: "#64748B", dark: "#94A3B8" } as any
+  const cDivider = { light: "rgba(0,0,0,0.08)", dark: "rgba(255,255,255,0.12)" } as any
+  const cCellBg = { light: "#F8FAFC", dark: "#1E293B" } as any
+  const cCellBorder = { light: "rgba(15,23,42,0.06)", dark: "rgba(255,255,255,0.08)" } as any
+  const cCmccBlue = { light: "#0085D0", dark: "#00A8FF" } as any
+
+  const flowRemainGb = data.flowRemainGb || "0.00"
+  const flowRemainPct =
+    data.flowRemainPct !== undefined
+      ? data.flowRemainPct
+      : data.flowUnlimited
+        ? 100
+        : Math.max(0, Math.min(100, Math.round((100 - (data.flowPct || 0)) * 10) / 10))
+
+  const flowColor = remainColor(flowRemainPct)
+
+  const renderCell = (icon: string, label: string, value: string, valueColor: any) => (
+    <ZStack frame={{ maxWidth: "infinity" }}>
+      <RoundedRectangle
+        fill={cCellBg}
+        cornerRadius={7}
+        stroke={{ shapeStyle: cCellBorder, strokeStyle: { lineWidth: 0.8 } }}
+      />
+      <VStack alignment="leading" spacing={2.5} padding={{ top: 7, bottom: 7, leading: 8, trailing: 8 }}>
+        <HStack spacing={3} alignment="center">
+          <Image systemName={icon} font={{ name: "system", size: 9.5 }} foregroundStyle={valueColor} />
+          <Text font={9.5} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1} minScaleFactor={0.8}>
+            {label}
+          </Text>
+        </HStack>
+        <Text font={12.5} fontWeight="bold" foregroundStyle={valueColor} lineLimit={1} minScaleFactor={0.7}>
+          {value}
+        </Text>
+      </VStack>
+    </ZStack>
+  )
+
+  return (
+    <VStack
+      alignment="leading"
+      spacing={0}
+      padding={{ top: 14, bottom: 12, leading: 16, trailing: 16 }}
+      widgetBackground={{ light: "#FFFFFF", dark: "#0F172A" } as any}
+    >
+      <HStack spacing={6} alignment="center">
+        <CmccLogo size={18} />
+        <Text font={15.5} fontWeight="bold" foregroundStyle={cTitle}>
+          中国移动
+        </Text>
+        <Circle fill="#10B981" frame={{ width: 6, height: 6 }} />
+        <Spacer />
+        <Text font={10.5} fontWeight="medium" foregroundStyle={cLabel} monospacedDigit>
+          {(`更新于 ${formatTime(data.updatedAt)}`)}
+        </Text>
+        <RefreshButton />
+      </HStack>
+
+      <Spacer minLength={8} />
+
+      <HStack alignment="center" spacing={0}>
+        <VStack alignment="leading" spacing={5} frame={{ width: 118 }}>
+          <VStack alignment="leading" spacing={2}>
+            <HStack spacing={4} alignment="center">
+              <Image
+                systemName="bolt.horizontal.circle.fill"
+                font={{ name: "system", size: 10 }}
+                foregroundStyle={cCmccBlue}
+              />
+              <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+                话费余额
+              </Text>
+            </HStack>
+            <HStack alignment="lastTextBaseline" spacing={2}>
+              <Text font={19} fontWeight="bold" foregroundStyle={cCmccBlue} monospacedDigit lineLimit={1}>
+                {data.feeBalance}
+              </Text>
+              <Text font={10} fontWeight="bold" foregroundStyle={cLabel}>
+                {data.feeUnit}
+              </Text>
+            </HStack>
+          </VStack>
+
+          <VStack alignment="leading" spacing={2.5}>
+            <HStack spacing={4} alignment="center">
+              <Image
+                systemName="antenna.radiowaves.left.and.right"
+                font={{ name: "system", size: 10 }}
+                foregroundStyle={flowColor}
+              />
+              <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+                剩余流量
+              </Text>
+              <Spacer minLength={2} />
+              <Text font={9} fontWeight="bold" foregroundStyle={flowColor} monospacedDigit lineLimit={1}>
+                {data.flowUnlimited ? "不限量" : `${Math.round(flowRemainPct)}%`}
+              </Text>
+            </HStack>
+            <ProgressBar
+              value={data.flowUnlimited ? 100 : flowRemainPct}
+              color={flowColor}
+              height={4.5}
+            />
+            <Text font={9.5} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1} minScaleFactor={0.8}>
+              {data.flowUnlimited ? "不限量" : `${flowRemainGb} GB`}
+            </Text>
+          </VStack>
+
+          <VStack alignment="leading" spacing={2.5}>
+            <HStack spacing={4} alignment="center">
+              <Image
+                systemName="gift.fill"
+                font={{ name: "system", size: 10 }}
+                foregroundStyle={THEME.purple}
+              />
+              <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
+                移动积分
+              </Text>
+              <Spacer minLength={2} />
+              <Text font={9} fontWeight="bold" foregroundStyle={THEME.purple} monospacedDigit lineLimit={1}>
+                {`${data.points}`}
+              </Text>
+            </HStack>
+            <ProgressBar value={Math.min(100, Math.round((data.points / 3000) * 100))} color={THEME.purple} height={4.5} />
+            <Text font={9.5} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1} minScaleFactor={0.8}>
+              {`可用 ${data.points} 积分`}
+            </Text>
+          </VStack>
+        </VStack>
+
+        <Spacer minLength={9} />
+
+        <RoundedRectangle fill={cDivider} cornerRadius={0.5} frame={{ width: 1, height: 72 }} />
+
+        <Spacer minLength={9} />
+
+        <VStack alignment="leading" spacing={5} frame={{ maxWidth: "infinity" }}>
+          <HStack spacing={5} frame={{ maxWidth: "infinity" }}>
+            {renderCell("bolt.horizontal.circle.fill", "话费余额", `${data.feeBalance} ${data.feeUnit}`, cCmccBlue)}
+            {renderCell(
+              "antenna.radiowaves.left.and.right",
+              "剩余流量",
+              data.flowUnlimited ? "不限量" : `${flowRemainGb} GB`,
+              flowColor
+            )}
+          </HStack>
+          <HStack spacing={5} frame={{ maxWidth: "infinity" }}>
+            {renderCell(
+              "gift.fill",
+              "移动积分",
+              `${data.points} 分`,
+              THEME.purple
+            )}
+            {renderCell(
+              "creditcard.fill",
+              "本月消费",
+              `${data.feeConsumed} 元`,
+              THEME.blue
+            )}
+          </HStack>
+        </VStack>
+      </HStack>
+
+      <Spacer minLength={7} />
+
+      <HStack spacing={6} alignment="center">
+        <Text font={9.5} foregroundStyle={cLabel} lineLimit={1} minScaleFactor={0.8}>
+          数据来源：中国移动 · BoxJS/登录信封
+        </Text>
+        <Spacer />
+        <Text font={9.5} foregroundStyle={cLabel} monospacedDigit>
+          {(`更新于 ${formatTime(data.updatedAt)}`)}
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+// 统一根据尺寸自适应的 CmccCard
+export function CmccCard({ data, family }: { data: CmccData; family?: string }) {
+  if (family === "systemMedium" || family === "systemLarge") {
+    return <CmccMediumCard data={data} />
+  }
+  return <CmccSmallCard data={data} />
+}
+

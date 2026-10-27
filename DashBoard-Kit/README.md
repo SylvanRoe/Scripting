@@ -19,6 +19,7 @@
 
 | 参数关键字 | 看板类型 | 尺寸 | 功能简介 |
 | :--- | :--- | :--- | :--- |
+| `cmcc` / `移动` / `10086` | **中国移动** | 小号 / 中号自适应 | 话费余额、剩余通用流量进度、移动积分监控；支持 BoxJS 或登录凭证 |
 | `unicom` / `联通` / `10010` | **中国联通** | 小号 / 中号自适应 | 话费余额、通用流量进度、语音余量监控；支持 BoxJS 或手动 Cookie |
 | `loon` | **Loon** | 小号 / 中号自适应 | 桌面直接点击切换运行模式（分流/全局代理/直连）与策略组节点，实时监控机场剩余流量、落地出口与延迟 |
 | `loon_traffic` 或 `loon2` / `loon流量` | **Loon (流量统计)** | 小号 / 中号自适应 | 自适应上下行累计流量、策略组数、实时延迟、剩余流量与运行模式监控看板 |
@@ -42,6 +43,7 @@
 
 1. **首次配置**：在 Scripting App 中直接**点击运行** `DashBoard-Kit`，即可进入可视化配置管理面板。
 2. **配置各服务连接**：
+   * **中国移动**：默认自动从 BoxJS（`cmcc_login`）同步，无需任何填写；配合圈 X 获取 Cookie 重写脚本 `cmcc_cookie.js` 自动抓取凭据，或在脚本内手动粘贴登录信封 JSON。
    * **中国联通**：默认自动从 BoxJS（`ZayiaComponentService`）同步，无需任何填写；仅当 BoxJS 不可用时，才需要在脚本内手动填写凭据（支持路径键 / JSON 原文 / 原始 Cookie）。
    * **Loon**：在 Loon「插件 (Plugin) -> ➕」中添加远程插件链接 `https://raw.githubusercontent.com/SylvanRoe/Scripting/refs/heads/main/DashBoard-Kit/loon_dashboard.plugin` 并开启；可在脚本内填入机场订阅链接获取真实剩余流量，或自定义展示的 4 个策略组。
    * **Quantumult X**：在圈X「重写 -> 引用」中添加远程重写订阅 `https://raw.githubusercontent.com/SylvanRoe/Scripting/refs/heads/main/DashBoard-Kit/qx_dashboard.conf` 并开启重写开关；可在脚本内填入机场订阅链接获取真实剩余流量，或自定义展示的 4 个策略组。

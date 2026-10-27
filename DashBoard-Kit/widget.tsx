@@ -10,6 +10,7 @@ import {
   QuantumultXCard,
   QuantumultXTrafficCard,
   UnicomCard,
+  CmccCard,
   VpnNodeCard,
 } from "./cards"
 import {
@@ -37,6 +38,8 @@ import {
   refreshWorkBuddyData,
   getUnicomData,
   refreshUnicomData,
+  getCmccData,
+  refreshCmccData,
 } from "./data"
 
 // ── 刷新节奏（发热/耗电主要取决于这里）────────────────────────────
@@ -104,6 +107,13 @@ export function getWidgetView(paramOverride?: string, familyOverride?: string) {
   else if (target.includes("vpn") || target.includes("node") || target.includes("ip") || target.includes("节点")) param = "vpn"
   else if (target.includes("qbittorrent") || target.includes("qb") || target.includes("qbit")) param = "qbittorrent"
   else if (
+    target === "cmcc" ||
+    target.includes("移动") ||
+    target.includes("10086") ||
+    target.includes("chinamobile")
+  )
+    param = "cmcc"
+  else if (
     target === "unicom" ||
     target.includes("联通") ||
     target.includes("10010") ||
@@ -136,6 +146,8 @@ export function getWidgetView(paramOverride?: string, familyOverride?: string) {
     return <LoonTrafficCard data={getLoonData()} family={family} />
   } else if (param === "loon") {
     return <LoonCard data={getLoonData()} family={family} />
+  } else if (param === "cmcc") {
+    return <CmccCard data={getCmccData()} family={family} />
   } else if (param === "unicom") {
     return <UnicomCard data={getUnicomData()} family={family} />
   } else if (param === "qx_traffic") {
@@ -222,6 +234,12 @@ async function main() {
       const elapsed = Date.now() - (Date.parse(curQx.updatedAt || "") || 0)
       if (elapsed > FRESH_TTL_MS) {
         await refreshQxData().catch(() => null)
+      }
+    } else if (p.includes("cmcc") || p.includes("移动") || p.includes("10086")) {
+      const curCmcc = getCmccData()
+      const elapsed = Date.now() - (Date.parse(curCmcc.updatedAt || "") || 0)
+      if (elapsed > FRESH_TTL_MS) {
+        await refreshCmccData().catch(() => null)
       }
     } else if (p.includes("unicom") || p.includes("联通") || p.includes("10010")) {
       const curUnicom = getUnicomData()

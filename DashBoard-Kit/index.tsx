@@ -97,6 +97,11 @@ import {
   getUnicomSettings,
   hasUnicomConfigured,
   saveUnicomSettings,
+  getCmccData,
+  getCmccSettings,
+  hasCmccConfigured,
+  refreshCmccData,
+  saveCmccSettings,
 } from "./data"
 import {
   completeAntigravityOAuth,
@@ -115,6 +120,7 @@ import {
   QB_LOGO_IMAGE,
   QX_LOGO_IMAGE,
   UNICOM_LOGO_IMAGE,
+  CMCC_LOGO_IMAGE,
   WIDGET_OPTIONS,
   WORKBUDDY_ICON_IMAGE,
 } from "./types"
@@ -202,6 +208,9 @@ function OptionBrandIcon({ id }: { id: string }) {
   }
   if (id === "loon" || id === "loon_traffic") {
     return <BrandHeaderIcon iconImage={LOON_LOGO_IMAGE} size={20} />
+  }
+  if (id === "cmcc") {
+    return <BrandHeaderIcon iconImage={CMCC_LOGO_IMAGE} size={20} />
   }
   if (id === "unicom") {
     return <BrandHeaderIcon iconImage={UNICOM_LOGO_IMAGE} size={20} />
@@ -1338,6 +1347,96 @@ async function configureUnicom() {
   }
 }
 
+/** 引导配置中国移动（登录信封/Cookie + 数据同步） */
+async function configureCmcc() {
+  const settings = getCmccSettings()
+  const choice = await Dialog.actionSheet({
+    title: "配置 中国移动 (话费/流量/积分)",
+    message:
+      "默认自动从 BoxJS 同步（cmcc_login），无需手动填写凭据。\n仅当 BoxJS 不可用时，才需要手动配置登录信封。",
+    cancelButton: true,
+    actions: [
+      { label: "📱 手动配置凭据（可选兜底）" },
+      { label: "📦 BoxJS 地址设置（默认 boxjs.com）" },
+      { label: "⚡️ 立即同步话费与流量并刷新小组件" },
+      { label: "🗑 清除手动凭据" },
+    ],
+  })
+  if (choice === null || choice === undefined || choice < 0) return
+
+  if (choice === 0) {
+    const cur = settings.loginEnvelope || ""
+    const input = await gPrompt({
+      title: "配置 中国移动 · 登录信封（可选）",
+      message:
+        "一般情况下无需填写，脚本会自动从 BoxJS (cmcc_login) 同步。\n\n如需手动填写，可直接粘贴 Quantumult X 日志或 BoxJS 中的登录信封 JSON（包含 xk、tel 等），留空则始终走 BoxJS 自动同步。",
+      defaultValue: cur,
+      placeholder: "留空 = 自动从 BoxJS 同步",
+      confirmLabel: "保存并同步",
+      cancelLabel: "取消",
+    })
+    if (input === null) return
+    saveCmccSettings({ loginEnvelope: input.trim() })
+    const res = await refreshCmccData()
+    Widget.reloadAll()
+    if (res) {
+      await gAlert(
+        `✓ 移动数据已同步！\n\n话费余额：${res.feeBalance} ${res.feeUnit}\n剩余流量：${res.flowUnlimited ? "不限量" : `${res.flowRemainGb} / ${res.flowTotalGb} GB`}\n移动积分：${res.points} 分\n账号：${res.tel}`
+      )
+    } else {
+      await gAlert(
+        "⚠️ 同步失败，请检查：\n1. BoxJS 地址是否可访问（默认 https://boxjs.com）\n2. BoxJS 内是否存在 cmcc_login 凭据\n3. 手动凭据格式是否正确"
+      )
+    }
+    return
+  }
+
+  if (choice === 1) {
+    const curUrl = settings.boxJsUrl || "https://boxjs.com"
+    const input = await gPrompt({
+      title: "配置 BoxJS 地址",
+      message:
+        "脚本会自动从该地址读取 cmcc_login 移动凭据。\n使用官方 BoxJS 保持默认即可；自建 BoxJS 请填写你的完整地址。",
+      defaultValue: curUrl,
+      placeholder: "https://boxjs.com",
+      keyboardType: "URL",
+      confirmLabel: "保存并同步",
+      cancelLabel: "取消",
+    })
+    if (input === null) return
+    saveCmccSettings({ boxJsUrl: input.trim() || "https://boxjs.com", enableBoxJs: true })
+    const res = await refreshCmccData()
+    Widget.reloadAll()
+    await gAlert(
+      res
+        ? `✓ BoxJS 地址已保存并同步成功！\n\n话费余额：${res.feeBalance} ${res.feeUnit}`
+        : "⚠️ 地址已保存，但同步失败，请检查该地址是否可访问。"
+    )
+    return
+  }
+
+  if (choice === 2) {
+    const res = await refreshCmccData()
+    Widget.reloadAll()
+    if (res) {
+      await gAlert(
+        `✓ 移动数据已同步！\n\n话费余额：${res.feeBalance} ${res.feeUnit}\n剩余流量：${res.flowUnlimited ? "不限量" : `${res.flowRemainGb} / ${res.flowTotalGb} GB`}\n移动积分：${res.points} 分`
+      )
+    } else {
+      await gAlert("⚠️ 同步失败，请检查 BoxJS 地址是否可访问或网络是否正常。")
+    }
+    return
+  }
+
+  if (choice === 3) {
+    const ok = await gConfirm("确定要清除手动填写的移动凭据吗？\n（清除后将仅通过 BoxJS 自动同步）")
+    if (!ok) return
+    saveCmccSettings({ loginEnvelope: "" })
+    await gAlert("已清除手动凭据，后续将仅通过 BoxJS 自动同步。")
+    return
+  }
+}
+
 export default function ConfigView() {
   const dismiss = Navigation.useDismiss()
   const hasMedia = hasMediaConfigured()
@@ -1351,6 +1450,7 @@ export default function ConfigView() {
   const hasQx = hasQxConfigured()
   const hasLoon = hasLoonConfigured()
   const hasUnicom = hasUnicomConfigured()
+  const hasCmcc = hasCmccConfigured()
 
   useEffect(() => {
     // 首次进入设置面板后 500ms 轻量触发
@@ -1414,6 +1514,23 @@ export default function ConfigView() {
               controlSize="mini"
               action={async () => {
                 await configureLoon()
+              }}
+            />
+          </HStack>
+          <HStack spacing={10} alignment="center">
+            <Image
+              systemName="circle.fill"
+              font={{ name: "system", size: 8 }}
+              foregroundStyle={hasCmcc ? "#10B981" : "#F59E0B"}
+            />
+            <Text font={14} fontWeight="medium">中国移动 (话费/流量/积分)</Text>
+            <Spacer />
+            <Button
+              title={hasCmcc ? "已配置 · 管理" : "凭据配置"}
+              buttonStyle="bordered"
+              controlSize="mini"
+              action={async () => {
+                await configureCmcc()
               }}
             />
           </HStack>
@@ -1788,6 +1905,8 @@ export default function ConfigView() {
                     await refreshQbittorrentData().catch(() => null)
                   } else if (opt.id === "loon" || opt.id === "loon_traffic") {
                     await refreshLoonData().catch(() => null)
+                  } else if (opt.id === "cmcc") {
+                    await refreshCmccData().catch(() => null)
                   } else if (opt.id === "unicom") {
                     await refreshUnicomData().catch(() => null)
                   } else if (opt.id === "qx" || opt.id === "qx_traffic") {
@@ -1807,7 +1926,15 @@ export default function ConfigView() {
                   } catch {}
 
                   let previewFamily = opt.defaultFamily as any
-                  if (opt.id === "unicom") {
+                  if (opt.id === "cmcc") {
+                    const chosen = await gActionSheet("请选择 中国移动 预览尺寸", [
+                      "中号组件 (话费/流量/积分 全面监控)",
+                      "小号组件 (话费余额 + 流量进度条)",
+                      "取消",
+                    ])
+                    if (!chosen || chosen === "取消") return
+                    previewFamily = chosen.includes("小号") ? "systemSmall" : "systemMedium"
+                  } else if (opt.id === "unicom") {
                     const chosen = await gActionSheet("请选择 中国联通 预览尺寸", [
                       "中号组件 (话费/流量/语音 全面监控)",
                       "小号组件 (话费余额 + 流量进度条)",

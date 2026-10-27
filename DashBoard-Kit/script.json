@@ -1,32 +1,32 @@
 {
   "entry": "index.tsx",
-  "version": "1.3.7",
-  "contributors": [],
-  "author": {
-    "email": "SylvanRoe@gmail.com",
-    "name": "SylvanRoe",
-    "homepage": "https://github.com/SylvanRoe/Scripting"
-  },
-  "permissions": null,
-  "remoteDefinitionId": null,
-  "localizedDescriptions": {
-    "en": "Multi-dashboard kit with unified settings and customizable widget parameters.",
-    "zh": "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板"
-  },
-  "name": "DashBoard-Kit",
-  "description": "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板（中国联通、Loon、Quantumult X、Media Nexus、DeepSeek、Codex、Antigravity、WorkBuddy、CPAMP、qBittorrent、今日油价等）",
-  "icon": "rectangle.3.group.fill",
-  "iconImage": "",
-  "runInApp": true,
-  "intentInputTypes": [],
   "localizedNames": {
     "zh": "DashBoard-Kit",
     "en": "DashBoard-Kit"
   },
+  "localizedDescriptions": {
+    "zh": "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板",
+    "en": "Multi-dashboard kit with unified settings and customizable widget parameters."
+  },
+  "iconImage": "",
+  "intentInputTypes": [],
+  "author": {
+    "email": "SylvanRoe@gmail.com",
+    "homepage": "https://github.com/SylvanRoe/Scripting",
+    "name": "SylvanRoe"
+  },
+  "contributors": [],
+  "runInApp": true,
+  "icon": "rectangle.3.group.fill",
   "remoteResource": {
     "url": "https://github.com/SylvanRoe/Scripting/raw/refs/heads/main/DashBoard-Kit/DashBoard-Kit.scripting",
-    "hash": "dbad493bd356e474017dd61c70dd6587",
-    "autoUpdateInterval": 3600
+    "autoUpdateInterval": 3600,
+    "hash": "82ceb678d1b4bf5697af90760d4a0f7b"
   },
-  "color": "#1A13ED"
+  "permissions": null,
+  "remoteDefinitionId": null,
+  "description": "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板（中国移动、中国联通、Loon、Quantumult X、Media Nexus、DeepSeek、Codex、Antigravity、WorkBuddy、CPAMP、qBittorrent、今日油价等）",
+  "color": "#1A13ED",
+  "version": "1.3.8",
+  "name": "DashBoard-Kit"
 }

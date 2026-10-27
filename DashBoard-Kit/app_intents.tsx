@@ -16,6 +16,7 @@ import {
   switchQxPolicyNode,
   switchQxRunningMode,
   refreshUnicomData,
+  refreshCmccData,
 } from "./data"
 
 // 统一刷新 Intent
@@ -38,6 +39,7 @@ export const RefreshWidgetIntent = AppIntentManager.register({
         refreshQxData().catch(() => null),
         refreshLoonData().catch(() => null),
         refreshUnicomData().catch(() => null),
+        refreshCmccData().catch(() => null),
       ])
     } finally {
       Widget.reloadAll()

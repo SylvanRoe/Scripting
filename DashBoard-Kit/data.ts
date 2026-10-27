@@ -3630,3 +3630,20 @@ export {
   type UnicomData,
   type UnicomSettings,
 } from "./unicom"
+
+// 转发中国移动模块导出，便于统一从 data 入口引用
+export {
+  DEFAULT_CMCC,
+  CMCC_CACHE_KEY,
+  CMCC_LOGIN_KEY,
+  CMCC_LOGO_PATH,
+  getCmccData,
+  getCmccSettings,
+  hasCmccConfigured,
+  refreshCmccData,
+  saveCmccData,
+  saveCmccSettings,
+  type CmccData,
+  type CmccSettings,
+} from "./cmcc"
+
