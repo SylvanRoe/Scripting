@@ -35,7 +35,7 @@ import {
   VpnNodeData,
 } from "./types"
 import { UNICOM_LOGO_PATH, type UnicomData } from "./unicom"
-import { CMCC_LOGO_PATH, type CmccData } from "./cmcc"
+import { CMCC_LOGO_PATH, type CmccData } from "./chinamobile"
 
 // ── 品牌图标渲染（支持 SVG、UIImage、本地图片、SF Symbol）──
 export function BrandHeaderIcon({

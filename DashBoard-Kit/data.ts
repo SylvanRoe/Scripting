@@ -3645,5 +3645,5 @@ export {
   saveCmccSettings,
   type CmccData,
   type CmccSettings,
-} from "./cmcc"
+} from "./chinamobile"
 
