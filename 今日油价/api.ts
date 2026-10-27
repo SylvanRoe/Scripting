@@ -126,6 +126,141 @@ export async function detectLocationProvince(): Promise<string> {
   return "广东";
 }
 
+// 国家发改委官方成品油调价日历（每年固定 25 轮调价，每 10 个工作日晚上 24 时调整）
+const NDRC_OIL_CALENDARS: Record<number, [number, number][]> = {
+  2025: [
+    [1, 2], [1, 16],
+    [2, 6], [2, 19],
+    [3, 5], [3, 19],
+    [4, 2], [4, 17], [4, 30],
+    [5, 19],
+    [6, 3], [6, 17],
+    [7, 1], [7, 15], [7, 29],
+    [8, 12], [8, 26],
+    [9, 9], [9, 23],
+    [10, 13], [10, 27],
+    [11, 10], [11, 24],
+    [12, 8], [12, 22],
+  ],
+  2026: [
+    [1, 6], [1, 20],
+    [2, 3], [2, 24],
+    [3, 10], [3, 24],
+    [4, 8], [4, 22],
+    [5, 8], [5, 22],
+    [6, 5], [6, 19],
+    [7, 3], [7, 17], [7, 31],
+    [8, 14], [8, 28],
+    [9, 11], [9, 25],
+    [10, 15], [10, 29],
+    [11, 12], [11, 26],
+    [12, 10], [12, 24],
+  ],
+};
+
+interface NextOilAdjustment {
+  month: number;
+  day: number;
+  diffDays: number;
+  cleanDateText: string;
+  dateDesc: string;
+  isToday: boolean;
+  isExpiredWebText: boolean;
+}
+
+/** 智能推算并校准下一次油价调整时间（杜绝网页数据源过久未更新导致的陈旧过期日期） */
+async function resolveNextOilAdjustment(
+  parsedMonth?: number,
+  parsedDay?: number
+): Promise<NextOilAdjustment> {
+  const now = new Date();
+  const nowMs = now.getTime();
+  const curYear = now.getFullYear();
+  const todayStart = new Date(curYear, now.getMonth(), now.getDate()).getTime();
+
+  // 1. 如果网页抓取到了具体月日，先做过期校验
+  if (parsedMonth && parsedDay) {
+    let targetYear = curYear;
+    let targetMs = new Date(targetYear, parsedMonth - 1, parsedDay, 23, 59, 59).getTime();
+    if (parsedMonth < now.getMonth() + 1 && now.getMonth() >= 10) {
+      targetYear = curYear + 1;
+      targetMs = new Date(targetYear, parsedMonth - 1, parsedDay, 23, 59, 59).getTime();
+    }
+
+    const isExpired = targetMs < todayStart;
+    if (!isExpired) {
+      const targetStart = new Date(targetYear, parsedMonth - 1, parsedDay).getTime();
+      const diffDays = Math.max(0, Math.round((targetStart - todayStart) / 86400000));
+      let cleanDateText = `${parsedMonth}月${parsedDay}日24时`;
+      return {
+        month: parsedMonth,
+        day: parsedDay,
+        diffDays,
+        cleanDateText,
+        dateDesc: `${parsedMonth}月${parsedDay}日24时`,
+        isToday: diffDays === 0,
+        isExpiredWebText: false,
+      };
+    }
+  }
+
+  // 2. 网页文本过期或未匹配到时，走发改委调价日历
+  let calendar = NDRC_OIL_CALENDARS[curYear] || NDRC_OIL_CALENDARS[2026];
+  try {
+    const tzRes = await fetch(`http://m.qiyoujiage.com/tz/${curYear}.shtml`, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      timeout: 3,
+    });
+    if (tzRes.ok) {
+      const tzHtml = await tzRes.text();
+      const list: [number, number][] = [];
+      for (const line of tzHtml.split("\n")) {
+        if (line.includes("月油价调整时间")) {
+          const matches = [...line.matchAll(/(\d{1,2})月(\d{1,2})日/g)];
+          for (const m of matches) {
+            list.push([parseInt(m[1], 10), parseInt(m[2], 10)]);
+          }
+        }
+      }
+      if (list.length >= 20) {
+        calendar = list;
+      }
+    }
+  } catch {}
+
+  for (const [m, d] of calendar) {
+    const adjEnd = new Date(curYear, m - 1, d, 23, 59, 59).getTime();
+    if (adjEnd >= nowMs) {
+      const targetStart = new Date(curYear, m - 1, d).getTime();
+      const diffDays = Math.max(0, Math.round((targetStart - todayStart) / 86400000));
+      return {
+        month: m,
+        day: d,
+        diffDays,
+        cleanDateText: `${m}月${d}日24时`,
+        dateDesc: `${m}月${d}日24时`,
+        isToday: diffDays === 0,
+        isExpiredWebText: true,
+      };
+    }
+  }
+
+  const nextYear = curYear + 1;
+  const nextCal = NDRC_OIL_CALENDARS[nextYear] || [[1, 6]];
+  const [firstM, firstD] = nextCal[0];
+  const targetStart = new Date(nextYear, firstM - 1, firstD).getTime();
+  const diffDays = Math.max(0, Math.round((targetStart - todayStart) / 86400000));
+  return {
+    month: firstM,
+    day: firstD,
+    diffDays,
+    cleanDateText: `${firstM}月${firstD}日24时`,
+    dateDesc: `${firstM}月${firstD}日24时`,
+    isToday: false,
+    isExpiredWebText: true,
+  };
+}
+
 export async function fetchOilData(provinceName?: string): Promise<OilData> {
   let targetProvince = provinceName;
   if (!targetProvince || targetProvince === "auto") {
@@ -179,64 +314,61 @@ export async function fetchOilData(provinceName?: string): Promise<OilData> {
   }
 
   // 结构化解析调价预测
-  // 1. 下次调价时间
-  let nextAdjustDate = "近期调价";
-  let adjustDaysDesc = "";
-  const dateMatch = rawForecast.match(/下次油价\s*([0-9]+月[0-9]+日(?:[0-9]+时)?)\s*调整/);
+  let parsedMonth: number | undefined;
+  let parsedDay: number | undefined;
+  const dateMatch = rawForecast.match(/下次油价\s*([0-9]+)月([0-9]+)日(?:[0-9]+时)?\s*调整/);
   if (dateMatch) {
-    nextAdjustDate = dateMatch[1];
-    const md = nextAdjustDate.match(/([0-9]+)月([0-9]+)日/);
-    if (md) {
-      const month = parseInt(md[1], 10);
-      const day = parseInt(md[2], 10);
-      const now = new Date();
-      let targetDate = new Date(now.getFullYear(), month - 1, day, 24, 0, 0);
-      if (targetDate.getTime() < now.getTime()) {
-        targetDate = new Date(now.getFullYear() + 1, month - 1, day, 24, 0, 0);
-      }
-      const diffMs = targetDate.getTime() - now.getTime();
-      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      if (diffDays <= 0) {
-        adjustDaysDesc = "今晚调整";
-      } else if (diffDays === 1) {
-        adjustDaysDesc = "明天调整";
-      } else {
-        adjustDaysDesc = `${diffDays}天后`;
-      }
-    }
+    parsedMonth = parseInt(dateMatch[1], 10);
+    parsedDay = parseInt(dateMatch[2], 10);
+  }
+
+  // 1. 智能校准调价时间
+  const adj = await resolveNextOilAdjustment(parsedMonth, parsedDay);
+  const nextAdjustDate = adj.cleanDateText;
+  let adjustDaysDesc = "";
+  if (adj.diffDays <= 0) {
+    adjustDaysDesc = "今晚调整";
+  } else if (adj.diffDays === 1) {
+    adjustDaysDesc = "明天调整";
+  } else {
+    adjustDaysDesc = `${adj.diffDays}天后`;
   }
 
   // 2. 涨跌方向与幅度
-  const isDown = rawForecast.includes("下调") || rawForecast.includes("跌");
-  const isUp = rawForecast.includes("上调") || rawForecast.includes("涨");
-  const trendType: "down" | "up" | "flat" = isDown ? "down" : isUp ? "up" : "flat";
-  const trendDesc = isDown ? "预计下调" : isUp ? "预计上调" : "预计搁浅";
-
-  // 吨幅度
+  let trendType: "down" | "up" | "flat" = "flat";
+  let trendDesc = "预计搁浅";
   let valPerTon = "";
-  const tonMatch = rawForecast.match(/([0-9.]+)\s*元\/吨/);
-  if (tonMatch) {
-    valPerTon = `${tonMatch[1]}元/吨`;
-  }
-
-  // 升幅度 (兼容范围如 0.11元/升-0.14元/升)
   let valPerLiter = "";
-  const rangeLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升\s*-\s*([0-9.]+)\s*元\/升/);
-  if (rangeLiterMatch) {
-    valPerLiter = `${rangeLiterMatch[1]}~${rangeLiterMatch[2]}元/升`;
-  } else {
-    const singleLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升/);
-    if (singleLiterMatch) {
-      valPerLiter = `${singleLiterMatch[1]}元/升`;
-    }
-  }
+  let advice = "油价平稳，按需加油";
 
-  // 加油建议
-  const advice = isDown
-    ? "建议调价后再加满"
-    : isUp
-    ? "建议调价前尽快加满"
-    : "油价平稳，按需加油";
+  if (adj.isExpiredWebText) {
+    rawForecast = `新一轮调价窗口预计于 ${adj.dateDesc} 开启`;
+    trendType = adj.isToday ? "up" : "flat";
+    trendDesc = adj.isToday ? "今晚调价" : `${adj.diffDays}天后调价`;
+    advice = adj.isToday ? "今晚开启调价，可留意行情变动" : "新一轮周期进行中，按需加油";
+  } else {
+    const isDown = rawForecast.includes("下调") || rawForecast.includes("跌");
+    const isUp = rawForecast.includes("上调") || rawForecast.includes("涨");
+    trendType = isDown ? "down" : isUp ? "up" : "flat";
+    trendDesc = isDown ? "预计下调" : isUp ? "预计上调" : "预计搁浅";
+
+    const tonMatch = rawForecast.match(/([0-9.]+)\s*元\/吨/);
+    if (tonMatch) valPerTon = `${tonMatch[1]}元/吨`;
+
+    const rangeLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升\s*-\s*([0-9.]+)\s*元\/升/);
+    if (rangeLiterMatch) {
+      valPerLiter = `${rangeLiterMatch[1]}~${rangeLiterMatch[2]}元/升`;
+    } else {
+      const singleLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升/);
+      if (singleLiterMatch) valPerLiter = `${singleLiterMatch[1]}元/升`;
+    }
+
+    advice = isDown
+      ? "建议调价后再加满"
+      : isUp
+      ? "建议调价前尽快加满"
+      : "油价平稳，按需加油";
+  }
 
   const now = new Date();
   const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;

@@ -1823,6 +1823,153 @@ export const FUEL_PROVINCE_MAP: Record<string, string> = {
   新疆: "/xinjiang.shtml",
 }
 
+// 国家发改委官方成品油调价日历（每年固定 25 轮调价，每 10 个工作日晚上 24 时调整）
+const NDRC_OIL_CALENDARS: Record<number, [number, number][]> = {
+  2025: [
+    [1, 2], [1, 16],
+    [2, 6], [2, 19],
+    [3, 5], [3, 19],
+    [4, 2], [4, 17], [4, 30],
+    [5, 19],
+    [6, 3], [6, 17],
+    [7, 1], [7, 15], [7, 29],
+    [8, 12], [8, 26],
+    [9, 9], [9, 23],
+    [10, 13], [10, 27],
+    [11, 10], [11, 24],
+    [12, 8], [12, 22],
+  ],
+  2026: [
+    [1, 6], [1, 20],
+    [2, 3], [2, 24],
+    [3, 10], [3, 24],
+    [4, 8], [4, 22],
+    [5, 8], [5, 22],
+    [6, 5], [6, 19],
+    [7, 3], [7, 17], [7, 31],
+    [8, 14], [8, 28],
+    [9, 11], [9, 25],
+    [10, 15], [10, 29],
+    [11, 12], [11, 26],
+    [12, 10], [12, 24],
+  ],
+}
+
+interface NextOilAdjustment {
+  month: number
+  day: number
+  diffDays: number
+  cleanDateText: string
+  dateDesc: string
+  isToday: boolean
+  isExpiredWebText: boolean
+}
+
+/** 智能推算并校准下一次油价调整时间（杜绝网页数据源过久未更新导致的陈旧过期日期） */
+async function resolveNextOilAdjustment(
+  parsedMonth?: number,
+  parsedDay?: number
+): Promise<NextOilAdjustment> {
+  const now = new Date()
+  const nowMs = now.getTime()
+  const curYear = now.getFullYear()
+  const todayStart = new Date(curYear, now.getMonth(), now.getDate()).getTime()
+
+  // 1. 如果网页抓取到了具体月日，先做过期校验
+  if (parsedMonth && parsedDay) {
+    let targetYear = curYear
+    let targetMs = new Date(targetYear, parsedMonth - 1, parsedDay, 23, 59, 59).getTime()
+    // 跨年判断（如当前12月，提示1月调价）
+    if (parsedMonth < now.getMonth() + 1 && now.getMonth() >= 10) {
+      targetYear = curYear + 1
+      targetMs = new Date(targetYear, parsedMonth - 1, parsedDay, 23, 59, 59).getTime()
+    }
+
+    // 关键过期判断：若抓取到的日期在今天之前超过 1 天，说明该文本是历史残留（如 10月27日 抓到了 10月15日）
+    const isExpired = targetMs < todayStart
+    if (!isExpired) {
+      const targetStart = new Date(targetYear, parsedMonth - 1, parsedDay).getTime()
+      const diffDays = Math.max(0, Math.round((targetStart - todayStart) / 86400000))
+      let cleanDateText = `${parsedMonth}月${parsedDay}日调价`
+      if (diffDays === 0) cleanDateText = "今晚24时调价"
+      else if (diffDays === 1) cleanDateText = "明晚24时调价"
+
+      return {
+        month: parsedMonth,
+        day: parsedDay,
+        diffDays,
+        cleanDateText,
+        dateDesc: `${parsedMonth}月${parsedDay}日24时`,
+        isToday: diffDays === 0,
+        isExpiredWebText: false,
+      }
+    }
+  }
+
+  // 2. 网页文本过期或未匹配到时，走发改委调价日历
+  // 优先尝试从 m.qiyoujiage.com/tz/{year}.shtml 动态解析最新时间表
+  let calendar = NDRC_OIL_CALENDARS[curYear] || NDRC_OIL_CALENDARS[2026]
+  try {
+    const tzRes = await fetch(`http://m.qiyoujiage.com/tz/${curYear}.shtml`, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      timeout: 3,
+    })
+    if (tzRes.ok) {
+      const tzHtml = await tzRes.text()
+      const list: [number, number][] = []
+      for (const line of tzHtml.split("\n")) {
+        if (line.includes("月油价调整时间")) {
+          const matches = [...line.matchAll(/(\d{1,2})月(\d{1,2})日/g)]
+          for (const m of matches) {
+            list.push([parseInt(m[1], 10), parseInt(m[2], 10)])
+          }
+        }
+      }
+      if (list.length >= 20) {
+        calendar = list
+      }
+    }
+  } catch {}
+
+  // 在调价日历中查找尚未过去的调价日
+  for (const [m, d] of calendar) {
+    const adjEnd = new Date(curYear, m - 1, d, 23, 59, 59).getTime()
+    if (adjEnd >= nowMs) {
+      const targetStart = new Date(curYear, m - 1, d).getTime()
+      const diffDays = Math.max(0, Math.round((targetStart - todayStart) / 86400000))
+      let cleanDateText = `${m}月${d}日调价`
+      if (diffDays === 0) cleanDateText = "今晚24时调价"
+      else if (diffDays === 1) cleanDateText = "明晚24时调价"
+
+      return {
+        month: m,
+        day: d,
+        diffDays,
+        cleanDateText,
+        dateDesc: `${m}月${d}日24时`,
+        isToday: diffDays === 0,
+        isExpiredWebText: true,
+      }
+    }
+  }
+
+  // 若当年已无后续调价日，顺延至下一年的第一轮调价
+  const nextYear = curYear + 1
+  const nextCal = NDRC_OIL_CALENDARS[nextYear] || [[1, 6]]
+  const [firstM, firstD] = nextCal[0]
+  const targetStart = new Date(nextYear, firstM - 1, firstD).getTime()
+  const diffDays = Math.max(0, Math.round((targetStart - todayStart) / 86400000))
+  return {
+    month: firstM,
+    day: firstD,
+    diffDays,
+    cleanDateText: `${firstM}月${firstD}日调价`,
+    dateDesc: `${firstM}月${firstD}日24时`,
+    isToday: false,
+    isExpiredWebText: true,
+  }
+}
+
 export function getFuelData(): FuelCardData {
   try {
     let local =
@@ -1895,36 +2042,74 @@ export async function refreshFuelData(): Promise<FuelCardData | null> {
       rawForecast = tishiMatch[1].replace(/<br\s*\/?>/gi, "，").replace(/&nbsp;/gi, "").trim()
     }
 
-    let nextAdjustDate = "近期调价"
-    const dateMatch = rawForecast.match(/下次油价\s*([0-9]+月[0-9]+日(?:[0-9]+时)?)\s*调整/)
+    let parsedMonth: number | undefined
+    let parsedDay: number | undefined
+    const dateMatch = rawForecast.match(/下次油价\s*([0-9]+)月([0-9]+)日(?:[0-9]+时)?\s*调整/)
     if (dateMatch) {
-      nextAdjustDate = dateMatch[1]
+      parsedMonth = parseInt(dateMatch[1], 10)
+      parsedDay = parseInt(dateMatch[2], 10)
     }
 
-    const isDown = rawForecast.includes("下调") || rawForecast.includes("跌")
-    const isUp = rawForecast.includes("上调") || rawForecast.includes("涨")
-    const trendType: "down" | "up" | "flat" = isDown ? "down" : isUp ? "up" : "flat"
+    // 智能校准调价时间（自动识别并纠正网页端已过期的残留文案）
+    const adj = await resolveNextOilAdjustment(parsedMonth, parsedDay)
+    const cleanDateText = adj.cleanDateText
 
+    // 涨跌与文案解析
+    let trendType: "down" | "up" | "flat" = "flat"
     let cleanLiter = ""
-    const rangeLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升\s*[-~至到]\s*([0-9.]+)\s*元\/升/)
-    if (rangeLiterMatch) {
-      cleanLiter = `${rangeLiterMatch[1]}-${rangeLiterMatch[2]}`
-    } else {
-      const singleLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升/)
-      if (singleLiterMatch) cleanLiter = singleLiterMatch[1]
-    }
-
-    const sign = trendType === "down" ? "-" : trendType === "up" ? "+" : ""
     let smallTrend = ""
-    if (cleanLiter) {
-      smallTrend = `预计${sign}${cleanLiter}`
-    } else if (trendType === "flat") {
-      smallTrend = "预计搁浅"
-    } else {
-      smallTrend = trendType === "down" ? "预计下调" : "预计上调"
-    }
+    let mediumForecast = ""
+    let trendColor = "#8E8E93"
 
-    const trendColor = trendType === "down" ? "#2FB350" : trendType === "up" ? "#FF3B30" : "#8E8E93"
+    if (adj.isExpiredWebText) {
+      // 网页原文本已过期（如网页一直残留10月15日），放弃已过期的陈旧文案，按发改委最新周期呈现
+      rawForecast = `新一轮调价窗口预计于 ${adj.dateDesc} 开启`
+      trendType = adj.isToday ? "up" : "flat"
+      trendColor = adj.isToday ? "#F59E0B" : "#8E8E93"
+      if (adj.diffDays === 0) {
+        smallTrend = "今晚24时调价"
+        mediumForecast = "今晚24时开启调价窗口"
+      } else if (adj.diffDays === 1) {
+        smallTrend = "明晚24时调价"
+        mediumForecast = "明晚24时开启调价窗口"
+      } else {
+        smallTrend = `预计${adj.diffDays}天后调价`
+        mediumForecast = `${cleanDateText} (${adj.diffDays}天后)`
+      }
+    } else {
+      // 网页原文本为新鲜有效的当期预测
+      const isDown = rawForecast.includes("下调") || rawForecast.includes("跌")
+      const isUp = rawForecast.includes("上调") || rawForecast.includes("涨")
+      trendType = isDown ? "down" : isUp ? "up" : "flat"
+
+      const rangeLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升\s*[-~至到]\s*([0-9.]+)\s*元\/升/)
+      if (rangeLiterMatch) {
+        cleanLiter = `${rangeLiterMatch[1]}-${rangeLiterMatch[2]}`
+      } else {
+        const singleLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升/)
+        if (singleLiterMatch) cleanLiter = singleLiterMatch[1]
+      }
+
+      const sign = trendType === "down" ? "-" : trendType === "up" ? "+" : ""
+      if (cleanLiter) {
+        smallTrend = `预计${sign}${cleanLiter}`
+      } else if (trendType === "flat") {
+        smallTrend = "预计搁浅"
+      } else {
+        smallTrend = trendType === "down" ? "预计下调" : "预计上调"
+      }
+
+      trendColor = trendType === "down" ? "#2FB350" : trendType === "up" ? "#FF3B30" : "#8E8E93"
+
+      const arrow = trendType === "down" ? "↓" : trendType === "up" ? "↑" : "-"
+      if (cleanLiter) {
+        mediumForecast = `${cleanDateText} ${arrow} ${cleanLiter}`
+      } else if (trendType === "flat") {
+        mediumForecast = `${cleanDateText} 预计搁浅`
+      } else {
+        mediumForecast = `${cleanDateText} ${arrow}`
+      }
+    }
 
     const oilThemeNames: Record<string, string> = {
       oil92: "92#",
@@ -1935,19 +2120,7 @@ export async function refreshFuelData(): Promise<FuelCardData | null> {
     const oilName = oilThemeNames[focusOilKey] || "92#"
     const oilFullName = focusOilKey === "oil0" ? "0 号柴油" : `${oilName.replace("#", "")} 号汽油`
     const subTitle = `${targetProvince} ${oilFullName}`
-    const cleanDateText = `${(nextAdjustDate || "近期").replace(/调整.*$/, "").replace(/调价.*$/, "").trim()}调价`
     const focusPrice = prices[focusOilKey] || prices.oil92 || "--"
-
-    let cleanDate = (nextAdjustDate || "近期").replace(/调整.*$/, "").replace(/调价.*$/, "").trim()
-    let mediumForecast = `${cleanDate}调价`
-    const arrow = trendType === "down" ? "↓" : trendType === "up" ? "↑" : "-"
-    if (cleanLiter) {
-      mediumForecast = `${cleanDate}调价 ${arrow} ${cleanLiter}`
-    } else if (trendType === "flat") {
-      mediumForecast = `${cleanDate}调价 预计搁浅`
-    } else {
-      mediumForecast = `${cleanDate}调价 ${arrow}`
-    }
 
     const data: FuelCardData = {
       serviceId: "fuel",
