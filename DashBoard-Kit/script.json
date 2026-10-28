@@ -1,32 +1,32 @@
 {
+  "remoteDefinitionId": null,
+  "icon": "rectangle.3.group.fill",
+  "intentInputTypes": [],
+  "localizedDescriptions": {
+    "en": "Multi-dashboard kit with unified settings and customizable widget parameters.",
+    "zh": "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板"
+  },
+  "runInApp": true,
+  "remoteResource": {
+    "url": "https://github.com/SylvanRoe/Scripting/raw/refs/heads/main/DashBoard-Kit/DashBoard-Kit.scripting",
+    "autoUpdateInterval": 3600,
+    "hash": "1c1cbe88312efae38b1c01241f4ffeec"
+  },
+  "entry": "index.tsx",
+  "localizedNames": {
+    "zh": "DashBoard-Kit",
+    "en": "DashBoard-Kit"
+  },
+  "color": "#1A13ED",
+  "version": "1.4.1",
+  "name": "DashBoard-Kit",
+  "permissions": null,
   "author": {
     "email": "SylvanRoe@gmail.com",
     "homepage": "https://github.com/SylvanRoe/Scripting",
     "name": "SylvanRoe"
   },
-  "localizedDescriptions": {
-    "zh": "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板",
-    "en": "Multi-dashboard kit with unified settings and customizable widget parameters."
-  },
-  "localizedNames": {
-    "zh": "DashBoard-Kit",
-    "en": "DashBoard-Kit"
-  },
-  "description": "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板（中国移动、中国联通、Loon、Quantumult X、Media Nexus、DeepSeek、Codex、Antigravity、WorkBuddy、CPAMP、qBittorrent、今日油价等）",
-  "remoteResource": {
-    "url": "https://github.com/SylvanRoe/Scripting/raw/refs/heads/main/DashBoard-Kit/DashBoard-Kit.scripting",
-    "hash": "c6a6a714392a2e96fa989818321e1bcf",
-    "autoUpdateInterval": 3600
-  },
-  "icon": "rectangle.3.group.fill",
-  "permissions": null,
-  "remoteDefinitionId": null,
-  "color": "#1A13ED",
-  "intentInputTypes": [],
-  "runInApp": true,
-  "entry": "index.tsx",
+  "contributors": [],
   "iconImage": "",
-  "version": "1.4.0",
-  "name": "DashBoard-Kit",
-  "contributors": []
+  "description": "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板（中国移动、中国联通、Loon、Quantumult X、Media Nexus、DeepSeek、Codex、Antigravity、WorkBuddy、CPAMP、qBittorrent、今日油价等）"
 }

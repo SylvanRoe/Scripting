@@ -422,12 +422,13 @@ function headersFor(host: string, path: string, J: string, sid: string, qen: str
   const t = String(Date.now()), n = nonce8()
   const obj = JSON.parse(J)
   const xk = obj.xk || ""
+  const ua = "ChinaMobile/" + (obj.cv || "12.5.6") + " (iPhone; iOS " + (obj.sv || "26.1") + "; Scale/3.00)"
   const xs = md5hex("https://" + host + path + "_" + J + "_" + SALT)
   const xtoken = encB64(xk + "_" + path + "_" + t + "_" + n, TK, TIV)
   const xsign = md5hex(xtoken + "_" + t + "_" + n + "_" + sid)
   return {
     "Content-Type": "application/Json",
-    "User-Agent": UA,
+    "User-Agent": ua,
     "x-qen": qen,
     "x-time": t,
     "x-nonce": n,
@@ -437,13 +438,28 @@ function headersFor(host: string, path: string, J: string, sid: string, qen: str
   }
 }
 
-function pickCookie(headers: any): string {
+/** 智能提取 Scripting headers 下的全部 Cookie */
+function pickCookieFromHeaders(headers: any): string {
+  if (!headers) return ""
   let raw = ""
-  for (const k in headers) {
-    if (k.toLowerCase() === "set-cookie") {
-      raw = Array.isArray(headers[k]) ? headers[k].join("; ") : String(headers[k])
+  if (Array.isArray(headers.setCookieList)) {
+    raw = headers.setCookieList.join("; ")
+  } else if (headers.map && typeof headers.map === "object") {
+    for (const k in headers.map) {
+      if (k.toLowerCase() === "set-cookie") {
+        const v = headers.map[k]
+        raw = Array.isArray(v) ? v.join("; ") : String(v)
+      }
+    }
+  } else {
+    for (const k in headers) {
+      if (k.toLowerCase() === "set-cookie") {
+        const v = headers[k]
+        raw = Array.isArray(v) ? v.join("; ") : String(v)
+      }
     }
   }
+
   const pick = (name: string) => {
     const m = raw.match(new RegExp(name + "=([^;,\\s]+)"))
     return m ? name + "=" + m[1] : ""
@@ -458,17 +474,22 @@ function bizFromLogin(loginEnvelope: string): string {
 
 // 刷新会话: 用登录凭证换一组新的会话 cookie
 async function refreshSession(loginEnvelope: string): Promise<string> {
-  const h = headersFor(HOST_LOGIN, P_AUTOLOGIN, loginEnvelope, "null", "14")
+  const sid = [8, 4, 4, 4, 12]
+    .map((n) => Array.from({ length: n }, () => ((Math.random() * 16) | 0).toString(16)).join(""))
+    .join("-")
+  const h = headersFor(HOST_LOGIN, P_AUTOLOGIN, loginEnvelope, sid, "14")
+  h["Cookie"] = "JSESSIONID=" + sid
+
   const res = await fetch("https://" + HOST_LOGIN + P_AUTOLOGIN, {
     method: "POST",
     headers: h,
     body: encB64(loginEnvelope, LK, LIV),
-    timeout: 8,
+    timeout: 10,
   })
   const text = await res.text()
   const out = JSON.parse(decStr(String(text || ""), LSK, LIV) || "{}")
   if (out.retCode !== "000000") throw new Error(`刷新会话失败: ${out.retDesc || ""} [${out.retCode}]`)
-  const cookie = pickCookie(res.headers || {})
+  const cookie = pickCookieFromHeaders(res.headers || {})
   if (!cookie) throw new Error("刷新会话未返回 cookie")
   return cookie
 }
@@ -489,61 +510,88 @@ async function queryOne(path: string, bizEnvelope: string, cookie: string): Prom
   return out.rspBody
 }
 
-/** 智能提取单个有效登录信封 JSON 字符串 */
-export function extractLoginEnvelope(raw: string): string | null {
-  if (!raw) return null
-  const input = String(raw).trim()
-  try {
-    const parsed = JSON.parse(input)
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      const first = parsed[0]
-      return typeof first === "string" ? first : JSON.stringify(first)
-    }
-    if (parsed && typeof parsed === "object") {
-      if (parsed.xk) return input
-      // 深度查找包含 xk 的节点
-      const stack = [parsed]
-      while (stack.length > 0) {
-        const curr = stack.pop()
-        if (curr && typeof curr === "object") {
-          if (curr.xk) return JSON.stringify(curr)
-          for (const k of Object.keys(curr)) {
-            const v = (curr as any)[k]
-            if (v && typeof v === "object") stack.push(v)
-            else if (typeof v === "string" && v.includes("xk")) {
-              try {
-                const sub = JSON.parse(v)
-                if (sub && sub.xk) return v
-              } catch {}
-            }
-          }
-        }
-      }
-    }
-  } catch {}
+/** 递归深度提取单个有效登录信封 JSON 字符串（兼容各种 BoxJS 嵌套与转义形状） */
+export function extractLoginEnvelope(node: any, depth = 0): string | null {
+  if (node == null || depth > 8) return null
 
-  // 原始包含 xk 的单引号/双引号串
-  if (input.includes('"xk"') || input.includes("'xk'")) {
-    return input
+  // 1. 如果是对象且直接包含 xk 属性
+  if (typeof node === "object" && !Array.isArray(node)) {
+    if (node.xk && typeof node.xk === "string") {
+      return JSON.stringify(node)
+    }
   }
+
+  // 2. 如果是字符串，尝试解析为 JSON
+  if (typeof node === "string") {
+    const s = node.trim()
+    if (s.startsWith("{") || s.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(s)
+        const found = extractLoginEnvelope(parsed, depth + 1)
+        if (found) return found
+      } catch {}
+    }
+    // 自身包含 xk 且是 JSON 形状
+    if (s.includes('"xk"') && s.startsWith("{") && s.endsWith("}")) {
+      return s
+    }
+  }
+
+  // 3. 如果是数组，逐项查找
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = extractLoginEnvelope(item, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+
+  // 4. 如果是普通对象，优先看 val 字段，再递归所有字段
+  if (typeof node === "object") {
+    if ("val" in node && node.val != null) {
+      const found = extractLoginEnvelope(node.val, depth + 1)
+      if (found) return found
+    }
+    for (const k of Object.keys(node)) {
+      const found = extractLoginEnvelope((node as any)[k], depth + 1)
+      if (found) return found
+    }
+  }
+
   return null
 }
 
-/** 从 BoxJS 中自动拉取 cmcc_login */
-async function fetchLoginFromBoxJs(boxJsUrl: string): Promise<string> {
-  const base = boxJsUrl.replace(/\/+$/, "")
+/** 从 BoxJS 中自动拉取 cmcc_login（自适应常见域名与协议，优先 HTTP 避免代理重写超时） */
+async function fetchLoginFromBoxJs(customUrl: string): Promise<string> {
+  const candidates: string[] = []
+  if (customUrl) {
+    const clean = customUrl.replace(/\/+$/, "")
+    // BoxJS 在代理工具中均为 HTTP 重写拦截，若填了 https 优先降为 http 探测
+    if (clean.startsWith("https://")) {
+      candidates.push(clean.replace("https://", "http://"))
+    } else {
+      candidates.push(clean)
+    }
+  }
+  // 备选主流 BoxJS 本地环境域名（优先 http://boxjs.net 和 http://boxjs.com）
+  for (const b of ["http://boxjs.net", "http://boxjs.com", "http://127.0.0.1:9999", "http://box.lan"]) {
+    if (!candidates.includes(b)) candidates.push(b)
+  }
+
   const keys = ["cmcc_login", "@cmcc.login"]
-  for (const k of keys) {
-    try {
-      const res = await fetch(`${base}/query/data/${encodeURIComponent(k)}`, { timeout: 4 })
-      if (res.ok) {
-        const text = await res.text()
-        if (text && text.includes("xk")) {
-          const env = extractLoginEnvelope(text)
-          if (env) return env
+  for (const base of candidates) {
+    for (const k of keys) {
+      try {
+        const res = await fetch(`${base}/query/data/${encodeURIComponent(k)}`, { timeout: 2.5 })
+        if (res.ok) {
+          const text = await res.text()
+          if (text && text.includes("xk")) {
+            const env = extractLoginEnvelope(text)
+            if (env) return env
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
   }
   return ""
 }
@@ -552,7 +600,7 @@ async function fetchLoginFromBoxJs(boxJsUrl: string): Promise<string> {
 export async function refreshCmccData(): Promise<CmccData | null> {
   try {
     const settings = getCmccSettings()
-    const boxJsUrl = (settings.boxJsUrl || "https://boxjs.com").trim()
+    const boxJsUrl = (settings.boxJsUrl || "http://boxjs.net").trim()
 
     let loginEnvelope = ""
     if (settings.enableBoxJs !== false) {

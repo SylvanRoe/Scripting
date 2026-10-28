@@ -1357,7 +1357,7 @@ async function configureCmcc() {
     cancelButton: true,
     actions: [
       { label: "📱 手动配置凭据（可选兜底）" },
-      { label: "📦 BoxJS 地址设置（默认 boxjs.com）" },
+      { label: "📦 BoxJS 地址设置（默认 http://boxjs.net）" },
       { label: "⚡️ 立即同步话费与流量并刷新小组件" },
       { label: "🗑 清除手动凭据" },
     ],
@@ -1392,19 +1392,19 @@ async function configureCmcc() {
   }
 
   if (choice === 1) {
-    const curUrl = settings.boxJsUrl || "https://boxjs.com"
+    const curUrl = settings.boxJsUrl || "http://boxjs.net"
     const input = await gPrompt({
       title: "配置 BoxJS 地址",
       message:
         "脚本会自动从该地址读取 cmcc_login 移动凭据。\n使用官方 BoxJS 保持默认即可；自建 BoxJS 请填写你的完整地址。",
       defaultValue: curUrl,
-      placeholder: "https://boxjs.com",
+      placeholder: "http://boxjs.net",
       keyboardType: "URL",
       confirmLabel: "保存并同步",
       cancelLabel: "取消",
     })
     if (input === null) return
-    saveCmccSettings({ boxJsUrl: input.trim() || "https://boxjs.com", enableBoxJs: true })
+    saveCmccSettings({ boxJsUrl: input.trim() || "http://boxjs.net", enableBoxJs: true })
     const res = await refreshCmccData()
     Widget.reloadAll()
     await gAlert(
