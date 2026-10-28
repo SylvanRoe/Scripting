@@ -33,6 +33,10 @@ export interface CmccData {
   flowPct: number // 0~100 (已用百分比)
   flowRemainPct: number // 0~100 (剩余百分比，不限量为 100)
   flowUnlimited: boolean
+  voiceRemainMin: number // 剩余通话分钟
+  voiceTotalMin: number // 总通话分钟，<=0 表示不限量
+  voiceUsedMin: number // 已用通话分钟
+  voiceRemainPct: number // 0~100 剩余通话百分比
   points: number // 735 (积分)
   tel: string // "138****0000"
   userName?: string
@@ -50,6 +54,10 @@ export const DEFAULT_CMCC: CmccData = {
   flowPct: 7.4,
   flowRemainPct: 92.6,
   flowUnlimited: false,
+  voiceRemainMin: 180,
+  voiceTotalMin: 300,
+  voiceUsedMin: 120,
+  voiceRemainPct: 60,
   points: 735,
   tel: "138****0000",
   userName: "移动用户",
@@ -136,7 +144,14 @@ export function getCmccData(): CmccData {
       if (!local || tFile >= tStor) local = fromFile
     }
     if (local && local.serviceId === "cmcc") {
-      return { ...DEFAULT_CMCC, ...local, serviceId: "cmcc" }
+      const merged: CmccData = { ...DEFAULT_CMCC, ...local, serviceId: "cmcc" }
+      if (merged.voiceRemainMin === undefined) {
+        merged.voiceRemainMin = 180
+        merged.voiceTotalMin = 300
+        merged.voiceUsedMin = 120
+        merged.voiceRemainPct = 60
+      }
+      return merged
     }
   } catch {}
   return DEFAULT_CMCC
@@ -679,10 +694,33 @@ export async function refreshCmccData(): Promise<CmccData | null> {
       }
     }
 
-    // 3. 积分解析
+    // 3. 语音通话余量解析（若套餐返回有包含语音，解析之；否则提供优雅默认值）
+    let voiceRemainMin = 180
+    let voiceTotalMin = 300
+    let voiceUsedMin = 120
+    let voiceRemainPct = 60
+    if (flowRsp) {
+      try {
+        const vList = flowRsp.newPlanRemainQryRes?.planRemianVoiceListRes?.planRemianVoiceRes || []
+        let vSum = 0
+        let vUsd = 0
+        for (const item of vList) {
+          vSum += Number(item.voiceSumNum || item.voiceTotalNum || 0)
+          vUsd += Number(item.voiceUsdNum || item.voiceUsedNum || 0)
+        }
+        if (vSum > 0) {
+          voiceTotalMin = Math.round(vSum)
+          voiceUsedMin = Math.round(vUsd)
+          voiceRemainMin = Math.max(0, voiceTotalMin - voiceUsedMin)
+          voiceRemainPct = Math.max(0, Math.min(100, Math.round((voiceRemainMin / voiceTotalMin) * 100)))
+        }
+      } catch {}
+    }
+
+    // 4. 积分解析
     const points = pointsRsp?.pointValue != null ? Number(pointsRsp.pointValue) : 0
 
-    // 4. 手机号与用户信息
+    // 5. 手机号与用户信息
     let tel = ""
     try {
       const obj = JSON.parse(loginEnvelope)
@@ -703,6 +741,10 @@ export async function refreshCmccData(): Promise<CmccData | null> {
       flowPct,
       flowRemainPct,
       flowUnlimited,
+      voiceRemainMin,
+      voiceTotalMin,
+      voiceUsedMin,
+      voiceRemainPct,
       points,
       tel: tel || DEFAULT_CMCC.tel,
       userName,
