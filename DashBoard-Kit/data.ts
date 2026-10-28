@@ -2054,61 +2054,58 @@ export async function refreshFuelData(): Promise<FuelCardData | null> {
     const adj = await resolveNextOilAdjustment(parsedMonth, parsedDay)
     const cleanDateText = adj.cleanDateText
 
-    // 涨跌与文案解析
-    let trendType: "down" | "up" | "flat" = "flat"
+    // 涨跌与文案解析（优先提取当期涨跌幅度；若数据源包含幅度预测，即使日期过期也保留幅度）
+    const isDown = rawForecast.includes("下调") || rawForecast.includes("跌")
+    const isUp = rawForecast.includes("上调") || rawForecast.includes("涨")
+    let trendType: "down" | "up" | "flat" = isDown ? "down" : isUp ? "up" : "flat"
     let cleanLiter = ""
+
+    const rangeLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升\s*[-~至到]\s*([0-9.]+)\s*元\/升/)
+    if (rangeLiterMatch) {
+      cleanLiter = `${rangeLiterMatch[1]}-${rangeLiterMatch[2]}`
+    } else {
+      const singleLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升/)
+      if (singleLiterMatch) cleanLiter = singleLiterMatch[1]
+    }
+
+    const sign = trendType === "down" ? "-" : trendType === "up" ? "+" : ""
     let smallTrend = ""
+    if (cleanLiter) {
+      smallTrend = `预计${sign}${cleanLiter}`
+    } else if (trendType === "flat") {
+      smallTrend = "预计搁浅"
+    } else if (trendType === "down") {
+      smallTrend = "预计下调"
+    } else if (trendType === "up") {
+      smallTrend = "预计上调"
+    } else {
+      // 确实无任何预测数据时，根据剩余天数提示
+      smallTrend = adj.diffDays === 0 ? "今晚调价" : adj.diffDays === 1 ? "明晚调价" : `预计${adj.diffDays}天后`
+    }
+
+    let trendColor =
+      trendType === "down"
+        ? "#2FB350"
+        : trendType === "up"
+        ? "#FF3B30"
+        : adj.diffDays <= 1
+        ? "#F59E0B"
+        : "#8E8E93"
+
     let mediumForecast = ""
-    let trendColor = "#8E8E93"
+    const arrow = trendType === "down" ? "↓" : trendType === "up" ? "↑" : "-"
+    if (cleanLiter) {
+      mediumForecast = `${cleanDateText} ${arrow} ${cleanLiter}`
+    } else if (trendType === "flat") {
+      mediumForecast = `${cleanDateText} 预计搁浅`
+    } else if (trendType === "down" || trendType === "up") {
+      mediumForecast = `${cleanDateText} ${arrow}`
+    } else {
+      mediumForecast = adj.diffDays <= 1 ? `${cleanDateText} 开启窗口` : `${cleanDateText} (${adj.diffDays}天后)`
+    }
 
     if (adj.isExpiredWebText) {
-      // 网页原文本已过期（如网页一直残留10月15日），放弃已过期的陈旧文案，按发改委最新周期呈现
       rawForecast = `新一轮调价窗口预计于 ${adj.dateDesc} 开启`
-      trendType = adj.isToday ? "up" : "flat"
-      trendColor = adj.isToday ? "#F59E0B" : "#8E8E93"
-      if (adj.diffDays === 0) {
-        smallTrend = "今晚24时调价"
-        mediumForecast = "今晚24时开启调价窗口"
-      } else if (adj.diffDays === 1) {
-        smallTrend = "明晚24时调价"
-        mediumForecast = "明晚24时开启调价窗口"
-      } else {
-        smallTrend = `预计${adj.diffDays}天后调价`
-        mediumForecast = `${cleanDateText} (${adj.diffDays}天后)`
-      }
-    } else {
-      // 网页原文本为新鲜有效的当期预测
-      const isDown = rawForecast.includes("下调") || rawForecast.includes("跌")
-      const isUp = rawForecast.includes("上调") || rawForecast.includes("涨")
-      trendType = isDown ? "down" : isUp ? "up" : "flat"
-
-      const rangeLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升\s*[-~至到]\s*([0-9.]+)\s*元\/升/)
-      if (rangeLiterMatch) {
-        cleanLiter = `${rangeLiterMatch[1]}-${rangeLiterMatch[2]}`
-      } else {
-        const singleLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升/)
-        if (singleLiterMatch) cleanLiter = singleLiterMatch[1]
-      }
-
-      const sign = trendType === "down" ? "-" : trendType === "up" ? "+" : ""
-      if (cleanLiter) {
-        smallTrend = `预计${sign}${cleanLiter}`
-      } else if (trendType === "flat") {
-        smallTrend = "预计搁浅"
-      } else {
-        smallTrend = trendType === "down" ? "预计下调" : "预计上调"
-      }
-
-      trendColor = trendType === "down" ? "#2FB350" : trendType === "up" ? "#FF3B30" : "#8E8E93"
-
-      const arrow = trendType === "down" ? "↓" : trendType === "up" ? "↑" : "-"
-      if (cleanLiter) {
-        mediumForecast = `${cleanDateText} ${arrow} ${cleanLiter}`
-      } else if (trendType === "flat") {
-        mediumForecast = `${cleanDateText} 预计搁浅`
-      } else {
-        mediumForecast = `${cleanDateText} ${arrow}`
-      }
     }
 
     const oilThemeNames: Record<string, string> = {

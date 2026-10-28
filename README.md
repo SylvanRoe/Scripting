@@ -41,14 +41,14 @@
 
 | 项目 | 版本 | 描述 | 来源 / 维护 |
 | :--- | :--- | :--- | :--- |
-| [DashBoard-Kit](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FDashBoard-Kit%2FDashBoard-Kit.scripting%22%5D) | `v1.3.9` | 多组件看板聚合套件（统一后台配置管理，支持小组件参数自由切换 中国移动、中国联通、Loon、Quantumult X、Media Nexus、DeepSeek、WorkBuddy、Codex、Antigravity、CPAMP、qBittorrent、今日油价、节点检测等多套精美卡片）。 | 原创 · [目录](DashBoard-Kit/) |
+| [DashBoard-Kit](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FDashBoard-Kit%2FDashBoard-Kit.scripting%22%5D) | `v1.4.0` | 多组件看板聚合套件（统一后台配置管理，支持小组件参数自由切换 中国移动、中国联通、Loon、Quantumult X、Media Nexus、DeepSeek、WorkBuddy、Codex、Antigravity、CPAMP、qBittorrent、今日油价、节点检测等多套精美卡片）。 | 原创 · [目录](DashBoard-Kit/) |
 | [SGCC](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FSGCC%2FSGCC.scripting%22%5D) | `v1.0.2` (停止维护) | 国家电网电量中号小组件（展示年度/月度用电量与电费、阶梯进度、近日用电柱状图）。**本项目已停止维护**，后续增强与更新维护由 [@jpcnmm](https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod) 接手。 | 移植自 @脑瓜 · 现维护 [@jpcnmm](https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod) · [目录](SGCC/) |
 
 ### 日常与生活 Widget
 
 | 项目 | 版本 | 描述 | 来源 / 维护 |
 | :--- | :--- | :--- | :--- |
-| [今日油价](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2F%E4%BB%8A%E6%97%A5%E6%B2%B9%E4%BB%B7%2F%E4%BB%8A%E6%97%A5%E6%B2%B9%E4%BB%B7.scripting%22%5D) | `v1.4.9` | 实时全国各省市汽柴油价格监控与调价预测桌面小组件，提供通报通知胶囊、极简仪表盘等多套风格，支持系统定位与自定义省份。 | 原创 · [目录](今日油价/) |
+| [今日油价](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2F%E4%BB%8A%E6%97%A5%E6%B2%B9%E4%BB%B7%2F%E4%BB%8A%E6%97%A5%E6%B2%B9%E4%BB%B7.scripting%22%5D) | `v1.5.0` | 实时全国各省市汽柴油价格监控与调价预测桌面小组件，提供通报通知胶囊、极简仪表盘等多套风格，支持系统定位与自定义省份。 | 原创 · [目录](今日油价/) |
 | [喝水记录](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2F%E5%96%9D%E6%B0%B4%E8%AE%B0%E5%BD%95%2F%E5%96%9D%E6%B0%B4%E8%AE%B0%E5%BD%95.scripting%22%5D) | `v2.0.0` | 轻量饮水 / 饮品记录工具，配套可交互桌面小组件（`systemSmall` / `systemMedium` / `systemLarge`），支持将「水」记录一键同步到 Apple 健康，桌面快捷按钮直接打卡。 | 原创 · [目录](喝水记录/) |
 
 ## 组织约定与使用说明

@@ -334,40 +334,34 @@ export async function fetchOilData(provinceName?: string): Promise<OilData> {
     adjustDaysDesc = `${adj.diffDays}天后`;
   }
 
-  // 2. 涨跌方向与幅度
-  let trendType: "down" | "up" | "flat" = "flat";
-  let trendDesc = "预计搁浅";
+  // 2. 涨跌方向与幅度（优先提取涨跌幅度预测；即使日期被校准，也保留幅度与方向）
+  const isDown = rawForecast.includes("下调") || rawForecast.includes("跌");
+  const isUp = rawForecast.includes("上调") || rawForecast.includes("涨");
+  const isFlat = rawForecast.includes("搁浅") || rawForecast.includes("不调");
+  let trendType: "down" | "up" | "flat" = isDown ? "down" : isUp ? "up" : isFlat ? "flat" : "flat";
+  let trendDesc = isDown ? "预计下调" : isUp ? "预计上调" : isFlat ? "预计搁浅" : (adj.diffDays <= 1 ? "即将调价" : `预计${adj.diffDays}天后`);
   let valPerTon = "";
   let valPerLiter = "";
-  let advice = "油价平稳，按需加油";
+
+  const tonMatch = rawForecast.match(/([0-9.]+)\s*元\/吨/);
+  if (tonMatch) valPerTon = `${tonMatch[1]}元/吨`;
+
+  const rangeLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升\s*-\s*([0-9.]+)\s*元\/升/);
+  if (rangeLiterMatch) {
+    valPerLiter = `${rangeLiterMatch[1]}~${rangeLiterMatch[2]}元/升`;
+  } else {
+    const singleLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升/);
+    if (singleLiterMatch) valPerLiter = `${singleLiterMatch[1]}元/升`;
+  }
+
+  const advice = isDown
+    ? "建议调价后再加满"
+    : isUp
+    ? "建议调价前尽快加满"
+    : "油价平稳，按需加油";
 
   if (adj.isExpiredWebText) {
     rawForecast = `新一轮调价窗口预计于 ${adj.dateDesc} 开启`;
-    trendType = adj.isToday ? "up" : "flat";
-    trendDesc = adj.isToday ? "今晚调价" : `${adj.diffDays}天后调价`;
-    advice = adj.isToday ? "今晚开启调价，可留意行情变动" : "新一轮周期进行中，按需加油";
-  } else {
-    const isDown = rawForecast.includes("下调") || rawForecast.includes("跌");
-    const isUp = rawForecast.includes("上调") || rawForecast.includes("涨");
-    trendType = isDown ? "down" : isUp ? "up" : "flat";
-    trendDesc = isDown ? "预计下调" : isUp ? "预计上调" : "预计搁浅";
-
-    const tonMatch = rawForecast.match(/([0-9.]+)\s*元\/吨/);
-    if (tonMatch) valPerTon = `${tonMatch[1]}元/吨`;
-
-    const rangeLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升\s*-\s*([0-9.]+)\s*元\/升/);
-    if (rangeLiterMatch) {
-      valPerLiter = `${rangeLiterMatch[1]}~${rangeLiterMatch[2]}元/升`;
-    } else {
-      const singleLiterMatch = rawForecast.match(/([0-9.]+)\s*元\/升/);
-      if (singleLiterMatch) valPerLiter = `${singleLiterMatch[1]}元/升`;
-    }
-
-    advice = isDown
-      ? "建议调价后再加满"
-      : isUp
-      ? "建议调价前尽快加满"
-      : "油价平稳，按需加油";
   }
 
   const now = new Date();
