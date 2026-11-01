@@ -84,6 +84,7 @@ export interface UnicomData {
   voiceUsedMin: number // 已用分钟
   voiceTotalMin: number // 总分钟，<=0 表示不限量
   voiceRemainMin: number // 剩余分钟
+  pointBalance?: string // 可用积分，如 "924"
   updatedAt: string
 }
 
@@ -100,6 +101,7 @@ export const DEFAULT_UNICOM: UnicomData = {
   voiceUsedMin: 120,
   voiceTotalMin: 300,
   voiceRemainMin: 180,
+  pointBalance: "924",
   updatedAt: new Date().toISOString(),
 }
 
@@ -387,6 +389,9 @@ export function getUnicomData(): UnicomData {
       if (merged.voiceRemainMin === undefined) {
         merged.voiceRemainMin = Math.max(0, (merged.voiceTotalMin || 0) - (merged.voiceUsedMin || 0))
       }
+      if (merged.pointBalance === undefined) {
+        merged.pointBalance = (merged as any).points !== undefined ? String((merged as any).points) : "924"
+      }
       return merged
     }
   } catch {}
@@ -429,6 +434,7 @@ export async function refreshUnicomData(): Promise<UnicomData | null> {
 
     let feeBalance = ""
     let feeUnit = "元"
+    let pointBalance = ""
     if (feeRes && feeRes.ok) {
       const feeJson: any = await feeRes.json().catch(() => null)
       if (feeJson && feeJson.code === "Y") {
@@ -441,6 +447,12 @@ export async function refreshUnicomData(): Promise<UnicomData | null> {
           // 兼容旧版：feeResource 为分值数字
           const raw = num(feeObj)
           if (raw !== undefined) feeBalance = (raw / 100).toFixed(2)
+        }
+        // 积分解析：data.dataList 中 type="point"
+        const list: any[] = feeJson?.data?.dataList || []
+        const pointItem = list.find((i: any) => String(i?.type).toLowerCase() === "point")
+        if (pointItem && pointItem.number !== undefined && pointItem.number !== null) {
+          pointBalance = String(pointItem.number).trim()
         }
       }
     }
@@ -479,6 +491,7 @@ export async function refreshUnicomData(): Promise<UnicomData | null> {
       voiceUsedMin: Math.round(voice.usedMin),
       voiceTotalMin: Math.round(voice.totalMin),
       voiceRemainMin: Math.round(voice.remainMin),
+      pointBalance: pointBalance || "0",
       updatedAt: new Date().toISOString(),
     }
     saveUnicomData(data)

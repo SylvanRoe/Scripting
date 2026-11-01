@@ -2848,7 +2848,7 @@ function UnicomLogo({ size }: { size: number }) {
   )
 }
 
-// 小号卡片：话费余额大字 + 剩余流量进度条 + 剩余通话进度条（双行两进度条）
+// 小号卡片：话费余额 + 剩余流量/通话（对齐 Antigravity 布局） + 底部积分与用量
 export function UnicomSmallCard({ data }: { data: UnicomData }) {
   const flowRemainGb =
     data.flowRemainGb ||
@@ -2872,6 +2872,11 @@ export function UnicomSmallCard({ data }: { data: UnicomData }) {
 
   const flowColor = remainColor(flowRemainPct)
   const voiceColor = remainColor(voiceRemainPct)
+  const cFee = { light: "#E60012", dark: "#FF5A5F" } as any
+  const cGold = { light: "#D97706", dark: "#FBBF24" } as any
+
+  const pointStr = data.pointBalance || "0"
+  const usedFlowStr = data.flowUsedGb ? `${data.flowUsedGb} GB` : "0 GB"
 
   return (
     <VStack
@@ -2881,9 +2886,9 @@ export function UnicomSmallCard({ data }: { data: UnicomData }) {
       widgetBackground={THEME.bg}
     >
       <HStack spacing={4} alignment="center" frame={{ height: 18 }}>
-        <UnicomLogo size={15} />
+        <UnicomLogo size={16} />
         <Text
-          font={11.5}
+          font={12}
           fontWeight="bold"
           foregroundStyle={THEME.text}
           lineLimit={1}
@@ -2897,106 +2902,123 @@ export function UnicomSmallCard({ data }: { data: UnicomData }) {
         <RefreshButton />
       </HStack>
 
-      <Spacer minLength={4} />
+      <Spacer minLength={3} />
 
-      <Text font={10} fontWeight="medium" foregroundStyle={THEME.dim}>
+      <Text font={9.5} fontWeight="medium" foregroundStyle={THEME.dim}>
         话费余额
       </Text>
       <HStack alignment="lastTextBaseline" spacing={2}>
         <Text
-          font={25}
+          font={22}
           fontWeight="bold"
-          foregroundStyle={{ light: "#E60012", dark: "#FF5A5F" } as any}
+          foregroundStyle={cFee}
           monospacedDigit
           lineLimit={1}
           minScaleFactor={0.7}
         >
           {data.feeBalance}
         </Text>
-        <Text font={10.5} fontWeight="bold" foregroundStyle={THEME.dim}>
+        <Text font={10} fontWeight="bold" foregroundStyle={THEME.dim}>
           {data.feeUnit}
         </Text>
       </HStack>
 
-      <Spacer minLength={6} />
+      <Spacer minLength={5} />
 
-      {/* 第一行进度条：剩余流量 */}
-      <HStack spacing={4} alignment="center">
-        <Image
-          systemName="antenna.radiowaves.left.and.right"
-          font={{ name: "system", size: 9 }}
-          foregroundStyle={flowColor}
-        />
-        <Text
-          font={9}
-          fontWeight="medium"
-          foregroundStyle={THEME.dim}
-          lineLimit={1}
-          minScaleFactor={0.8}
-          allowsTightening={true}
-          fixedSize={{ horizontal: true, vertical: false }}
-        >
-          剩余流量
-        </Text>
-        <Spacer minLength={4} />
-        <Text
-          font={9.5}
-          fontWeight="bold"
-          foregroundStyle={flowColor}
-          monospacedDigit
-          lineLimit={1}
-          minScaleFactor={0.7}
-          allowsTightening={true}
-        >
-          {data.flowUnlimited ? "不限量" : `${flowRemainGb} GB`}
-        </Text>
-      </HStack>
-      <Spacer minLength={3} />
-      <ProgressBar
-        value={data.flowUnlimited ? 100 : flowRemainPct}
-        color={flowColor}
-        height={4}
-      />
+      {/* 第 1 段：剩余流量（对齐 Antigravity：上行纯文字标签+余量靠右，下行进度条+百分比） */}
+      <VStack alignment="leading" spacing={3}>
+        <HStack spacing={5} alignment="center">
+          <Text font={10} fontWeight="medium" foregroundStyle={THEME.dim} lineLimit={1}>
+            剩余流量
+          </Text>
+          <Spacer />
+          <Text font={9.5} foregroundStyle={THEME.dim} monospacedDigit lineLimit={1}>
+            {data.flowUnlimited ? "不限量" : `${flowRemainGb} GB`}
+          </Text>
+        </HStack>
+        <HStack spacing={6} alignment="center">
+          <ProgressBar
+            value={data.flowUnlimited ? 100 : flowRemainPct}
+            color={flowColor}
+            height={4.5}
+          />
+          <Text
+            font={10}
+            fontWeight="bold"
+            foregroundStyle={flowColor}
+            monospacedDigit
+            lineLimit={1}
+          >
+            {data.flowUnlimited ? "100%" : `${Math.round(flowRemainPct)}%`}
+          </Text>
+        </HStack>
+      </VStack>
 
       <Spacer minLength={5} />
 
-      {/* 第二行进度条：剩余通话 */}
-      <HStack spacing={4} alignment="center">
-        <Image
-          systemName="phone.badge.waveform.fill"
-          font={{ name: "system", size: 8.5 }}
-          foregroundStyle={voiceColor}
-        />
-        <Text
-          font={9}
-          fontWeight="medium"
-          foregroundStyle={THEME.dim}
-          lineLimit={1}
-          minScaleFactor={0.8}
-          allowsTightening={true}
-          fixedSize={{ horizontal: true, vertical: false }}
-        >
-          剩余通话
-        </Text>
-        <Spacer minLength={4} />
-        <Text
-          font={9.5}
-          fontWeight="bold"
-          foregroundStyle={voiceColor}
-          monospacedDigit
-          lineLimit={1}
-          minScaleFactor={0.7}
-          allowsTightening={true}
-        >
-          {data.voiceTotalMin > 0 ? `${voiceRemainMin} 分钟` : "不限量"}
-        </Text>
+      {/* 第 2 段：剩余通话（对齐 Antigravity：上行纯文字标签+余量靠右，下行进度条+百分比） */}
+      <VStack alignment="leading" spacing={3}>
+        <HStack spacing={5} alignment="center">
+          <Text font={10} fontWeight="medium" foregroundStyle={THEME.dim} lineLimit={1}>
+            剩余通话
+          </Text>
+          <Spacer />
+          <Text font={9.5} foregroundStyle={THEME.dim} monospacedDigit lineLimit={1}>
+            {data.voiceTotalMin > 0 ? `${voiceRemainMin} 分钟` : "不限量"}
+          </Text>
+        </HStack>
+        <HStack spacing={6} alignment="center">
+          <ProgressBar
+            value={voiceRemainPct}
+            color={voiceColor}
+            height={4.5}
+          />
+          <Text
+            font={10}
+            fontWeight="bold"
+            foregroundStyle={voiceColor}
+            monospacedDigit
+            lineLimit={1}
+          >
+            {data.voiceTotalMin > 0 ? `${Math.round(voiceRemainPct)}%` : "100%"}
+          </Text>
+        </HStack>
+      </VStack>
+
+      <Spacer minLength={5} />
+
+      {/* 底部指标项：对齐 Antigravity 左右分流（可用积分 + 已用流量） */}
+      <HStack alignment="center" frame={{ maxWidth: "infinity" }}>
+        <HStack spacing={3} alignment="center">
+          <Text font={9} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
+            可用积分
+          </Text>
+          <Text
+            font={9.5}
+            fontWeight="bold"
+            foregroundStyle={cGold}
+            monospacedDigit
+            lineLimit={1}
+          >
+            {pointStr}
+          </Text>
+        </HStack>
+        <Spacer />
+        <HStack spacing={3} alignment="center">
+          <Text font={9} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
+            已用流量
+          </Text>
+          <Text
+            font={9.5}
+            fontWeight="bold"
+            foregroundStyle={THEME.text}
+            monospacedDigit
+            lineLimit={1}
+          >
+            {usedFlowStr}
+          </Text>
+        </HStack>
       </HStack>
-      <Spacer minLength={3} />
-      <ProgressBar
-        value={voiceRemainPct}
-        color={voiceColor}
-        height={4}
-      />
     </VStack>
   )
 }
@@ -3169,12 +3191,9 @@ export function UnicomMediumCard({ data }: { data: UnicomData }) {
               data.voiceTotalMin > 0 ? `${voiceRemainMin} 分钟` : "不限量",
               voiceColor
             )}
-            {renderCell(
-              "chart.bar.fill",
-              "已用流量",
-              `${data.flowUsedGb} GB`,
-              THEME.blue
-            )}
+            {data.pointBalance
+              ? renderCell("gift.fill", "可用积分", `${data.pointBalance} 分`, { light: "#D97706", dark: "#FBBF24" } as any)
+              : renderCell("chart.bar.fill", "已用流量", `${data.flowUsedGb} GB`, THEME.blue)}
           </HStack>
         </VStack>
       </HStack>
@@ -3220,7 +3239,7 @@ function CmccLogo({ size }: { size: number }) {
   )
 }
 
-// 小号卡片：话费余额大字 + 剩余流量进度条 + 剩余通话进度条（双行两进度条）
+// 小号卡片：话费余额 + 剩余流量/通话（对齐 Antigravity 布局） + 底部积分与用量
 export function CmccSmallCard({ data }: { data: CmccData }) {
   const flowRemainGb = data.flowRemainGb || "0.00"
   const flowRemainPct =
@@ -3244,6 +3263,10 @@ export function CmccSmallCard({ data }: { data: CmccData }) {
   const flowColor = remainColor(flowRemainPct)
   const voiceColor = remainColor(voiceRemainPct)
   const cCmccBlue = { light: "#0085D0", dark: "#00A8FF" } as any
+  const cGold = { light: "#D97706", dark: "#FBBF24" } as any
+
+  const pointStr = data.pointBalance || String(data.points ?? 0)
+  const usedFlowStr = data.flowUsedGb ? `${data.flowUsedGb} GB` : "0 GB"
 
   return (
     <VStack
@@ -3253,9 +3276,9 @@ export function CmccSmallCard({ data }: { data: CmccData }) {
       widgetBackground={THEME.bg}
     >
       <HStack spacing={4} alignment="center" frame={{ height: 18 }}>
-        <CmccLogo size={15} />
+        <CmccLogo size={16} />
         <Text
-          font={11.5}
+          font={12}
           fontWeight="bold"
           foregroundStyle={THEME.text}
           lineLimit={1}
@@ -3269,14 +3292,14 @@ export function CmccSmallCard({ data }: { data: CmccData }) {
         <RefreshButton />
       </HStack>
 
-      <Spacer minLength={4} />
+      <Spacer minLength={3} />
 
-      <Text font={10} fontWeight="medium" foregroundStyle={THEME.dim}>
+      <Text font={9.5} fontWeight="medium" foregroundStyle={THEME.dim}>
         话费余额
       </Text>
       <HStack alignment="lastTextBaseline" spacing={2}>
         <Text
-          font={25}
+          font={22}
           fontWeight="bold"
           foregroundStyle={cCmccBlue}
           monospacedDigit
@@ -3285,90 +3308,107 @@ export function CmccSmallCard({ data }: { data: CmccData }) {
         >
           {data.feeBalance}
         </Text>
-        <Text font={10.5} fontWeight="bold" foregroundStyle={THEME.dim}>
+        <Text font={10} fontWeight="bold" foregroundStyle={THEME.dim}>
           {data.feeUnit}
         </Text>
       </HStack>
 
-      <Spacer minLength={6} />
+      <Spacer minLength={5} />
 
-      {/* 第一行进度条：剩余流量 */}
-      <HStack spacing={4} alignment="center">
-        <Image
-          systemName="antenna.radiowaves.left.and.right"
-          font={{ name: "system", size: 9 }}
-          foregroundStyle={flowColor}
-        />
-        <Text
-          font={9}
-          fontWeight="medium"
-          foregroundStyle={THEME.dim}
-          lineLimit={1}
-          minScaleFactor={0.8}
-          allowsTightening={true}
-          fixedSize={{ horizontal: true, vertical: false }}
-        >
-          剩余流量
-        </Text>
-        <Spacer minLength={4} />
-        <Text
-          font={9.5}
-          fontWeight="bold"
-          foregroundStyle={flowColor}
-          monospacedDigit
-          lineLimit={1}
-          minScaleFactor={0.7}
-          allowsTightening={true}
-        >
-          {data.flowUnlimited ? "不限量" : `${flowRemainGb} GB`}
-        </Text>
-      </HStack>
-      <Spacer minLength={3} />
-      <ProgressBar
-        value={data.flowUnlimited ? 100 : flowRemainPct}
-        color={flowColor}
-        height={4}
-      />
+      {/* 第 1 段：剩余流量（对齐 Antigravity：上行纯文字标签+余量靠右，下行进度条+百分比） */}
+      <VStack alignment="leading" spacing={3}>
+        <HStack spacing={5} alignment="center">
+          <Text font={10} fontWeight="medium" foregroundStyle={THEME.dim} lineLimit={1}>
+            剩余流量
+          </Text>
+          <Spacer />
+          <Text font={9.5} foregroundStyle={THEME.dim} monospacedDigit lineLimit={1}>
+            {data.flowUnlimited ? "不限量" : `${flowRemainGb} GB`}
+          </Text>
+        </HStack>
+        <HStack spacing={6} alignment="center">
+          <ProgressBar
+            value={data.flowUnlimited ? 100 : flowRemainPct}
+            color={flowColor}
+            height={4.5}
+          />
+          <Text
+            font={10}
+            fontWeight="bold"
+            foregroundStyle={flowColor}
+            monospacedDigit
+            lineLimit={1}
+          >
+            {data.flowUnlimited ? "100%" : `${Math.round(flowRemainPct)}%`}
+          </Text>
+        </HStack>
+      </VStack>
 
       <Spacer minLength={5} />
 
-      {/* 第二行进度条：剩余通话 */}
-      <HStack spacing={4} alignment="center">
-        <Image
-          systemName="phone.badge.waveform.fill"
-          font={{ name: "system", size: 8.5 }}
-          foregroundStyle={voiceColor}
-        />
-        <Text
-          font={9}
-          fontWeight="medium"
-          foregroundStyle={THEME.dim}
-          lineLimit={1}
-          minScaleFactor={0.8}
-          allowsTightening={true}
-          fixedSize={{ horizontal: true, vertical: false }}
-        >
-          剩余通话
-        </Text>
-        <Spacer minLength={4} />
-        <Text
-          font={9.5}
-          fontWeight="bold"
-          foregroundStyle={voiceColor}
-          monospacedDigit
-          lineLimit={1}
-          minScaleFactor={0.7}
-          allowsTightening={true}
-        >
-          {data.voiceTotalMin > 0 ? `${voiceRemainMin} 分钟` : "不限量"}
-        </Text>
+      {/* 第 2 段：剩余通话（对齐 Antigravity：上行纯文字标签+余量靠右，下行进度条+百分比） */}
+      <VStack alignment="leading" spacing={3}>
+        <HStack spacing={5} alignment="center">
+          <Text font={10} fontWeight="medium" foregroundStyle={THEME.dim} lineLimit={1}>
+            剩余通话
+          </Text>
+          <Spacer />
+          <Text font={9.5} foregroundStyle={THEME.dim} monospacedDigit lineLimit={1}>
+            {data.voiceTotalMin > 0 ? `${voiceRemainMin} 分钟` : "不限量"}
+          </Text>
+        </HStack>
+        <HStack spacing={6} alignment="center">
+          <ProgressBar
+            value={voiceRemainPct}
+            color={voiceColor}
+            height={4.5}
+          />
+          <Text
+            font={10}
+            fontWeight="bold"
+            foregroundStyle={voiceColor}
+            monospacedDigit
+            lineLimit={1}
+          >
+            {data.voiceTotalMin > 0 ? `${Math.round(voiceRemainPct)}%` : "100%"}
+          </Text>
+        </HStack>
+      </VStack>
+
+      <Spacer minLength={5} />
+
+      {/* 底部指标项：对齐 Antigravity 左右分流（可用积分 + 已用流量） */}
+      <HStack alignment="center" frame={{ maxWidth: "infinity" }}>
+        <HStack spacing={3} alignment="center">
+          <Text font={9} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
+            可用积分
+          </Text>
+          <Text
+            font={9.5}
+            fontWeight="bold"
+            foregroundStyle={cGold}
+            monospacedDigit
+            lineLimit={1}
+          >
+            {pointStr}
+          </Text>
+        </HStack>
+        <Spacer />
+        <HStack spacing={3} alignment="center">
+          <Text font={9} foregroundStyle={THEME.dim} lineLimit={1} minScaleFactor={0.8}>
+            已用流量
+          </Text>
+          <Text
+            font={9.5}
+            fontWeight="bold"
+            foregroundStyle={THEME.text}
+            monospacedDigit
+            lineLimit={1}
+          >
+            {usedFlowStr}
+          </Text>
+        </HStack>
       </HStack>
-      <Spacer minLength={3} />
-      <ProgressBar
-        value={voiceRemainPct}
-        color={voiceColor}
-        height={4}
-      />
     </VStack>
   )
 }
@@ -3390,7 +3430,19 @@ export function CmccMediumCard({ data }: { data: CmccData }) {
         ? 100
         : Math.max(0, Math.min(100, Math.round((100 - (data.flowPct || 0)) * 10) / 10))
 
+  const voiceRemainMin =
+    data.voiceRemainMin !== undefined
+      ? data.voiceRemainMin
+      : Math.max(0, (data.voiceTotalMin || 0) - (data.voiceUsedMin || 0))
+  const voiceRemainPct =
+    data.voiceRemainPct !== undefined
+      ? data.voiceRemainPct
+      : data.voiceTotalMin > 0
+        ? Math.max(0, Math.min(100, Math.round((voiceRemainMin / Math.max(1, data.voiceTotalMin)) * 100)))
+        : 100
+
   const flowColor = remainColor(flowRemainPct)
+  const voiceColor = remainColor(voiceRemainPct)
 
   const renderCell = (icon: string, label: string, value: string, valueColor: any) => (
     <ZStack frame={{ maxWidth: "infinity" }}>
@@ -3486,21 +3538,21 @@ export function CmccMediumCard({ data }: { data: CmccData }) {
           <VStack alignment="leading" spacing={2.5}>
             <HStack spacing={4} alignment="center">
               <Image
-                systemName="gift.fill"
+                systemName="phone.badge.waveform.fill"
                 font={{ name: "system", size: 10 }}
-                foregroundStyle={THEME.purple}
+                foregroundStyle={voiceColor}
               />
               <Text font={10} fontWeight="medium" foregroundStyle={cLabel} lineLimit={1}>
-                移动积分
+                剩余通话
               </Text>
               <Spacer minLength={2} />
-              <Text font={9} fontWeight="bold" foregroundStyle={THEME.purple} monospacedDigit lineLimit={1}>
-                {`${data.points}`}
+              <Text font={9} fontWeight="bold" foregroundStyle={voiceColor} monospacedDigit lineLimit={1}>
+                {data.voiceTotalMin > 0 ? `${voiceRemainPct}%` : "不限量"}
               </Text>
             </HStack>
-            <ProgressBar value={Math.min(100, Math.round((data.points / 3000) * 100))} color={THEME.purple} height={4.5} />
+            <ProgressBar value={voiceRemainPct} color={voiceColor} height={4.5} />
             <Text font={9.5} fontWeight="bold" foregroundStyle={cTitle} monospacedDigit lineLimit={1} minScaleFactor={0.8}>
-              {`可用 ${data.points} 积分`}
+              {data.voiceTotalMin > 0 ? `${voiceRemainMin} 分钟` : "不限量"}
             </Text>
           </VStack>
         </VStack>
@@ -3523,16 +3575,16 @@ export function CmccMediumCard({ data }: { data: CmccData }) {
           </HStack>
           <HStack spacing={5} frame={{ maxWidth: "infinity" }}>
             {renderCell(
-              "gift.fill",
-              "移动积分",
-              `${data.points} 分`,
-              THEME.purple
+              "phone.badge.waveform.fill",
+              "剩余通话",
+              data.voiceTotalMin > 0 ? `${voiceRemainMin} 分钟` : "不限量",
+              voiceColor
             )}
             {renderCell(
-              "creditcard.fill",
-              "本月消费",
-              `${data.feeConsumed} 元`,
-              THEME.blue
+              "gift.fill",
+              "移动积分",
+              `${data.pointBalance || data.points} 分`,
+              { light: "#D97706", dark: "#FBBF24" } as any
             )}
           </HStack>
         </VStack>

@@ -38,6 +38,7 @@ export interface CmccData {
   voiceUsedMin: number // 已用通话分钟
   voiceRemainPct: number // 0~100 剩余通话百分比
   points: number // 735 (积分)
+  pointBalance?: string // "735" (积分字符串)
   tel: string // "138****0000"
   userName?: string
   updatedAt: string
@@ -59,6 +60,7 @@ export const DEFAULT_CMCC: CmccData = {
   voiceUsedMin: 120,
   voiceRemainPct: 60,
   points: 735,
+  pointBalance: "735",
   tel: "138****0000",
   userName: "移动用户",
   updatedAt: new Date().toISOString(),
@@ -150,6 +152,9 @@ export function getCmccData(): CmccData {
         merged.voiceTotalMin = 300
         merged.voiceUsedMin = 120
         merged.voiceRemainPct = 60
+      }
+      if (!merged.pointBalance) {
+        merged.pointBalance = String(merged.points ?? 0)
       }
       return merged
     }
@@ -746,6 +751,7 @@ export async function refreshCmccData(): Promise<CmccData | null> {
       voiceUsedMin,
       voiceRemainPct,
       points,
+      pointBalance: String(points),
       tel: tel || DEFAULT_CMCC.tel,
       userName,
       updatedAt: new Date().toISOString(),
