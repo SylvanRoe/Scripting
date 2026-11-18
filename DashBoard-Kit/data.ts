@@ -3653,6 +3653,7 @@ export {
   getMagpieData,
   getMagpieSettings,
   hasMagpieConfigured,
+  parseMagpieInput,
   refreshMagpieData,
   saveMagpieData,
   type MagpieSettings,

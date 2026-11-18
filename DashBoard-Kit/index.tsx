@@ -84,6 +84,7 @@ import {
   refreshCodexData,
   refreshCpampData,
   refreshMagpieData,
+  parseMagpieInput,
   refreshDeepSeekData,
   refreshEmbyData,
   refreshFuelData,
@@ -849,67 +850,44 @@ async function configureCpamp() {
   }
 }
 
-/** 配置 Magpie / 通用 OpenAI 兼容网关（只需 API 地址 + Key，其余全自动） */
+/** 配置 Magpie —— 一个框粘贴管理台链接即可，地址与密钥自动识别 */
 async function configureMagpie() {
   const curEndpoint = Keychain.contains(MAGPIE_ENDPOINT_KEY) ? Keychain.get(MAGPIE_ENDPOINT_KEY) || "" : ""
   const curKey = Keychain.contains(MAGPIE_KEY) ? Keychain.get(MAGPIE_KEY) || "" : ""
+  const curExample = curEndpoint ? `${curEndpoint}${curKey ? `/?k=${curKey}` : ""}` : ""
 
-  const endpoint = await gPrompt({
-    title: "Magpie · 只需两步 (1/2)",
-    message: "粘贴你在其它 App 里填的 API 地址\n照抄即可（带 /v1、带端口都没关系），其余全自动。",
-    defaultValue: curEndpoint,
-    placeholder: "https://api.example.com/v1",
+  const raw = await gPrompt({
+    title: "Magpie · 一步配置",
+    message: "粘贴管理台链接即可，例如：\nhttp://host:3430/?k=你的密钥\n\n地址和密钥会自动识别（也支持 API 地址 + 单独密钥）。",
+    defaultValue: curExample,
+    placeholder: "http://host:3430/?k=xxx",
     keyboardType: "URL",
-    confirmLabel: "下一步",
-    cancelLabel: "取消",
-  })
-  if (endpoint === null) return
-
-  const key = await gPrompt({
-    title: "Magpie · 只需两步 (2/2)",
-    message: "粘贴 API Key（仅存本机 Keychain，不会上传或写入代码）",
-    defaultValue: curKey,
-    placeholder: "sk-...",
-    obscureText: true,
     confirmLabel: "保存并连接",
     cancelLabel: "取消",
   })
-  if (key === null) return
-
-  if (!endpoint.trim()) {
-    await gAlert("API 地址不能为空")
+  if (raw === null) return
+  if (!raw.trim()) {
+    await gAlert("链接不能为空")
     return
   }
 
-  Keychain.set(MAGPIE_ENDPOINT_KEY, endpoint.trim(), { accessibility: "first_unlock_this_device" })
-  if (key.trim()) {
-    Keychain.set(MAGPIE_KEY, key.trim(), { accessibility: "first_unlock_this_device" })
+  const parsed = parseMagpieInput(raw)
+  if (!parsed.endpoint) {
+    await gAlert("没能识别出地址，请检查链接格式")
+    return
+  }
+
+  // 若链接里没带密钥，且已有旧密钥则保留；否则留空
+  const finalKey = parsed.apiKey || curKey || ""
+  Keychain.set(MAGPIE_ENDPOINT_KEY, parsed.endpoint, { accessibility: "first_unlock_this_device" })
+  if (finalKey) {
+    Keychain.set(MAGPIE_KEY, finalKey, { accessibility: "first_unlock_this_device" })
   } else {
     Keychain.remove(MAGPIE_KEY)
   }
-  // 走全自动探测，清除旧版可能保存的手动路径
   Keychain.remove(MAGPIE_QUOTA_PATH_KEY)
 
-  let res = await refreshMagpieData()
-  if (!res) {
-    // 自动探测失败才询问高级选项，默认流程始终保持两步
-    const manual = await gConfirm("自动没找到额度数据。\n你的网关额度接口比较特殊吗？\n\n点「确定」手动填写接口路径，点「取消」先保存当前配置。")
-    if (manual) {
-      const path = await gPrompt({
-        title: "额度接口路径",
-        message: "例如 /api/user/self",
-        placeholder: "/api/user/self",
-        keyboardType: "URL",
-        confirmLabel: "重试",
-        cancelLabel: "取消",
-      })
-      if (path && path.trim()) {
-        Keychain.set(MAGPIE_QUOTA_PATH_KEY, path.trim(), { accessibility: "first_unlock_this_device" })
-        res = await refreshMagpieData()
-      }
-    }
-  }
-
+  const res = await refreshMagpieData()
   if (res) {
     Widget.reloadAll()
     await gAlert(

@@ -41,7 +41,7 @@
 
 | 项目 | 版本 | 描述 | 来源 / 维护 |
 | :--- | :--- | :--- | :--- |
-| [DashBoard-Kit](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FDashBoard-Kit%2FDashBoard-Kit.scripting%22%5D) | `v1.4.6` | 多组件看板聚合套件（统一后台配置管理，支持小组件参数自由切换 中国移动、中国联通、Loon、Quantumult X、Media Nexus、DeepSeek、WorkBuddy、Codex、Antigravity、CPAMP、Magpie API 网关、qBittorrent、今日油价、节点检测等多套精美卡片；移动与联通话费卡对齐 Antigravity 双行进度条布局并展示可用积分与已用流量指标；Magpie 网关余额/用量看板支持用户自填网关与密钥，不内置任何凭据）。 | 原创 · [目录](DashBoard-Kit/) |
+| [DashBoard-Kit](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FDashBoard-Kit%2FDashBoard-Kit.scripting%22%5D) | `v1.4.7` | 多组件看板聚合套件（统一后台配置管理，支持小组件参数自由切换 中国移动、中国联通、Loon、Quantumult X、Media Nexus、DeepSeek、WorkBuddy、Codex、Antigravity、CPAMP、Magpie API 网关、qBittorrent、今日油价、节点检测等多套精美卡片；移动与联通话费卡对齐 Antigravity 双行进度条布局并展示可用积分与已用流量指标；Magpie 网关余额/用量看板支持用户自填网关与密钥，不内置任何凭据）。 | 原创 · [目录](DashBoard-Kit/) |
 | [SGCC](https://www.scripting.fun/import_scripts/?urls=%5B%22https%3A%2F%2Fgithub.com%2FSylvanRoe%2FScripting%2Fraw%2Frefs%2Fheads%2Fmain%2FSGCC%2FSGCC.scripting%22%5D) | `v1.0.2` (停止维护) | 国家电网电量中号小组件（展示年度/月度用电量与电费、阶梯进度、近日用电柱状图）。**本项目已停止维护**，后续增强与更新维护由 [@jpcnmm](https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod) 接手。 | 移植自 @脑瓜 · 现维护 [@jpcnmm](https://github.com/jpcnmm2/Scripting/tree/master/SGCC_Mod) · [目录](SGCC/) |
 
 ### 日常与生活 Widget

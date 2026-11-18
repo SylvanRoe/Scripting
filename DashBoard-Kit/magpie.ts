@@ -15,6 +15,7 @@ const MAGPIE_FILE_CACHE_PATH =
 
 /** 常见网关用量接口路径（用户可自定义覆盖，逐个尝试） */
 const DEFAULT_QUOTA_PATHS = [
+  "/",
   "/api/user/self",
   "/api/status",
   "/api/user/info",
@@ -77,15 +78,47 @@ export function getMagpieData(): MetricBalanceData {
   return DEFAULT_MAGPIE
 }
 
+/**
+ * 解析用户粘贴的「管理台链接」，例如 http://host:3430/?k=xxx
+ * 自动拆出 根地址 与 密钥（兼容 k / key / token / api_key 参数名）。
+ * 也兼容只填裸地址或带 /v1 的 API 地址。
+ */
+export function parseMagpieInput(input: string): { endpoint: string; apiKey: string } {
+  let raw = (input || "").trim()
+  if (!raw) return { endpoint: "", apiKey: "" }
+  if (!/^https?:\/\//i.test(raw)) raw = `http://${raw}`
+
+  // 根地址 = 协议 + 主机 + 端口，丢掉路径/查询/片段
+  const m = raw.match(/^(https?:\/\/[^/?#]+)/i)
+  let endpoint = m ? m[1] : raw
+  endpoint = endpoint.replace(/\/v1\/?$/i, "").replace(/\/+$/i, "")
+
+  // 从查询参数里取密钥
+  let apiKey = ""
+  const q = raw.match(/[?&](?:k|key|token|api_key|auth)=([^&#]+)/i)
+  if (q) {
+    try {
+      apiKey = decodeURIComponent(q[1])
+    } catch {
+      apiKey = q[1]
+    }
+  }
+  return { endpoint, apiKey }
+}
+
 function normalizeBase(input: string): string {
   let base = (input || "").trim()
   if (!base) return ""
   if (!/^https?:\/\//i.test(base)) base = `https://${base}`
   base = base.replace(/\/+$/i, "")
-  // 用户常直接照抄聊天里的 API 地址（末尾带 /v1），这里统一剥掉，
-  // 后面探测时会按需重新拼回 /v1/... 路径。
   base = base.replace(/\/v1\/?$/i, "")
   return base.replace(/\/+$/i, "")
+}
+
+/** 给探测 URL 追加上 ?k= 鉴权参数（管理台链接的鉴权方式） */
+function withKeyParam(url: string, key: string): string {
+  if (!key) return url
+  return url + (url.includes("?") ? "&" : "?") + "k=" + encodeURIComponent(key)
 }
 
 function num(v: any): number | undefined {
@@ -165,7 +198,6 @@ export async function refreshMagpieData(): Promise<MetricBalanceData | null> {
   }
   if (apiKey) {
     headers["Authorization"] = `Bearer ${apiKey}`
-    // 同时带上 x-api-key，兼容 one-api / new-api / Magpie 等网关
     headers["x-api-key"] = apiKey
   }
 
@@ -174,7 +206,9 @@ export async function refreshMagpieData(): Promise<MetricBalanceData | null> {
 
   for (const path of paths) {
     try {
-      const res = await fetch(`${base}${path}`, { method: "GET", headers, timeout: 10 })
+      // 管理台 ?k= 鉴权 + Bearer/x-api-key 头 同时带上，最大化兼容
+      const url = withKeyParam(`${base}${path}`, apiKey)
+      const res = await fetch(url, { method: "GET", headers, timeout: 10 })
       if (!res.ok) continue
       const json: any = await res.json().catch(() => null)
       const q = extractQuota(json)
