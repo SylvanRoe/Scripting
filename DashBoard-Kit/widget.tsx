@@ -40,6 +40,8 @@ import {
   refreshUnicomData,
   getCmccData,
   refreshCmccData,
+  getMagpieData,
+  refreshMagpieData,
 } from "./data"
 
 // ── 刷新节奏（发热/耗电主要取决于这里）────────────────────────────
@@ -104,6 +106,7 @@ export function getWidgetView(paramOverride?: string, familyOverride?: string) {
   else if (target.includes("deepseek") || target === "ds") param = "deepseek"
   else if (target.includes("media") || target.includes("moviepilot") || target.includes("emby") || target.includes("jellyfin")) param = "media"
   else if (target.includes("cpamp") || target.includes("cpa")) param = "cpamp"
+  else if (target.includes("magpie") || target.includes("喜鹊") || target.includes("网关")) param = "magpie"
   else if (target.includes("vpn") || target.includes("node") || target.includes("ip") || target.includes("节点")) param = "vpn"
   else if (target.includes("qbittorrent") || target.includes("qb") || target.includes("qbit")) param = "qbittorrent"
   else if (
@@ -160,6 +163,8 @@ export function getWidgetView(paramOverride?: string, familyOverride?: string) {
     return <MetricBalanceCard data={getWorkBuddyData()} />
   } else if (param === "cpamp") {
     return <MetricBalanceCard data={getCpampData()} />
+  } else if (param === "magpie") {
+    return <MetricBalanceCard data={getMagpieData()} />
   } else if (param === "vpn") {
     return <VpnNodeCard data={getVpnData()} />
   } else if (param === "qbittorrent") {
@@ -216,6 +221,8 @@ async function main() {
       await refreshMediaData().catch(() => null)
     } else if (p.includes("cpamp")) {
       await refreshCpampData().catch(() => null)
+    } else if (p.includes("magpie") || p.includes("喜鹊") || p.includes("网关")) {
+      await refreshMagpieData().catch(() => null)
     } else if (p.includes("vpn") || p.includes("node") || p.includes("ip")) {
       await refreshVpnData().catch(() => null)
     } else if (p.includes("qbittorrent") || p.includes("qb") || p.includes("qbit")) {

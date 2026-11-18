@@ -28,6 +28,10 @@ import {
   CODEX_EXPIRES_KEY,
   CODEX_REFRESH_KEY,
   CODEX_TOKEN_KEY,
+  MAGPIE_ENDPOINT_KEY,
+  MAGPIE_KEY,
+  MAGPIE_QUOTA_PATH_KEY,
+  MAGPIE_CACHE_KEY,
   CPAMP_CACHE_KEY,
   CPAMP_ENDPOINT_KEY,
   CPAMP_KEY,
@@ -68,6 +72,7 @@ import {
   hasAntigravityConfigured,
   hasCodexConfigured,
   hasCpampConfigured,
+  hasMagpieConfigured,
   hasDeepSeekConfigured,
   hasLoonConfigured,
   hasMediaConfigured,
@@ -78,6 +83,7 @@ import {
   refreshAntigravityData,
   refreshCodexData,
   refreshCpampData,
+  refreshMagpieData,
   refreshDeepSeekData,
   refreshEmbyData,
   refreshFuelData,
@@ -202,6 +208,15 @@ function OptionBrandIcon({ id }: { id: string }) {
   }
   if (id === "cpamp") {
     return <BrandHeaderIcon svgCode={CPAMP_LOGO_SVG} size={20} />
+  }
+  if (id === "magpie") {
+    return (
+      <Image
+        systemName="bird.fill"
+        font={{ name: "system", size: 16 }}
+        foregroundStyle="#8B5CF6"
+      />
+    )
   }
   if (id === "qx" || id === "qx_traffic") {
     return <BrandHeaderIcon iconImage={QX_LOGO_IMAGE} size={20} />
@@ -834,6 +849,87 @@ async function configureCpamp() {
   }
 }
 
+/** 配置 Magpie / 通用 OpenAI 兼容网关（用户自填，不内置任何密钥） */
+async function configureMagpie() {
+  const curEndpoint = Keychain.contains(MAGPIE_ENDPOINT_KEY) ? Keychain.get(MAGPIE_ENDPOINT_KEY) || "" : ""
+  const curKey = Keychain.contains(MAGPIE_KEY) ? Keychain.get(MAGPIE_KEY) || "" : ""
+  const curPath = Keychain.contains(MAGPIE_QUOTA_PATH_KEY) ? Keychain.get(MAGPIE_QUOTA_PATH_KEY) || "" : ""
+
+  const endpoint = await gPrompt({
+    title: "配置 Magpie · 网关地址",
+    message: "请输入 API 网关根地址（含端口，不含 /v1）\n例如 https://your-gateway.com:16888",
+    defaultValue: curEndpoint,
+    placeholder: "https://your-gateway.com:16888",
+    keyboardType: "URL",
+    confirmLabel: "下一步",
+    cancelLabel: "取消",
+  })
+  if (endpoint === null) return
+
+  const key = await gPrompt({
+    title: "配置 Magpie · 网关密钥",
+    message: "请输入网关 API Key（仅保存在本机 Keychain，不会上传或写入代码）",
+    defaultValue: curKey,
+    placeholder: "网关密钥",
+    obscureText: true,
+    confirmLabel: "下一步",
+    cancelLabel: "取消",
+  })
+  if (key === null) return
+
+  const quotaPath = await gPrompt({
+    title: "配置 Magpie · 额度接口路径（可选）",
+    message: "填写网关查询余额/用量的路径\n留空则自动尝试 /api/user/self、/api/status 等常见路径\n\n例如 /api/user/self",
+    defaultValue: curPath,
+    placeholder: "/api/user/self（留空自动探测）",
+    keyboardType: "URL",
+    confirmLabel: "保存并测试连接",
+    cancelLabel: "取消",
+  })
+  if (quotaPath === null) return
+
+  if (!endpoint.trim()) {
+    await gAlert("网关地址不能为空")
+    return
+  }
+
+  Keychain.set(MAGPIE_ENDPOINT_KEY, endpoint.trim(), { accessibility: "first_unlock_this_device" })
+  if (key.trim()) {
+    Keychain.set(MAGPIE_KEY, key.trim(), { accessibility: "first_unlock_this_device" })
+  } else {
+    Keychain.remove(MAGPIE_KEY)
+  }
+  if (quotaPath.trim()) {
+    Keychain.set(MAGPIE_QUOTA_PATH_KEY, quotaPath.trim(), { accessibility: "first_unlock_this_device" })
+  } else {
+    Keychain.remove(MAGPIE_QUOTA_PATH_KEY)
+  }
+
+  const res = await refreshMagpieData()
+  if (res) {
+    Widget.reloadAll()
+    await gAlert(
+      `✓ 连接成功！\n\n剩余额度：${res.mainValue}\n已用：${res.subValue1}\n请求次数：${res.subValue2}\n\n小组件现已展示真实网关额度。`
+    )
+  } else {
+    await gAlert(
+      "已保存配置，但未找到可识别的额度数据。\n请确认：\n1. 网关地址与密钥正确\n2. 额度接口路径正确（可在设置中指定）\n3. 接口返回包含 balance/remaining/quota 等字段"
+    )
+  }
+}
+
+/** 清理 Magpie 配置 */
+async function clearMagpieConfig() {
+  const ok = await gConfirm("确定要清除本机保存的 Magpie 配置吗？")
+  if (!ok) return
+  Keychain.remove(MAGPIE_ENDPOINT_KEY)
+  Keychain.remove(MAGPIE_KEY)
+  Keychain.remove(MAGPIE_QUOTA_PATH_KEY)
+  Storage.remove(MAGPIE_CACHE_KEY, { shared: true })
+  Storage.remove(MAGPIE_CACHE_KEY)
+  await gAlert("已清除配置，Magpie 卡片已恢复为默认数据。")
+}
+
 /** 清理 CPAMP 配置 */
 async function clearCpampConfig() {
   const ok = await gConfirm("确定要清除本机保存的 CPAMP 配置吗？")
@@ -1446,6 +1542,7 @@ export default function ConfigView() {
   const hasCodex = hasCodexConfigured()
   const hasAntigravity = hasAntigravityConfigured()
   const hasCpamp = hasCpampConfigured()
+  const hasMagpie = hasMagpieConfigured()
   const hasQb = hasQbConfigured()
   const hasQx = hasQxConfigured()
   const hasLoon = hasLoonConfigured()
@@ -1723,6 +1820,34 @@ export default function ConfigView() {
             <Image
               systemName="circle.fill"
               font={{ name: "system", size: 8 }}
+              foregroundStyle={hasMagpie ? "#10B981" : "#F59E0B"}
+            />
+            <Text font={14} fontWeight="medium">Magpie (API 网关)</Text>
+            <Spacer />
+            <Button
+              title={hasMagpie ? "已配置 · 修改" : "去配置"}
+              buttonStyle="bordered"
+              controlSize="mini"
+              action={async () => {
+                await configureMagpie()
+              }}
+            />
+            {hasMagpie ? (
+              <Button
+                title="清除"
+                role="destructive"
+                buttonStyle="bordered"
+                controlSize="mini"
+                action={async () => {
+                  await clearMagpieConfig()
+                }}
+              />
+            ) : null}
+          </HStack>
+          <HStack spacing={10} alignment="center">
+            <Image
+              systemName="circle.fill"
+              font={{ name: "system", size: 8 }}
               foregroundStyle={hasQb ? "#10B981" : "#F59E0B"}
             />
             <Text font={14} fontWeight="medium">qBittorrent (下载器)</Text>
@@ -1805,6 +1930,7 @@ export default function ConfigView() {
                   if (hasCodex) tasks.push(refreshCodexData().catch((e) => console.log("codex err:", e)))
                   if (hasAntigravity) tasks.push(refreshAntigravityData().catch((e) => console.log("ag err:", e)))
                   if (hasCpamp) tasks.push(refreshCpampData().catch((e) => console.log("cpamp err:", e)))
+                  if (hasMagpie) tasks.push(refreshMagpieData().catch((e) => console.log("magpie err:", e)))
                   if (hasQb) tasks.push(refreshQbittorrentData().catch((e) => console.log("qb err:", e)))
                   tasks.push(refreshQxData().catch((e) => console.log("qx err:", e)))
                   tasks.push(refreshVpnData().catch((e) => console.log("vpn err:", e)))
@@ -1897,6 +2023,8 @@ export default function ConfigView() {
                     await refreshWorkBuddyData().catch(() => null)
                   } else if (opt.id === "cpamp") {
                     await refreshCpampData().catch(() => null)
+                  } else if (opt.id === "magpie") {
+                    await refreshMagpieData().catch(() => null)
                   } else if (opt.id === "vpn") {
                     await refreshVpnData().catch(() => null)
                   } else if (opt.id === "fuel") {

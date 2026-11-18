@@ -54,7 +54,7 @@ export interface MediaNexusData {
 }
 
 export interface MetricBalanceData {
-  serviceId: "workbuddy" | "deepseek" | "cpamp"
+  serviceId: "workbuddy" | "deepseek" | "cpamp" | "magpie"
   brandTitle: string
   brandTitleColor?: any
   wordmarkImage?: any
@@ -157,6 +157,25 @@ export const DEFAULT_CPAMP: MetricBalanceData = {
   subLabel2: "失败",
   subValue2: "--",
   footerLeft: "未配置",
+  updatedAt: new Date().toISOString(),
+}
+
+// Magpie API 网关（OpenAI 兼容中转）额度看板 —— 用户自行填写网关地址与密钥
+export const DEFAULT_MAGPIE: MetricBalanceData = {
+  serviceId: "magpie",
+  brandTitle: "Magpie",
+  iconName: "bird.fill",
+  iconColor: "#8B5CF6",
+  statusText: "未配置",
+  mainLabel: "剩余额度",
+  mainValue: "--",
+  prefix: "",
+  progressPct: 0,
+  subLabel1: "已用",
+  subValue1: "--",
+  subLabel2: "请求次数",
+  subValue2: "--",
+  footerLeft: "未连接网关",
   updatedAt: new Date().toISOString(),
 }
 
@@ -470,6 +489,7 @@ export const WIDGET_OPTIONS = [
   { id: "antigravity", name: "Antigravity", desc: "小号 Gemini/Claude 配额看板", defaultFamily: "systemSmall" },
   { id: "workbuddy", name: "WorkBuddy", desc: "小号账号池积分剩余看板", defaultFamily: "systemSmall" },
   { id: "cpamp", name: "CPAMP", desc: "小号今日调用与 Token 看板", defaultFamily: "systemSmall" },
+  { id: "magpie", name: "Magpie", desc: "小号 API 网关余额/用量看板（自填网关与密钥，支持自定义额度接口）", defaultFamily: "systemSmall" },
   { id: "vpn", name: "VPN 节点", desc: "小号出口 IP 与风险检测看板", defaultFamily: "systemSmall" },
   { id: "qbittorrent", name: "qBittorrent", desc: "自适应下载器看板（小号速度与做种 / 中号全面监控）", defaultFamily: "systemSmall" },
   { id: "fuel", name: "今日油价", desc: "自适应油价行情（小号 Shell 高光 / 中号 4联卡片）", defaultFamily: "systemSmall" },

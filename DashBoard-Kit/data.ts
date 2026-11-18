@@ -3644,3 +3644,17 @@ export {
   type CmccSettings,
 } from "./chinamobile"
 
+// 转发 Magpie 网关看板模块导出
+export {
+  MAGPIE_ENDPOINT_KEY,
+  MAGPIE_KEY,
+  MAGPIE_QUOTA_PATH_KEY,
+  MAGPIE_CACHE_KEY,
+  getMagpieData,
+  getMagpieSettings,
+  hasMagpieConfigured,
+  refreshMagpieData,
+  saveMagpieData,
+  type MagpieSettings,
+} from "./magpie"
+

@@ -31,6 +31,7 @@
 | `codex` | **Codex 用量** | 小号 (Small) | 官方 OAuth 直连，监控 5 小时与周配额用量比例 |
 | `antigravity` 或 `ag` | **Antigravity 配额** | 小号 (Small) | Google CloudCode 配额用量监控 |
 | `cpamp` | **CPAMP 监控** | 小号 (Small) | 监控今日调用量、成功/失败数及消费额度 |
+| `magpie` / `喜鹊` / `网关` | **Magpie API 网关** | 小号 (Small) | 监控网关余额/用量；网关地址、密钥、额度接口路径全部用户自填，不内置任何凭据 |
 | `vpn` 或 `node` | **网络节点状态** | 小号 (Small) | 当前公网 IP、节点地区、延迟及网络状态监控 |
 | `qbittorrent` 或 `qb` | **qBittorrent** | 小号 / 中号自适应 | 实时下行与上行速率、做种/活跃任务数、累计传输与磁盘余量 |
 | `fuel` 或 `oil` / `油价` | **今日油价** | 小号 / 中号自适应 | 小号展示 Shell 贝壳高光与主力油品大字，中号展示 4 联卡片行情 |
@@ -50,6 +51,7 @@
    * **MoviePilot / Emby**：填入服务器局域网或公网地址及 API Key。
    * **DeepSeek**：填入平台 User Token 或官方开放平台 API Key。
    * **WorkBuddy**：填入 workbuddy2api-panel 面板地址及 Token。
+   * **Magpie**：在配置面板填入 API 网关根地址（含端口，不含 `/v1`）、网关密钥（仅存本机 Keychain），以及可选的额度接口路径（留空会自动尝试 `/api/user/self`、`/api/status` 等常见路径）。项目**不内置任何密钥**，返回 JSON 需包含 balance/remaining/quota 等字段即可自动解析。
 3. **添加桌面小组件**：
    * 返回 iOS 桌面，长按空白处进入编辑模式，添加 **Scripting** 小组件。
    * 选择脚本为 `DashBoard-Kit`。

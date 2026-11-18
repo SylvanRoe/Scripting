@@ -324,11 +324,14 @@ export function MetricBalanceCard({ data }: { data: MetricBalanceData }) {
   const isWorkBuddy = data.serviceId === "workbuddy"
   const isDeepSeek = data.serviceId === "deepseek"
   const isCpamp = data.serviceId === "cpamp"
+  const isMagpie = data.serviceId === "magpie"
 
-  // 主数值颜色：WorkBuddy与DeepSeek原图均为绿色大字，CPAMP为深蓝大字
+  // 主数值颜色：WorkBuddy与DeepSeek原图均为绿色大字，CPAMP为深蓝，Magpie为紫色
   const mainNumColor = isCpamp
     ? ({ light: "#4338CA", dark: "#6366F1" } as any)
-    : THEME.green
+    : isMagpie
+      ? ({ light: "#7C3AED", dark: "#A78BFA" } as any)
+      : THEME.green
 
   return (
     <VStack
