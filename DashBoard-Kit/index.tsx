@@ -857,9 +857,9 @@ async function configureMagpie() {
 
   const endpoint = await gPrompt({
     title: "配置 Magpie · 网关地址",
-    message: "请输入 API 网关根地址（含端口，不含 /v1）\n例如 https://your-gateway.com:16888",
+    message: "请输入 API 网关根地址（默认 443 端口可省略，不含 /v1）\n例如 https://your-gateway.com\n若为自定义端口请自行带上",
     defaultValue: curEndpoint,
-    placeholder: "https://your-gateway.com:16888",
+    placeholder: "https://your-gateway.com",
     keyboardType: "URL",
     confirmLabel: "下一步",
     cancelLabel: "取消",
