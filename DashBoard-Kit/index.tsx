@@ -887,8 +887,10 @@ async function configureMagpie() {
   }
   Keychain.remove(MAGPIE_QUOTA_PATH_KEY)
 
+  const refreshStartedAt = Date.now()
   const res = await refreshMagpieData()
-  const realSuccess = !!res && res.statusText === "在线" && res.mainValue !== "--"
+  const refreshedAt = Date.parse(res?.updatedAt || "") || 0
+  const realSuccess = !!res && res.statusText === "在线" && res.mainValue !== "--" && refreshedAt >= refreshStartedAt - 1000
   if (realSuccess) {
     Widget.reloadAll()
     await gAlert(
