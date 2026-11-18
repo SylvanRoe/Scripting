@@ -468,6 +468,26 @@ export function MetricBalanceCard({ data }: { data: MetricBalanceData }) {
               </Text>
             </HStack>
           </HStack>
+        ) : isMagpie ? (
+          <HStack spacing={0} alignment="center" frame={{ maxWidth: "infinity" }}>
+            <HStack spacing={3} alignment="center">
+              <Text font={9.5} foregroundStyle={THEME.dim} lineLimit={1}>
+                {data.subLabel1 || "已用"}
+              </Text>
+              <Text font={10} fontWeight="bold" foregroundStyle={THEME.orange} monospacedDigit lineLimit={1}>
+                {data.subValue1 || "--"}
+              </Text>
+            </HStack>
+            <Spacer />
+            <HStack spacing={3} alignment="center">
+              <Text font={9.5} foregroundStyle={THEME.dim} lineLimit={1}>
+                {data.subLabel2 || "重置"}
+              </Text>
+              <Text font={10} fontWeight="semibold" foregroundStyle={THEME.text} monospacedDigit lineLimit={1} minScaleFactor={0.7}>
+                {data.subValue2 || "--"}
+              </Text>
+            </HStack>
+          </HStack>
         ) : (
           <>
             <HStack spacing={3} alignment="center">

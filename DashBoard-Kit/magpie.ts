@@ -2,29 +2,18 @@ import { fetch } from "scripting"
 import { DEFAULT_MAGPIE, MetricBalanceData } from "./types"
 
 // ============================================================
-// Magpie / 通用 OpenAI 兼容 API 网关 —— 余额与用量看板数据层
-// 所有凭据均由用户在设置页自行填写，不内置任何密钥。
+// Magpie Web 今日用量总览
+// 配置只存本机 Keychain；源码不内置任何地址或密钥。
 // ============================================================
 
 export const MAGPIE_ENDPOINT_KEY = "dashboard_kit_magpie_endpoint"
 export const MAGPIE_KEY = "dashboard_kit_magpie_key"
+// 保留旧键，方便升级时清理旧版手动路径设置
 export const MAGPIE_QUOTA_PATH_KEY = "dashboard_kit_magpie_quota_path"
 export const MAGPIE_CACHE_KEY = "dashboard_kit_magpie_cache_v1"
 const MAGPIE_FILE_CACHE_PATH =
   FileManager.appGroupDocumentsDirectory + "/dashboard_kit_magpie_cache.json"
-
-/** 常见网关用量接口路径（用户可自定义覆盖，逐个尝试） */
-const DEFAULT_QUOTA_PATHS = [
-  "/",
-  "/api/user/self",
-  "/api/status",
-  "/api/user/info",
-  "/api/user/dashboard",
-  "/dashboard/api/data",
-  "/v1/dashboard",
-  "/api/usage",
-  "/v1/usage",
-]
+const USAGE_PATH = "/api/usage/requests?period=today&limit=1"
 
 export interface MagpieSettings {
   endpoint?: string
@@ -43,7 +32,8 @@ export function getMagpieSettings(): MagpieSettings {
 }
 
 export function hasMagpieConfigured(): boolean {
-  return !!(getMagpieSettings().endpoint || "").trim()
+  const s = getMagpieSettings()
+  return !!(s.endpoint || "").trim() && !!(s.apiKey || "").trim()
 }
 
 export function saveMagpieData(data: MetricBalanceData) {
@@ -79,29 +69,22 @@ export function getMagpieData(): MetricBalanceData {
 }
 
 /**
- * 解析用户粘贴的「管理台链接」，例如 http://host:3430/?k=xxx
- * 自动拆出 根地址 与 密钥（兼容 k / key / token / api_key 参数名）。
- * 也兼容只填裸地址或带 /v1 的 API 地址。
+ * 解析用户粘贴的管理台链接，例如 http://host:port/?k=xxx。
+ * 自动拆出根地址与密钥；也兼容裸地址和带 /v1 的地址。
  */
 export function parseMagpieInput(input: string): { endpoint: string; apiKey: string } {
   let raw = (input || "").trim()
   if (!raw) return { endpoint: "", apiKey: "" }
   if (!/^https?:\/\//i.test(raw)) raw = `http://${raw}`
 
-  // 根地址 = 协议 + 主机 + 端口，丢掉路径/查询/片段
   const m = raw.match(/^(https?:\/\/[^/?#]+)/i)
   let endpoint = m ? m[1] : raw
   endpoint = endpoint.replace(/\/v1\/?$/i, "").replace(/\/+$/i, "")
 
-  // 从查询参数里取密钥
   let apiKey = ""
   const q = raw.match(/[?&](?:k|key|token|api_key|auth)=([^&#]+)/i)
   if (q) {
-    try {
-      apiKey = decodeURIComponent(q[1])
-    } catch {
-      apiKey = q[1]
-    }
+    try { apiKey = decodeURIComponent(q[1]) } catch { apiKey = q[1] }
   }
   return { endpoint, apiKey }
 }
@@ -109,155 +92,137 @@ export function parseMagpieInput(input: string): { endpoint: string; apiKey: str
 function normalizeBase(input: string): string {
   let base = (input || "").trim()
   if (!base) return ""
-  if (!/^https?:\/\//i.test(base)) base = `https://${base}`
-  base = base.replace(/\/+$/i, "")
-  base = base.replace(/\/v1\/?$/i, "")
-  return base.replace(/\/+$/i, "")
+  if (!/^https?:\/\//i.test(base)) base = `http://${base}`
+  return base.replace(/\/+$/i, "").replace(/\/v1\/?$/i, "").replace(/\/+$/i, "")
 }
 
-/** 给探测 URL 追加上 ?k= 鉴权参数（管理台链接的鉴权方式） */
 function withKeyParam(url: string, key: string): string {
   if (!key) return url
   return url + (url.includes("?") ? "&" : "?") + "k=" + encodeURIComponent(key)
 }
 
-function num(v: any): number | undefined {
-  if (typeof v === "number" && Number.isFinite(v)) return v
-  if (typeof v === "string" && v.trim()) {
-    const n = Number(v.replace(/[,¥$%\s]/g, ""))
-    if (Number.isFinite(n)) return n
-  }
-  return undefined
-}
-
-/** 从网关返回的任意 JSON 中智能提取额度信息 */
-function extractQuota(json: any): {
-  remaining?: number
-  total?: number
-  used?: number
-  requests?: number
-  currency?: string
-  rawExists: boolean
-} {
-  if (!json || typeof json !== "object") return { rawExists: false }
-
-  // 兼容 data/user 包裹
-  const d = json.data && typeof json.data === "object" ? json.data : json
-  const u = d.user && typeof d.user === "object" ? d.user : d
-
-  const pick = (...keys: string[]): any => {
-    for (const k of keys) {
-      const val = u?.[k] ?? d?.[k] ?? json?.[k]
-      if (val !== undefined && val !== null) return val
+/** 从 Scripting fetch 响应中取 Set-Cookie，只保留 name=value。 */
+function pickSetCookie(res: any): string {
+  try {
+    const h = res?.headers || {}
+    const map = h.map || {}
+    const sc = map["set-cookie"] || map["Set-Cookie"] || h.setCookieList || h["set-cookie"] || ""
+    if (Array.isArray(sc)) {
+      return sc.map((x: any) => String(x).split(";")[0].trim()).filter(Boolean).join("; ")
     }
-    return undefined
-  }
-
-  const remaining =
-    num(pick("remaining_quota", "remainingQuota", "quota_remaining", "balance", "credit", "credits", "remaining", "可用额度", "剩余额度", "余额")) ??
-    undefined
-  const total =
-    num(pick("total_quota", "totalQuota", "quota_total", "total_credit", "total", "quota", "总额度")) ??
-    undefined
-  const used =
-    num(pick("used_quota", "usedQuota", "quota_used", "used", "consumed", "已用", "已消费")) ??
-    undefined
-  const requests =
-    num(pick("request_count", "requestCount", "requests", "total_requests", "call_count", "请求次数", "调用次数")) ??
-    undefined
-  const currency = String(pick("currency", "unit", "币种") || "")
-
-  return {
-    remaining,
-    total,
-    used,
-    requests,
-    currency,
-    rawExists: remaining !== undefined || total !== undefined || used !== undefined || requests !== undefined,
-  }
-}
-
-function formatNum(n: number, currency?: string): string {
-  const val = n >= 1000 ? n.toLocaleString() : String(Math.round(n * 100) / 100)
-  return currency && /^[¥$€]/i.test(currency) ? `${currency}${val}` : val
+    return String(sc || "").split(";")[0].trim()
+  } catch { return "" }
 }
 
 /**
- * 刷新 Magpie 网关数据。
- * 用户填写网关地址 + 密钥；额度接口路径可选（留空则自动尝试常见路径）。
+ * Magpie Web 鉴权：GET /?k=KEY 返回 303 + Set-Cookie。
+ * 必须取消自动重定向，否则最终 200 响应里看不到原始 Set-Cookie。
  */
+async function establishSession(base: string, apiKey: string): Promise<string> {
+  if (!apiKey) return ""
+  try {
+    const r = await fetch(withKeyParam(`${base}/`, apiKey), {
+      method: "GET",
+      timeout: 6,
+      allowInsecureRequest: base.startsWith("http://"),
+      handleRedirect: async () => null,
+    })
+    return pickSetCookie(r)
+  } catch { return "" }
+}
+
+function n(v: any): number {
+  const x = Number(v)
+  return Number.isFinite(x) ? x : 0
+}
+
+function compact(v: number): string {
+  const x = Math.max(0, v)
+  const trim = (s: string) => s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s
+  if (x >= 1_000_000_000) return `${trim((x / 1_000_000_000).toFixed(2))}B`
+  if (x >= 1_000_000) return `${trim((x / 1_000_000).toFixed(2))}M`
+  if (x >= 1_000) return `${trim((x / 1_000).toFixed(1))}K`
+  return Math.round(x).toLocaleString()
+}
+
+function parseUsage(json: any): MetricBalanceData | null {
+  if (!json || typeof json !== "object" || Array.isArray(json)) return null
+
+  const calls = n(json.calls)
+  const errors = n(json.errors)
+  const input = n(json.input)
+  const output = n(json.output)
+  const cacheRead = n(json.cache_read)
+  const cacheWrite = n(json.cache_write)
+  const cacheUnknown = n(json.cache_unknown)
+  const cost = n(json.cost)
+  const totalTokens = input + output + cacheRead + cacheWrite
+
+  // 与 Magpie Web 前端公式一致：缓存读取 / 可判定的总 prompt token。
+  const prompt = Math.max(0, input + cacheRead + cacheWrite - cacheUnknown)
+  const hitRate = prompt > 0 ? Math.max(0, Math.min(100, (cacheRead / prompt) * 100)) : 0
+  const successRate = calls > 0 ? Math.max(0, Math.min(100, ((calls - errors) / calls) * 100)) : 100
+
+  const providers = Array.isArray(json.providers)
+    ? json.providers.length
+    : Array.isArray(json?.by?.provider)
+      ? json.by.provider.length
+      : 0
+
+  return {
+    ...DEFAULT_MAGPIE,
+    statusText: "在线",
+    mainLabel: "今日 Tokens · 缓存命中",
+    mainValue: compact(totalTokens),
+    prefix: "",
+    progressPct: Math.round(hitRate * 10) / 10,
+    subLabel1: "请求",
+    subValue1: Math.round(calls).toLocaleString(),
+    subLabel2: "成功率",
+    subValue2: `${(Math.round(successRate * 10) / 10).toFixed(1)}%`,
+    footerLeft: `$${cost.toFixed(2)} · ${providers}个供应商`,
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+/** 刷新 Magpie 今日用量：Token、缓存命中率、请求数、成功率、费用、供应商数。 */
 export async function refreshMagpieData(): Promise<MetricBalanceData | null> {
   const settings = getMagpieSettings()
   const base = normalizeBase(settings.endpoint || "")
-  if (!base) return null
-
   const apiKey = (settings.apiKey || "").trim()
+  if (!base || !apiKey) return null
 
-  // 配置一存在就先写一条"已配置"缓存，保证小组件不会全空（--/等待更新）。
-  // 探测成功会被真实数据覆盖；失败则至少显示"已连接网关 / 探测中"。
   const seed: MetricBalanceData = {
     ...DEFAULT_MAGPIE,
     statusText: "已配置",
-    mainLabel: "剩余额度",
+    mainLabel: "正在连接网关",
     mainValue: "--",
-    footerLeft: `网关 ${base.replace(/^https?:\/\//i, "")}`,
+    footerLeft: "等待首次用量同步",
     updatedAt: new Date().toISOString(),
   }
   const existing = getMagpieData()
-  if (existing.serviceId !== "magpie" || existing.statusText === "未配置" || existing.statusText === "等待更新") {
-    saveMagpieData(seed)
-  }
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    "Content-Type": "application/json",
-  }
-  if (apiKey) {
-    headers["Authorization"] = `Bearer ${apiKey}`
-    headers["x-api-key"] = apiKey
-  }
+  if (existing.statusText === "未配置" || existing.statusText === "等待更新") saveMagpieData(seed)
 
-  const customPath = (settings.quotaPath || "").trim()
-  const paths = customPath ? [customPath.startsWith("/") ? customPath : `/${customPath}`] : DEFAULT_QUOTA_PATHS
+  const cookie = await establishSession(base, apiKey)
+  if (!cookie) return getMagpieData()
 
-  for (const path of paths) {
-    try {
-      // 管理台 ?k= 鉴权 + Bearer/x-api-key 头 同时带上，最大化兼容
-      const url = withKeyParam(`${base}${path}`, apiKey)
-      // 缩短单次超时（8 个路径全失败也不至于卡太久）
-      const res = await fetch(url, { method: "GET", headers, timeout: 4 })
-      if (!res.ok) continue
+  try {
+    const res = await fetch(`${base}${USAGE_PATH}`, {
+      method: "GET",
+      headers: { Accept: "application/json", Cookie: cookie },
+      timeout: 12,
+      allowInsecureRequest: base.startsWith("http://"),
+    })
+    if (res.ok) {
       const json: any = await res.json().catch(() => null)
-      const q = extractQuota(json)
-      if (!q.rawExists) continue
-
-      const remaining = q.remaining ?? (q.total !== undefined && q.used !== undefined ? Math.max(0, q.total - q.used) : undefined)
-      const used = q.used ?? (q.total !== undefined && remaining !== undefined ? Math.max(0, q.total - remaining) : undefined)
-      const pct =
-        q.total && q.total > 0 && remaining !== undefined
-          ? Math.max(0, Math.min(100, Math.round((remaining / q.total) * 1000) / 10))
-          : DEFAULT_MAGPIE.progressPct
-
-      const data: MetricBalanceData = {
-        ...DEFAULT_MAGPIE,
-        statusText: "在线",
-        mainLabel: "剩余额度",
-        mainValue: remaining !== undefined ? formatNum(remaining, q.currency) : (used !== undefined ? formatNum(used, q.currency) : "--"),
-        prefix: "",
-        progressPct: pct,
-        subLabel1: "已用",
-        subValue1: used !== undefined ? formatNum(used, q.currency) : "--",
-        subLabel2: "请求次数",
-        subValue2: q.requests !== undefined ? q.requests.toLocaleString() : "--",
-        footerLeft: q.currency ? `币种 ${q.currency}` : `网关 ${base.replace(/^https?:\/\//i, "")}`,
-        updatedAt: new Date().toISOString(),
+      const data = parseUsage(json)
+      if (data) {
+        saveMagpieData(data)
+        return data
       }
-      saveMagpieData(data)
-      return data
-    } catch (e) {
-      console.log(`Magpie 额度接口 ${path} 尝试失败:`, e)
     }
+  } catch (e) {
+    console.log("Magpie 今日用量刷新失败:", e)
   }
-  // 探测全部失败：保留 seed 缓存（显示"已配置"而非全空），返回它让调用方也能用
-  const fallback = getMagpieData()
-  return fallback.serviceId === "magpie" ? fallback : seed
+  return getMagpieData()
 }

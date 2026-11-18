@@ -888,13 +888,15 @@ async function configureMagpie() {
   Keychain.remove(MAGPIE_QUOTA_PATH_KEY)
 
   const res = await refreshMagpieData()
-  if (res) {
+  const realSuccess = !!res && res.statusText === "在线" && res.mainValue !== "--"
+  if (realSuccess) {
     Widget.reloadAll()
     await gAlert(
-      `✓ 连接成功！\n\n剩余额度：${res.mainValue}\n已用：${res.subValue1}\n请求次数：${res.subValue2}\n\n小组件现已展示真实网关额度。`
+      `✓ 连接成功！\n\n${res.mainLabel}：${res.mainValue}\n${res.subLabel1}：${res.subValue1}\n${res.subLabel2}：${res.subValue2}\n\n小组件现已展示今日真实用量。`
     )
   } else {
-    await gAlert("配置已保存。\n小组件会显示占位数据，待网关可访问时自动更新。")
+    Widget.reloadAll()
+    await gAlert("配置已保存，但尚未读取到今日用量。\n请点小组件右上角刷新；若仍无数据，请确认管理台链接中的 k 值有效。")
   }
 }
 
