@@ -51,7 +51,7 @@
    * **MoviePilot / Emby**：填入服务器局域网或公网地址及 API Key。
    * **DeepSeek**：填入平台 User Token 或官方开放平台 API Key。
    * **WorkBuddy**：填入 workbuddy2api-panel 面板地址及 Token。
-   * **Magpie**：在配置面板填入 API 网关根地址（含端口，不含 `/v1`）、网关密钥（仅存本机 Keychain），以及可选的额度接口路径（留空会自动尝试 `/api/user/self`、`/api/status` 等常见路径）。项目**不内置任何密钥**，返回 JSON 需包含 balance/remaining/quota 等字段即可自动解析。
+   * **Magpie**：只需两步——① 粘贴你在其它 App 里用的 API 地址（照抄即可，带 `/v1`、带端口都没关系，自动处理）；② 粘贴 API Key（仅存本机 Keychain）。额度接口会自动探测；仅当网关很特殊时才需手动填一次路径。项目**不内置任何密钥**。
 3. **添加桌面小组件**：
    * 返回 iOS 桌面，长按空白处进入编辑模式，添加 **Scripting** 小组件。
    * 选择脚本为 `DashBoard-Kit`。

@@ -81,6 +81,10 @@ function normalizeBase(input: string): string {
   let base = (input || "").trim()
   if (!base) return ""
   if (!/^https?:\/\//i.test(base)) base = `https://${base}`
+  base = base.replace(/\/+$/i, "")
+  // 用户常直接照抄聊天里的 API 地址（末尾带 /v1），这里统一剥掉，
+  // 后面探测时会按需重新拼回 /v1/... 路径。
+  base = base.replace(/\/v1\/?$/i, "")
   return base.replace(/\/+$/i, "")
 }
 
@@ -159,7 +163,11 @@ export async function refreshMagpieData(): Promise<MetricBalanceData | null> {
     Accept: "application/json",
     "Content-Type": "application/json",
   }
-  if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`
+    // 同时带上 x-api-key，兼容 one-api / new-api / Magpie 等网关
+    headers["x-api-key"] = apiKey
+  }
 
   const customPath = (settings.quotaPath || "").trim()
   const paths = customPath ? [customPath.startsWith("/") ? customPath : `/${customPath}`] : DEFAULT_QUOTA_PATHS
