@@ -192,6 +192,21 @@ export async function refreshMagpieData(): Promise<MetricBalanceData | null> {
   if (!base) return null
 
   const apiKey = (settings.apiKey || "").trim()
+
+  // 配置一存在就先写一条"已配置"缓存，保证小组件不会全空（--/等待更新）。
+  // 探测成功会被真实数据覆盖；失败则至少显示"已连接网关 / 探测中"。
+  const seed: MetricBalanceData = {
+    ...DEFAULT_MAGPIE,
+    statusText: "已配置",
+    mainLabel: "剩余额度",
+    mainValue: "--",
+    footerLeft: `网关 ${base.replace(/^https?:\/\//i, "")}`,
+    updatedAt: new Date().toISOString(),
+  }
+  const existing = getMagpieData()
+  if (existing.serviceId !== "magpie" || existing.statusText === "未配置" || existing.statusText === "等待更新") {
+    saveMagpieData(seed)
+  }
   const headers: Record<string, string> = {
     Accept: "application/json",
     "Content-Type": "application/json",
@@ -208,7 +223,8 @@ export async function refreshMagpieData(): Promise<MetricBalanceData | null> {
     try {
       // 管理台 ?k= 鉴权 + Bearer/x-api-key 头 同时带上，最大化兼容
       const url = withKeyParam(`${base}${path}`, apiKey)
-      const res = await fetch(url, { method: "GET", headers, timeout: 10 })
+      // 缩短单次超时（8 个路径全失败也不至于卡太久）
+      const res = await fetch(url, { method: "GET", headers, timeout: 4 })
       if (!res.ok) continue
       const json: any = await res.json().catch(() => null)
       const q = extractQuota(json)
@@ -241,5 +257,7 @@ export async function refreshMagpieData(): Promise<MetricBalanceData | null> {
       console.log(`Magpie 额度接口 ${path} 尝试失败:`, e)
     }
   }
-  return null
+  // 探测全部失败：保留 seed 缓存（显示"已配置"而非全空），返回它让调用方也能用
+  const fallback = getMagpieData()
+  return fallback.serviceId === "magpie" ? fallback : seed
 }

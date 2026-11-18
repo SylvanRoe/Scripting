@@ -19,12 +19,12 @@
   "runInApp": true,
   "description": "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板（中国移动、中国联通、Loon、Quantumult X、Media Nexus、DeepSeek、Codex、Antigravity、WorkBuddy、CPAMP、Magpie API 网关、qBittorrent、今日油价等）",
   "remoteResource": {
-    "hash": "d416c2025d0f2085a9e1dc9e7989509e",
+    "hash": "cdad4390f135589212ee20d96d3b95c1",
     "autoUpdateInterval": 3600,
     "url": "https://github.com/SylvanRoe/Scripting/raw/refs/heads/main/DashBoard-Kit/DashBoard-Kit.scripting"
   },
   "color": "#1A13ED",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "localizedDescriptions": {
     "en": "Multi-dashboard kit with unified settings and customizable widget parameters.",
     "zh": "多组件看板套件：同一后台配置管理，支持方案A桌面参数切换多种看板"

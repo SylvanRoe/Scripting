@@ -90,9 +90,10 @@ export function BrandHeaderIcon({
 }
 
 // ── 统一轻量刷新按钮（圆角微胶囊质感，完美复刻原图）──
-export function RefreshButton() {
+// serviceId：只刷新当前组件；不传则兼容旧行为
+export function RefreshButton({ serviceId }: { serviceId?: string } = {}) {
   return (
-    <Button intent={RefreshWidgetIntent(undefined)} buttonStyle="plain">
+    <Button intent={RefreshWidgetIntent(serviceId)} buttonStyle="plain">
       <ZStack frame={{ width: 22, height: 22 }}>
         <Circle
           fill={{ light: "rgba(0,0,0,0.04)", dark: "rgba(255,255,255,0.08)" } as any}
@@ -198,7 +199,7 @@ export function MediaNexusCard({ data }: { data: MediaNexusData }) {
         <Text font={11.5} fontWeight="regular" foregroundStyle={cLabel}>
           {data.statusText || "当前空闲"}
         </Text>
-        <RefreshButton />
+        <RefreshButton serviceId="media" />
       </HStack>
 
       <Spacer minLength={10} />
@@ -372,7 +373,7 @@ export function MetricBalanceCard({ data }: { data: MetricBalanceData }) {
           </HStack>
         )}
         <Spacer />
-        <RefreshButton />
+        <RefreshButton serviceId={data.serviceId} />
       </HStack>
 
       <Spacer minLength={7} />
@@ -552,7 +553,7 @@ export function DualQuotaCard({ data }: { data: DualQuotaData }) {
           {data.brandTitle}
         </Text>
         <Spacer />
-        <RefreshButton />
+        <RefreshButton serviceId={data.serviceId} />
       </HStack>
 
       <Spacer minLength={6} />
@@ -687,7 +688,7 @@ export function VpnNodeCard({ data }: { data: VpnNodeData }) {
           {data.statusTitle}
         </Text>
         <Spacer />
-        <RefreshButton />
+        <RefreshButton serviceId="vpn" />
       </HStack>
 
       <Spacer minLength={8} />
@@ -1088,7 +1089,7 @@ export function QbittorrentSmallCard({ data }: { data: QbittorrentData }) {
           frame={{ width: 5, height: 5 }}
         />
         <Spacer />
-        <RefreshButton />
+        <RefreshButton serviceId="qbittorrent" />
       </HStack>
 
       <Spacer minLength={6} />
@@ -1241,7 +1242,7 @@ export function QbittorrentMediumCard({ data }: { data: QbittorrentData }) {
         <Text font={11.5} fontWeight="regular" foregroundStyle={cLabel}>
           {data.statusText}
         </Text>
-        <RefreshButton />
+        <RefreshButton serviceId="qbittorrent" />
       </HStack>
 
       <Spacer minLength={10} />
@@ -1423,7 +1424,7 @@ export function QuantumultXSmallCard({ data }: { data: QuantumultXData }) {
         </Text>
         <Circle fill="#10B981" frame={{ width: 5, height: 5 }} />
         <Spacer minLength={2} />
-        <RefreshButton />
+        <RefreshButton serviceId="qx" />
       </HStack>
 
       <Spacer minLength={6} />
@@ -1664,7 +1665,7 @@ export function QuantumultXMediumCard({ data }: { data: QuantumultXData }) {
             />
           </HStack>
         </Button>
-        <RefreshButton />
+        <RefreshButton serviceId="qx" />
       </HStack>
 
       <Spacer minLength={8} />
@@ -1807,7 +1808,7 @@ export function QuantumultXTrafficSmallCard({ data }: { data: QuantumultXData })
         </Text>
         <Circle fill="#10B981" frame={{ width: 5, height: 5 }} />
         <Spacer minLength={2} />
-        <RefreshButton />
+        <RefreshButton serviceId="qx_traffic" />
       </HStack>
 
       <Spacer minLength={8} />
@@ -1953,7 +1954,7 @@ export function QuantumultXTrafficMediumCard({ data }: { data: QuantumultXData }
         <Text font={10.5} fontWeight="medium" foregroundStyle={cLabel} monospacedDigit>
           {`更新于 ${formatTime(data.updatedAt)}`}
         </Text>
-        <RefreshButton />
+        <RefreshButton serviceId="qx_traffic" />
       </HStack>
 
       <Spacer minLength={8} />
@@ -2172,7 +2173,7 @@ export function LoonSmallCard({ data }: { data: LoonData }) {
         </Text>
         <BridgeStatus connected={data.bridgeConnected} size={5} />
         <Spacer minLength={2} />
-        <RefreshButton />
+        <RefreshButton serviceId="loon" />
       </HStack>
 
       <Spacer minLength={6} />
@@ -2412,7 +2413,7 @@ export function LoonMediumCard({ data }: { data: LoonData }) {
             />
           </HStack>
         </Button>
-        <RefreshButton />
+        <RefreshButton serviceId="loon" />
       </HStack>
 
       <Spacer minLength={8} />
@@ -2533,7 +2534,7 @@ export function LoonTrafficSmallCard({ data }: { data: LoonData }) {
         </Text>
         <BridgeStatus connected={data.bridgeConnected} size={5} />
         <Spacer minLength={2} />
-        <RefreshButton />
+        <RefreshButton serviceId="loon_traffic" />
       </HStack>
 
       <Spacer minLength={8} />
@@ -2673,7 +2674,7 @@ export function LoonTrafficMediumCard({ data }: { data: LoonData }) {
         <Text font={10.5} fontWeight="medium" foregroundStyle={cLabel} monospacedDigit>
           {`更新于 ${formatTime(data.updatedAt)}`}
         </Text>
-        <RefreshButton />
+        <RefreshButton serviceId="loon_traffic" />
       </HStack>
 
       <Spacer minLength={8} />
@@ -2902,7 +2903,7 @@ export function UnicomSmallCard({ data }: { data: UnicomData }) {
         </Text>
         <Circle fill="#10B981" frame={{ width: 5, height: 5 }} />
         <Spacer minLength={2} />
-        <RefreshButton />
+        <RefreshButton serviceId="unicom" />
       </HStack>
 
       <Spacer minLength={3} />
@@ -3096,7 +3097,7 @@ export function UnicomMediumCard({ data }: { data: UnicomData }) {
         <Text font={10.5} fontWeight="medium" foregroundStyle={cLabel} monospacedDigit>
           {(`更新于 ${formatTime(data.updatedAt)}`)}
         </Text>
-        <RefreshButton />
+        <RefreshButton serviceId="unicom" />
       </HStack>
 
       <Spacer minLength={8} />
@@ -3292,7 +3293,7 @@ export function CmccSmallCard({ data }: { data: CmccData }) {
         </Text>
         <Circle fill="#10B981" frame={{ width: 5, height: 5 }} />
         <Spacer minLength={2} />
-        <RefreshButton />
+        <RefreshButton serviceId="cmcc" />
       </HStack>
 
       <Spacer minLength={3} />
@@ -3485,7 +3486,7 @@ export function CmccMediumCard({ data }: { data: CmccData }) {
         <Text font={10.5} fontWeight="medium" foregroundStyle={cLabel} monospacedDigit>
           {(`更新于 ${formatTime(data.updatedAt)}`)}
         </Text>
-        <RefreshButton />
+        <RefreshButton serviceId="cmcc" />
       </HStack>
 
       <Spacer minLength={8} />
