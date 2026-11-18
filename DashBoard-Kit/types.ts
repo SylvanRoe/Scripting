@@ -167,7 +167,7 @@ export const DEFAULT_MAGPIE: MetricBalanceData = {
   iconName: "bird.fill",
   iconColor: "#8B5CF6",
   statusText: "未配置",
-  mainLabel: "今日 Tokens · 缓存命中",
+  mainLabel: "今日 Tokens",
   mainValue: "--",
   prefix: "",
   progressPct: 0,

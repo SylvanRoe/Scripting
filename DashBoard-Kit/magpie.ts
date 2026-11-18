@@ -172,7 +172,7 @@ function parseUsage(json: any): MetricBalanceData | null {
   return {
     ...DEFAULT_MAGPIE,
     statusText: "在线",
-    mainLabel: "今日 Tokens · 缓存命中",
+    mainLabel: "今日 Tokens",
     mainValue: compact(totalTokens),
     prefix: "",
     progressPct: Math.round(hitRate * 10) / 10,

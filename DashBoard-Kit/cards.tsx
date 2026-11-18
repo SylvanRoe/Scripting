@@ -413,11 +413,16 @@ export function MetricBalanceCard({ data }: { data: MetricBalanceData }) {
 
       <Spacer minLength={7} />
 
-      {/* 进度条 + 右侧百分比 (单行并排对齐，绝不错行) */}
+      {/* Magpie：缓存命中单独放到进度条行；其它卡片保持原布局 */}
       <HStack spacing={6} alignment="center">
+        {isMagpie ? (
+          <Text font={9} fontWeight="medium" foregroundStyle={THEME.dim} lineLimit={1}>
+            缓存命中
+          </Text>
+        ) : null}
         <ProgressBar value={data.progressPct} color={pColor} height={4.5} />
         <Text font={10.5} fontWeight="bold" foregroundStyle={pColor} monospacedDigit>
-          {`${Math.round(data.progressPct)}%`}
+          {`${Math.round(data.progressPct * 10) / 10}%`}
         </Text>
       </HStack>
 
