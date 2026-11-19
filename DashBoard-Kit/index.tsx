@@ -12,6 +12,7 @@ import {
   Spacer,
   Text,
   useEffect,
+  useState,
   VStack,
   Widget,
   ZStack,
@@ -147,6 +148,73 @@ const gActionSheet = async (title: string, options: string[]) => {
   return actions[idx].label
 }
 
+// ── cancel-safe prompt：取消/空串一律视为取消，避免点取消还进入下一步 ──
+// required=true：空串=取消；required=false：空串保留为""（选填跳过）
+async function promptSafe(opts: any, required = true): Promise<string | null> {
+  const v = await Dialog.prompt(opts)
+  if (v === null || v === undefined) return null
+  if (required && String(v).trim() === "") return null
+  return String(v)
+}
+
+// ── 已启用组件列表：只显示用户添加的组件；移除只删列表、保留 Keychain 凭据 ──
+const ENABLED_KEY = "dashboard_kit_enabled_services"
+export function getEnabledServices(): string[] {
+  try {
+    const raw = Storage.get<string[]>(ENABLED_KEY, { shared: true }) || Storage.get<string[]>(ENABLED_KEY)
+    return Array.isArray(raw) ? raw.filter(Boolean) : []
+  } catch { return [] }
+}
+export function saveEnabledServices(ids: string[]) {
+  try {
+    const uniq = Array.from(new Set(ids.filter(Boolean)))
+    Storage.set(ENABLED_KEY, uniq, { shared: true })
+    Storage.set(ENABLED_KEY, uniq)
+  } catch {}
+}
+// 旧用户迁移：已配置过的组件自动视为已启用（只迁移一次）
+const ENABLED_MIGRATED_KEY = "dashboard_kit_enabled_migrated"
+function migrateEnabledServices(configured: string[]) {
+  try {
+    if (Storage.get<boolean>(ENABLED_MIGRATED_KEY, { shared: true })) return
+    const merged = Array.from(new Set([...getEnabledServices(), ...configured]))
+    saveEnabledServices(merged)
+    Storage.set(ENABLED_MIGRATED_KEY, true, { shared: true })
+    Storage.set(ENABLED_MIGRATED_KEY, true)
+  } catch {}
+}
+
+// 添加页分组（分组列表，避免平铺过大）
+const WIDGET_GROUPS: { title: string; ids: string[] }[] = [
+  { title: "代理 / 网络", ids: ["qx", "qx_traffic", "loon", "loon_traffic", "vpn"] },
+  { title: "AI 服务", ids: ["deepseek", "codex", "antigravity", "workbuddy", "cpamp", "magpie"] },
+  { title: "运营商", ids: ["cmcc", "unicom"] },
+  { title: "媒体 / 下载", ids: ["media", "qbittorrent"] },
+  { title: "生活", ids: ["fuel"] },
+]
+
+// 组件显示名 / 配置函数 / 预览刷新函数 映射
+const OPT_BY_ID: Record<string, any> = Object.fromEntries(WIDGET_OPTIONS.map(o => [o.id, o]))
+const CONFIGURE_FN: Record<string, () => Promise<void>> = {
+  qx: configureQuantumultX, qx_traffic: configureQuantumultX, loon: configureLoon,
+  loon_traffic: configureLoon, cmcc: configureCmcc, unicom: configureUnicom,
+  workbuddy: configureWorkBuddy, deepseek: configureDeepSeek, codex: configureCodex,
+  antigravity: configureAntigravity, media: configureMedia, cpamp: configureCpamp,
+  magpie: configureMagpie, qbittorrent: configureQbittorrent, fuel: configureFuelSettings,
+  vpn: async () => { await triggerVpnDetection() },
+}
+// 预览前按需刷新某个组件数据
+async function preparePreview(id: string) {
+  const jobs: Record<string, () => Promise<any>> = {
+    antigravity: refreshAntigravityData, codex: refreshCodexData, deepseek: refreshDeepSeekData,
+    workbuddy: refreshWorkBuddyData, cpamp: refreshCpampData, magpie: refreshMagpieData,
+    vpn: refreshVpnData, fuel: refreshFuelData, qbittorrent: refreshQbittorrentData,
+    loon: refreshLoonData, loon_traffic: refreshLoonData, cmcc: refreshCmccData,
+    unicom: refreshUnicomData, qx: refreshQxData, qx_traffic: refreshQxData, media: refreshMediaData,
+  }
+  if (jobs[id]) await jobs[id]().catch(() => null)
+}
+
 const COLOR_SUCCESS = THEME.green
 const COLOR_WARN = THEME.yellow
 const BG_BOX = { light: "#F1F5F9", dark: "#1E293B" } as any
@@ -270,7 +338,7 @@ async function configureWorkBuddy() {
     ? Keychain.get(WB_API_KEY) || ""
     : ""
 
-  const url = await gPrompt({
+  const url = await promptSafe({
     title: "配置 WorkBuddy · 后台地址",
     message: "请输入 workbuddy2api-panel 服务地址\n例如 http://192.168.1.100:7863",
     defaultValue: currentUrl,
@@ -278,10 +346,10 @@ async function configureWorkBuddy() {
     keyboardType: "URL",
     confirmLabel: "下一步",
     cancelLabel: "取消",
-  })
+  }, true)
   if (url === null) return
 
-  const key = await gPrompt({
+  const key = await promptSafe({
     title: "配置 WorkBuddy · API Key (密钥)",
     message: "请输入配置文件中的 api_key 密钥\n（若 config.json 中未设置 api_key 可直接留空跳过）",
     defaultValue: currentKey,
@@ -289,7 +357,7 @@ async function configureWorkBuddy() {
     obscureText: true,
     confirmLabel: "保存并测试连接",
     cancelLabel: "取消",
-  })
+  }, false)
   if (key === null) return
 
   if (!url.trim()) {
@@ -358,7 +426,7 @@ async function configureMedia() {
   const defaultUrl = currentUrl
   const defaultKey = currentKey
 
-  const url = await gPrompt({
+  const url = await promptSafe({
     title: isMP ? "配置 MoviePilot · 地址" : "配置 Emby · 地址",
     message: isMP
       ? "请输入 MoviePilot 服务器地址\n例如 http://192.168.1.100:3068"
@@ -368,10 +436,10 @@ async function configureMedia() {
     keyboardType: "URL",
     confirmLabel: "下一步",
     cancelLabel: "取消",
-  })
+  }, true)
   if (url === null) return
 
-  const key = await gPrompt({
+  const key = await promptSafe({
     title: isMP ? "配置 MoviePilot · API Key" : "配置 Emby · API Key",
     message: isMP
       ? "请输入 MoviePilot 的 API 密钥 (apikey)"
@@ -381,7 +449,7 @@ async function configureMedia() {
     obscureText: true,
     confirmLabel: "保存并测试连接",
     cancelLabel: "取消",
-  })
+  }, true)
   if (key === null) return
 
   if (!url.trim() || !key.trim()) {
@@ -460,7 +528,7 @@ async function configureDeepSeek() {
     ? Keychain.get(DEEPSEEK_TOKEN_KEY) || ""
     : discovered
 
-  const token = await gPrompt({
+  const token = await promptSafe({
     title: "配置 DeepSeek · Token / API Key",
     message: "请输入 DeepSeek 网页 User Token 或开放平台 API Key (sk-...)：",
     defaultValue: currentToken,
@@ -468,7 +536,7 @@ async function configureDeepSeek() {
     obscureText: true,
     confirmLabel: "保存并测试连接",
     cancelLabel: "取消",
-  })
+  }, true)
   if (token === null) return
 
   if (!token.trim()) {
@@ -551,13 +619,13 @@ async function configureCodex() {
       }
 
       // 等待用户完成并粘贴回调 URL
-      const callbackUrl = await gPrompt({
+      const callbackUrl = await promptSafe({
         title: "完成 Codex 授权",
         message: "在 Safari 登录并授权后，地址栏将跳转到 localhost:1455...\n请复制地址栏全部内容粘贴到下方：",
         placeholder: "http://localhost:1455/auth/callback?code=...",
         confirmLabel: "完成登录",
         cancelLabel: "取消",
-      })
+      }, true)
       if (!callbackUrl) return
 
       const accountLabel = await completeCodexOAuth(callbackUrl)
@@ -584,7 +652,7 @@ async function configureCodex() {
     ? Keychain.get(CODEX_ACCOUNT_ID_KEY) || ""
     : ""
 
-  const token = await gPrompt({
+  const token = await promptSafe({
     title: "配置 Codex · Access Token",
     message: "请输入 ChatGPT 的 Access Token (Bearer Token)\n可从浏览器控制台或抓包中获取",
     defaultValue: currentToken,
@@ -592,17 +660,17 @@ async function configureCodex() {
     obscureText: true,
     confirmLabel: "下一步",
     cancelLabel: "取消",
-  })
+  }, true)
   if (token === null) return
 
-  const accountId = await gPrompt({
+  const accountId = await promptSafe({
     title: "配置 Codex · ChatGPT-Account-Id",
     message: "若为 Team/Enterprise 账号请输入 Account ID，个人账号直接留空即可",
     defaultValue: currentAccountId,
     placeholder: "可选，个人账号留空",
     confirmLabel: "保存并测试连接",
     cancelLabel: "取消",
-  })
+  }, true)
   if (accountId === null) return
 
   if (!token.trim()) {
@@ -694,13 +762,13 @@ async function configureAntigravity() {
         await Safari.openURL(authUrl)
       }
 
-      const callbackUrl = await gPrompt({
+      const callbackUrl = await promptSafe({
         title: "完成 Antigravity 授权",
         message: "在 Google 完成登录并同意权限后，浏览器将跳转到 localhost:51121...\n请复制地址栏全部内容粘贴到下方：",
         placeholder: "http://localhost:51121/oauth-callback?code=...",
         confirmLabel: "完成登录",
         cancelLabel: "取消",
-      })
+      }, true)
       if (!callbackUrl) return
 
       const accountLabel = await completeAntigravityOAuth(callbackUrl)
@@ -727,7 +795,7 @@ async function configureAntigravity() {
     ? Keychain.get(ANTIGRAVITY_PROJECT_KEY) || ""
     : ""
 
-  const token = await gPrompt({
+  const token = await promptSafe({
     title: "配置 Antigravity · OAuth Access Token",
     message: "请输入 Google Cloud Code 插件的 Access Token (Bearer Token)",
     defaultValue: currentToken,
@@ -735,17 +803,17 @@ async function configureAntigravity() {
     obscureText: true,
     confirmLabel: "下一步",
     cancelLabel: "取消",
-  })
+  }, true)
   if (token === null) return
 
-  const project = await gPrompt({
+  const project = await promptSafe({
     title: "配置 Antigravity · Project ID (可选)",
     message: "若有指定 Google Cloud 项目 ID 可填入，默认留空即可",
     defaultValue: currentProj,
     placeholder: "可选，一般直接留空",
     confirmLabel: "保存并测试连接",
     cancelLabel: "取消",
-  })
+  }, false)
   if (project === null) return
 
   if (!token.trim()) {
@@ -799,7 +867,7 @@ async function configureCpamp() {
     ? Keychain.get(CPAMP_KEY) || ""
     : ""
 
-  const endpoint = await gPrompt({
+  const endpoint = await promptSafe({
     title: "配置 CPA-Manager-Plus · 服务地址",
     message: "请输入 CPAMP 服务地址\n例如 http://192.168.1.100:8317 或 https://cpamp.yourdomain.com",
     defaultValue: currentEndpoint,
@@ -807,10 +875,10 @@ async function configureCpamp() {
     keyboardType: "URL",
     confirmLabel: "下一步",
     cancelLabel: "取消",
-  })
+  }, true)
   if (endpoint === null) return
 
-  const key = await gPrompt({
+  const key = await promptSafe({
     title: "配置 CPA-Manager-Plus · 管理密钥",
     message: "请输入 Management Key (管理密钥)\n对应服务端的 ADMIN_KEY 或 MANAGEMENT_KEY\n（若未开启鉴权可直接留空跳过）",
     defaultValue: currentKey,
@@ -818,7 +886,7 @@ async function configureCpamp() {
     obscureText: true,
     confirmLabel: "保存并测试连接",
     cancelLabel: "取消",
-  })
+  }, false)
   if (key === null) return
 
   if (!endpoint.trim()) {
@@ -856,7 +924,7 @@ async function configureMagpie() {
   const curKey = Keychain.contains(MAGPIE_KEY) ? Keychain.get(MAGPIE_KEY) || "" : ""
   const curExample = curEndpoint ? `${curEndpoint}${curKey ? `/?k=${curKey}` : ""}` : ""
 
-  const raw = await gPrompt({
+  const raw = await promptSafe({
     title: "Magpie · 一步配置",
     message: "粘贴管理台链接即可，例如：\nhttp://host:3430/?k=你的密钥\n\n地址和密钥会自动识别（也支持 API 地址 + 单独密钥）。",
     defaultValue: curExample,
@@ -864,7 +932,7 @@ async function configureMagpie() {
     keyboardType: "URL",
     confirmLabel: "保存并连接",
     cancelLabel: "取消",
-  })
+  }, true)
   if (raw === null) return
   if (!raw.trim()) {
     await gAlert("链接不能为空")
@@ -1015,7 +1083,7 @@ async function configureQbittorrent() {
     ? Keychain.get(QB_PASS_KEY) || ""
     : ""
 
-  const url = await gPrompt({
+  const url = await promptSafe({
     title: "配置 qBittorrent · 服务地址",
     message: "请输入 qBittorrent WebUI 地址（如 http://192.168.1.100:8080 或 https://qb.domain.com）",
     defaultValue: currentUrl,
@@ -1023,7 +1091,7 @@ async function configureQbittorrent() {
     keyboardType: "URL",
     confirmLabel: "下一步",
     cancelLabel: "取消",
-  })
+  }, true)
   if (url === null) return
 
   if (!url.trim()) {
@@ -1031,17 +1099,17 @@ async function configureQbittorrent() {
     return
   }
 
-  const user = await gPrompt({
+  const user = await promptSafe({
     title: "配置 qBittorrent · 用户名",
     message: "请输入 WebUI 用户名（默认通常为 admin，若免密请留空）",
     defaultValue: currentUser || "admin",
     placeholder: "admin",
     confirmLabel: "下一步",
     cancelLabel: "取消",
-  })
+  }, true)
   if (user === null) return
 
-  const pass = await gPrompt({
+  const pass = await promptSafe({
     title: "配置 qBittorrent · 密码",
     message: "请输入 WebUI 密码（若免密请留空）",
     defaultValue: currentPass,
@@ -1049,7 +1117,7 @@ async function configureQbittorrent() {
     obscureText: true,
     confirmLabel: "保存并测试连接",
     cancelLabel: "取消",
-  })
+  }, true)
   if (pass === null) return
 
   Keychain.set(QB_URL_KEY, url.trim(), {
@@ -1125,7 +1193,7 @@ async function configureQuantumultX() {
 
   if (choice === 1) {
     const curSub = getQxSettings().subUrl || ""
-    const subUrl = await gPrompt({
+    const subUrl = await promptSafe({
       title: "配置 Quantumult X · 机场订阅地址",
       message: "请输入机场订阅链接（用于解析响应头 subscription-userinfo 中的真实剩余流量与到期时间）：",
       defaultValue: curSub,
@@ -1133,7 +1201,7 @@ async function configureQuantumultX() {
       keyboardType: "URL",
       confirmLabel: "保存并同步",
       cancelLabel: "取消",
-    })
+    }, true)
     if (subUrl === null) return
 
     saveQxSettings({ subUrl: subUrl.trim() })
@@ -1151,7 +1219,7 @@ async function configureQuantumultX() {
   if (choice === 2) {
     const curCustom = getQxSettings().customPolicies || ""
     const defaultStr = curCustom || (currentData.policies || []).map((p) => p.id).join(", ")
-    const input = await gPrompt({
+    const input = await promptSafe({
       title: "自定义展示的 4 个策略组",
       message:
         "请输入你在圈X中的策略组名称（最多 4 个，用逗号分隔，支持模糊匹配如：proxy, 哔哩哔哩, 国际媒体, 苹果服务；留空则恢复默认排序）：",
@@ -1159,7 +1227,7 @@ async function configureQuantumultX() {
       placeholder: "proxy, 全球加速, 国际媒体, 苹果服务",
       confirmLabel: "保存并同步",
       cancelLabel: "取消",
-    })
+    }, true)
     if (input === null) return
     saveQxSettings({ customPolicies: input.trim() })
     const res = await refreshQxData()
@@ -1241,7 +1309,7 @@ async function configureLoon() {
 
   if (choice === 1) {
     const curSub = Keychain.contains(LOON_SUB_URL_KEY) ? Keychain.get(LOON_SUB_URL_KEY) || "" : ""
-    const subUrl = await gPrompt({
+    const subUrl = await promptSafe({
       title: "配置 Loon · 机场订阅地址",
       message: "请输入机场订阅链接（用于解析响应头 subscription-userinfo 中的真实剩余流量与到期时间）：",
       defaultValue: curSub,
@@ -1249,7 +1317,7 @@ async function configureLoon() {
       keyboardType: "URL",
       confirmLabel: "保存并同步",
       cancelLabel: "取消",
-    })
+    }, true)
     if (subUrl === null) return
 
     if (subUrl.trim()) {
@@ -1273,7 +1341,7 @@ async function configureLoon() {
   if (choice === 2) {
     const curCustom = Keychain.contains(LOON_POLICIES_KEY) ? Keychain.get(LOON_POLICIES_KEY) || "" : ""
     const defaultStr = curCustom || (currentData.policies || []).map((p) => p.id).join(", ")
-    const input = await gPrompt({
+    const input = await promptSafe({
       title: "自定义展示的 4 个策略组",
       message:
         "请输入你在 Loon 中的策略组名称（最多 4 个，用逗号分隔，留空则自动匹配如 节点选择、国外网站、苹果服务、漏网之鱼）：",
@@ -1281,7 +1349,7 @@ async function configureLoon() {
       placeholder: "节点选择, 国外网站, 苹果服务, 漏网之鱼",
       confirmLabel: "保存并同步",
       cancelLabel: "取消",
-    })
+    }, true)
     if (input === null) return
     if (input.trim()) {
       Keychain.set(LOON_POLICIES_KEY, input.trim(), {
@@ -1356,7 +1424,7 @@ async function configureUnicom() {
 
   if (choice === 0) {
     const cur = settings.cookie || ""
-    const input = await gPrompt({
+    const input = await promptSafe({
       title: "配置 中国联通 · 手动凭据（可选）",
       message:
         "一般情况下无需填写，脚本会自动从 BoxJS 同步。\n\n仅当 BoxJS 不可用时，才需要在此手动填写，支持三种方式：\n\n1️⃣ BoxJS 路径键：\n@ZayiaComponentService.ChinaUnicom.Settings\n\n2️⃣ BoxJS 中的 JSON 值原文：\n{\"Cookie\":\"ecs_token=...; c_mobile=...\"}\n\n3️⃣ 原始 Cookie 字符串：\necs_token=...; c_mobile=1xxxxxxxxxx; ...\n\n留空则始终走 BoxJS 自动同步。",
@@ -1364,7 +1432,7 @@ async function configureUnicom() {
       placeholder: "留空 = 自动从 BoxJS 同步",
       confirmLabel: "保存并同步",
       cancelLabel: "取消",
-    })
+    }, true)
     if (input === null) return
     saveUnicomSettings({ cookie: input.trim() })
     const res = await refreshUnicomData()
@@ -1383,7 +1451,7 @@ async function configureUnicom() {
 
   if (choice === 1) {
     const curUrl = settings.boxJsUrl || "https://boxjs.com"
-    const input = await gPrompt({
+    const input = await promptSafe({
       title: "配置 BoxJS 地址",
       message:
         "脚本会自动从该地址读取 ZayiaComponentService 下的联通 Cookie。\n使用官方 BoxJS 保持默认即可；自建 BoxJS 请填写你的地址。",
@@ -1392,7 +1460,7 @@ async function configureUnicom() {
       keyboardType: "URL",
       confirmLabel: "保存并同步",
       cancelLabel: "取消",
-    })
+    }, true)
     if (input === null) return
     saveUnicomSettings({ boxJsUrl: input.trim() || "https://boxjs.com", enableBoxJs: true })
     const res = await refreshUnicomData()
@@ -1446,7 +1514,7 @@ async function configureCmcc() {
 
   if (choice === 0) {
     const cur = settings.loginEnvelope || ""
-    const input = await gPrompt({
+    const input = await promptSafe({
       title: "配置 中国移动 · 登录信封（可选）",
       message:
         "一般情况下无需填写，脚本会自动从 BoxJS (cmcc_login) 同步。\n\n如需手动填写，可直接粘贴 Quantumult X 日志或 BoxJS 中的登录信封 JSON（包含 xk、tel 等），留空则始终走 BoxJS 自动同步。",
@@ -1454,7 +1522,7 @@ async function configureCmcc() {
       placeholder: "留空 = 自动从 BoxJS 同步",
       confirmLabel: "保存并同步",
       cancelLabel: "取消",
-    })
+    }, true)
     if (input === null) return
     saveCmccSettings({ loginEnvelope: input.trim() })
     const res = await refreshCmccData()
@@ -1473,7 +1541,7 @@ async function configureCmcc() {
 
   if (choice === 1) {
     const curUrl = settings.boxJsUrl || "http://boxjs.net"
-    const input = await gPrompt({
+    const input = await promptSafe({
       title: "配置 BoxJS 地址",
       message:
         "脚本会自动从该地址读取 cmcc_login 移动凭据。\n使用官方 BoxJS 保持默认即可；自建 BoxJS 请填写你的完整地址。",
@@ -1482,7 +1550,7 @@ async function configureCmcc() {
       keyboardType: "URL",
       confirmLabel: "保存并同步",
       cancelLabel: "取消",
-    })
+    }, true)
     if (input === null) return
     saveCmccSettings({ boxJsUrl: input.trim() || "http://boxjs.net", enableBoxJs: true })
     const res = await refreshCmccData()
@@ -1533,6 +1601,31 @@ export default function ConfigView() {
   const hasUnicom = hasUnicomConfigured()
   const hasCmcc = hasCmccConfigured()
 
+  // 已启用组件（用户主动添加），已配置的旧组件自动迁移进来
+  const configuredIds = [
+    hasQx ? "qx" : "", hasLoon ? "loon" : "", hasCmcc ? "cmcc" : "",
+    hasUnicom ? "unicom" : "", hasWb ? "workbuddy" : "", hasDeepSeek ? "deepseek" : "",
+    hasCodex ? "codex" : "", hasAntigravity ? "antigravity" : "", hasMedia ? "media" : "",
+    hasCpamp ? "cpamp" : "", hasMagpie ? "magpie" : "", hasQb ? "qbittorrent" : "",
+    "vpn", "fuel", // 无需配置的组件默认可启用
+  ].filter(Boolean)
+  migrateEnabledServices(configuredIds)
+  const [enabledIds, setEnabledIds] = useState<string[]>(() => getEnabledServices())
+
+  // 每个组件的“是否已配置/可用”
+  const configuredMap: Record<string, boolean> = {
+    qx: hasQx, qx_traffic: hasQx, loon: hasLoon, loon_traffic: hasLoon,
+    cmcc: hasCmcc, unicom: hasUnicom, workbuddy: hasWb, deepseek: hasDeepSeek,
+    codex: hasCodex, antigravity: hasAntigravity, media: hasMedia, cpamp: hasCpamp,
+    magpie: hasMagpie, qbittorrent: hasQb, vpn: true, fuel: true,
+  }
+  const enabledSet = new Set(enabledIds)
+  const toggleEnabled = (id: string, on: boolean) => {
+    const next = on ? Array.from(new Set([...enabledIds, id])) : enabledIds.filter(x => x !== id)
+    saveEnabledServices(next)
+    setEnabledIds(next)
+  }
+
   useEffect(() => {
     // 首次进入设置面板后 500ms 轻量触发
     const timer = setTimeout(() => {
@@ -1540,6 +1633,53 @@ export default function ConfigView() {
     }, 500)
     return () => clearTimeout(timer)
   }, [])
+
+  // 统一预览：传入组件 id，按需刷新 → 选尺寸 → 预览
+  const previewOpt = async (id: string) => {
+    const opt = OPT_BY_ID[id]
+    if (!opt) return
+    await preparePreview(id)
+    try {
+      Storage.set("dashboard_kit_preview_active_id", id, { shared: true })
+      Storage.set("dashboard_kit_preview_active_id", id)
+      FileManager.writeAsStringSync(
+        FileManager.appGroupDocumentsDirectory + "/dashboard_kit_preview_active.txt", id)
+    } catch {}
+    let family = (opt.defaultFamily || "systemSmall") as any
+    if (["cmcc", "unicom", "loon", "loon_traffic", "qx", "qx_traffic", "fuel", "qbittorrent"].includes(id)) {
+      const dualSize = ["cmcc", "unicom", "loon", "loon_traffic", "qx", "qx_traffic"].includes(id)
+      const choices = dualSize
+        ? [`中号组件 (${opt.name} 全面监控)`, "小号组件 (精简)", "取消"]
+        : ["小号组件", "中号组件", "取消"]
+      const chosen = await gActionSheet(`请选择 ${opt.name} 预览尺寸`, choices)
+      if (!chosen || chosen === "取消") return
+      family = chosen.includes("小号") ? "systemSmall" : "systemMedium"
+    }
+    await Widget.preview({
+      family,
+      parameters: {
+        options: Object.fromEntries(WIDGET_OPTIONS.map(o => [o.name, o.id])),
+        default: opt.name,
+      },
+    })
+  }
+
+  // 添加组件：分组列表 → 选组件 → 加入启用并进入配置
+  const addComponent = async () => {
+    const groupNames = WIDGET_GROUPS.map(g => g.title)
+    const gName = await gActionSheet("选择要添加的组件类别", [...groupNames, "取消"])
+    if (!gName || gName === "取消") return
+    const group = WIDGET_GROUPS.find(g => g.title === gName)
+    if (!group) return
+    const options = group.ids.map(id => OPT_BY_ID[id]?.name || id)
+    const picked = await gActionSheet("选择组件", [...options, "取消"])
+    if (!picked || picked === "取消") return
+    const pickedId = group.ids[options.indexOf(picked)]
+    if (!pickedId) return
+    toggleEnabled(pickedId, true)
+    const fn = CONFIGURE_FN[pickedId]
+    if (fn) await fn()
+  }
 
   const mediaLabel = hasMedia
     ? `Media Nexus (${mediaType === "moviepilot" ? "MoviePilot" : "Emby"})`
@@ -1562,343 +1702,128 @@ export default function ConfigView() {
           ),
         }}
       >
-        {/* 数据源状态汇总 */}
-        <Section header={<Text>数据源状态（真实数据优先）</Text>}>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle="#10B981"
-            />
-            <Text font={14} fontWeight="medium">Quantumult X (方案三联动)</Text>
-            <Spacer />
-            <Button
-              title={hasQx ? "已配置 · 管理" : "桥接与配置"}
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureQuantumultX()
-              }}
-            />
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle={hasLoon ? "#10B981" : "#F59E0B"}
-            />
-            <Text font={14} fontWeight="medium">Loon (桌面联动)</Text>
-            <Spacer />
-            <Button
-              title={hasLoon ? "已配置 · 管理" : "插件与配置"}
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureLoon()
-              }}
-            />
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle={hasCmcc ? "#10B981" : "#F59E0B"}
-            />
-            <Text font={14} fontWeight="medium">中国移动 (话费/流量/积分)</Text>
-            <Spacer />
-            <Button
-              title={hasCmcc ? "已配置 · 管理" : "凭据配置"}
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureCmcc()
-              }}
-            />
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle={hasUnicom ? "#10B981" : "#F59E0B"}
-            />
-            <Text font={14} fontWeight="medium">中国联通 (话费/流量)</Text>
-            <Spacer />
-            <Button
-              title={hasUnicom ? "已配置 · 管理" : "Cookie 配置"}
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureUnicom()
-              }}
-            />
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle={hasWb ? "#10B981" : "#F59E0B"}
-            />
-            <Text font={14} fontWeight="medium">WorkBuddy (Panel)</Text>
-            <Spacer />
-            <Button
-              title={hasWb ? "已配置 · 修改" : "去配置"}
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureWorkBuddy()
-              }}
-            />
-            {hasWb ? (
+        {/* 我的组件：只显示用户添加的组件 */}
+        <Section header={<Text>我的组件</Text>}>
+          {/* 添加组件：整行主操作卡片 */}
+          <Button action={addComponent}>
+            <HStack spacing={12} alignment="center" padding={{ top: 6, bottom: 6 }}>
+              <ZStack frame={{ width: 40, height: 40 }} alignment="center">
+                <RoundedRectangle
+                  fill={{ light: "#EEF2FF", dark: "#312E81" } as any}
+                  cornerRadius={11}
+                  frame={{ width: 40, height: 40 }}
+                />
+                <Image
+                  systemName="plus.circle.fill"
+                  font={{ name: "system", size: 22 }}
+                  foregroundStyle={{ light: "#4F46E5", dark: "#818CF8" } as any}
+                />
+              </ZStack>
+              <VStack alignment="leading" spacing={2}>
+                <Text font={15} fontWeight="bold" foregroundStyle={{ light: "#4F46E5", dark: "#818CF8" } as any}>
+                  添加组件
+                </Text>
+                <Text font={11} foregroundStyle={C_SUBTITLE}>
+                  从分类中选择并配置新的看板
+                </Text>
+              </VStack>
+              <Spacer />
+              <Image
+                systemName="chevron.right"
+                font={{ name: "system", size: 14 }}
+                foregroundStyle={C_SUBTITLE}
+              />
+            </HStack>
+          </Button>
+
+          {/* 预览：次要操作，已添加组件时可点 */}
+          {enabledIds.length > 0 ? (
+            <HStack spacing={8} alignment="center">
+              <Image
+                systemName="eye.fill"
+                font={{ name: "system", size: 13 }}
+                foregroundStyle={C_SUBTITLE}
+              />
+              <Text font={12} foregroundStyle={C_SUBTITLE}>预览已添加的组件</Text>
+              <Spacer />
               <Button
-                title="清除"
-                role="destructive"
+                title="选择预览"
                 buttonStyle="bordered"
                 controlSize="mini"
                 action={async () => {
-                  await clearWorkBuddyConfig()
+                  const names = enabledIds.map(id => OPT_BY_ID[id]?.name || id)
+                  const picked = await gActionSheet("选择要预览的组件", [...names, "取消"])
+                  if (!picked || picked === "取消") return
+                  const id = enabledIds[names.indexOf(picked)]
+                  if (id) await previewOpt(id)
                 }}
               />
-            ) : null}
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle={hasDeepSeek ? "#10B981" : "#F59E0B"}
-            />
-            <Text font={14} fontWeight="medium">DeepSeek</Text>
-            <Spacer />
-            <Button
-              title={hasDeepSeek ? "已配置 · 修改" : "去配置"}
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureDeepSeek()
-              }}
-            />
-            {hasDeepSeek ? (
-              <Button
-                title="清除"
-                role="destructive"
-                buttonStyle="bordered"
-                controlSize="mini"
-                action={async () => {
-                  await clearDeepSeekConfig()
-                }}
-              />
-            ) : null}
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle={hasCodex ? "#10B981" : "#F59E0B"}
-            />
-            <Text font={14} fontWeight="medium">Codex</Text>
-            <Spacer />
-            <Button
-              title={hasCodex ? "已配置 · 修改" : "去配置"}
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureCodex()
-              }}
-            />
-            {hasCodex ? (
-              <Button
-                title="清除"
-                role="destructive"
-                buttonStyle="bordered"
-                controlSize="mini"
-                action={async () => {
-                  await clearCodexConfig()
-                }}
-              />
-            ) : null}
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle={hasAntigravity ? "#10B981" : "#F59E0B"}
-            />
-            <Text font={14} fontWeight="medium">Antigravity</Text>
-            <Spacer />
-            <Button
-              title={hasAntigravity ? "已配置 · 修改" : "去配置"}
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureAntigravity()
-              }}
-            />
-            {hasAntigravity ? (
-              <Button
-                title="清除"
-                role="destructive"
-                buttonStyle="bordered"
-                controlSize="mini"
-                action={async () => {
-                  await clearAntigravityConfig()
-                }}
-              />
-            ) : null}
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle={hasMedia ? "#10B981" : "#F59E0B"}
-            />
-            <Text font={14} fontWeight="medium">{mediaLabel}</Text>
-            <Spacer />
-            <Button
-              title={hasMedia ? "已配置 · 修改" : "去配置"}
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureMedia()
-              }}
-            />
-            {hasMedia ? (
-              <Button
-                title="清除"
-                role="destructive"
-                buttonStyle="bordered"
-                controlSize="mini"
-                action={async () => {
-                  await clearMediaConfig()
-                }}
-              />
-            ) : null}
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle={hasCpamp ? "#10B981" : "#F59E0B"}
-            />
-            <Text font={14} fontWeight="medium">CPA-Manager-Plus</Text>
-            <Spacer />
-            <Button
-              title={hasCpamp ? "已配置 · 修改" : "去配置"}
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureCpamp()
-              }}
-            />
-            {hasCpamp ? (
-              <Button
-                title="清除"
-                role="destructive"
-                buttonStyle="bordered"
-                controlSize="mini"
-                action={async () => {
-                  await clearCpampConfig()
-                }}
-              />
-            ) : null}
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle={hasMagpie ? "#10B981" : "#F59E0B"}
-            />
-            <Text font={14} fontWeight="medium">Magpie (API 网关)</Text>
-            <Spacer />
-            <Button
-              title={hasMagpie ? "已配置 · 修改" : "去配置"}
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureMagpie()
-              }}
-            />
-            {hasMagpie ? (
-              <Button
-                title="清除"
-                role="destructive"
-                buttonStyle="bordered"
-                controlSize="mini"
-                action={async () => {
-                  await clearMagpieConfig()
-                }}
-              />
-            ) : null}
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle={hasQb ? "#10B981" : "#F59E0B"}
-            />
-            <Text font={14} fontWeight="medium">qBittorrent (下载器)</Text>
-            <Spacer />
-            <Button
-              title={hasQb ? "已配置 · 修改" : "去配置"}
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureQbittorrent()
-              }}
-            />
-            {hasQb ? (
-              <Button
-                title="清除"
-                role="destructive"
-                buttonStyle="bordered"
-                controlSize="mini"
-                action={async () => {
-                  await clearQbittorrentConfig()
-                }}
-              />
-            ) : null}
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle="#10B981"
-            />
-            <Text font={14} fontWeight="medium">IP / 节点检测</Text>
-            <Spacer />
-            <Button
-              title="立即检测"
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await triggerVpnDetection()
-              }}
-            />
-          </HStack>
-          <HStack spacing={10} alignment="center">
-            <Image
-              systemName="circle.fill"
-              font={{ name: "system", size: 8 }}
-              foregroundStyle="#10B981"
-            />
-            <Text font={14} fontWeight="medium">今日油价 (省份/油品)</Text>
-            <Spacer />
-            <Button
-              title="设置省份"
-              buttonStyle="bordered"
-              controlSize="mini"
-              action={async () => {
-                await configureFuelSettings()
-              }}
-            />
-          </HStack>
-          <HStack spacing={10} alignment="center" padding={{ top: 4 }}>
+            </HStack>
+          ) : null}
+
+          {enabledIds.length === 0 ? (
+            <VStack alignment="leading" spacing={6} padding={{ top: 10, bottom: 10 }}>
+              <Text font={13} fontWeight="semibold" foregroundStyle={C_SECTION_HEADER}>
+                还没有添加组件
+              </Text>
+              <Text font={12} foregroundStyle={C_SUBTITLE}>
+                点上方「添加组件」卡片，按分类选择你需要的看板。已配置过的组件会自动出现在这里。
+              </Text>
+            </VStack>
+          ) : null}
+
+          {enabledIds.map((id) => {
+            const opt = OPT_BY_ID[id]
+            const name = opt?.name || id
+            const isOn = !!configuredMap[id]
+            return (
+              <HStack key={id} spacing={8} alignment="center">
+                <ZStack frame={{ width: 30, height: 30 }} alignment="center">
+                  <RoundedRectangle fill={BG_BOX} cornerRadius={8} frame={{ width: 30, height: 30 }} />
+                  <OptionBrandIcon id={id} />
+                </ZStack>
+                <VStack alignment="leading" spacing={2}>
+                  <Text font={13.5} fontWeight="semibold" foregroundStyle={C_TITLE} lineLimit={1}>
+                    {name}
+                  </Text>
+                  <Text font={10} foregroundStyle={isOn ? COLOR_SUCCESS : COLOR_WARN} lineLimit={1}>
+                    {isOn ? "已配置" : "待配置"}
+                  </Text>
+                </VStack>
+                <Spacer />
+                <Button
+                  title={isOn ? "管理" : "去配置"}
+                  buttonStyle="bordered"
+                  controlSize="mini"
+                  action={async () => {
+                    const fn = CONFIGURE_FN[id]
+                    if (fn) await fn()
+                  }}
+                />
+                <Button
+                  title="移除"
+                  role="destructive"
+                  buttonStyle="bordered"
+                  controlSize="mini"
+                  action={async () => {
+                    const ok = await gConfirm(`从「我的组件」移除 ${name}？\n（只移除列表，不会删除已保存的凭据）`)
+                    if (!ok) return
+                    toggleEnabled(id, false)
+                  }}
+                />
+              </HStack>
+            )
+          })}
+
+          <HStack spacing={10} alignment="center" padding={{ top: 6 }}>
             <Image
               systemName="arrow.clockwise.circle.fill"
               font={{ name: "system", size: 16 }}
               foregroundStyle="#3B82F6"
             />
             <VStack alignment="leading" spacing={2}>
-              <Text font={14} fontWeight="medium">强制刷新所有桌面小组件</Text>
-              <Text font={11} foregroundStyle={C_SUBTITLE}>重新拉取所有在线凭证并触发 Widget 重新渲染</Text>
+              <Text font={14} fontWeight="medium">刷新已启用组件</Text>
+              <Text font={11} foregroundStyle={C_SUBTITLE}>只刷新「我的组件」，不请求未添加的服务</Text>
             </VStack>
             <Spacer />
             <Button
@@ -1907,22 +1832,23 @@ export default function ConfigView() {
               controlSize="small"
               action={async () => {
                 try {
-                  const tasks: Promise<any>[] = []
-                  if (hasWb) tasks.push(refreshWorkBuddyData().catch((e) => console.log("wb err:", e)))
-                  if (hasMedia) tasks.push(refreshEmbyData().catch((e) => console.log("media err:", e)))
-                  if (hasDeepSeek) tasks.push(refreshDeepSeekData().catch((e) => console.log("ds err:", e)))
-                  if (hasCodex) tasks.push(refreshCodexData().catch((e) => console.log("codex err:", e)))
-                  if (hasAntigravity) tasks.push(refreshAntigravityData().catch((e) => console.log("ag err:", e)))
-                  if (hasCpamp) tasks.push(refreshCpampData().catch((e) => console.log("cpamp err:", e)))
-                  if (hasMagpie) tasks.push(refreshMagpieData().catch((e) => console.log("magpie err:", e)))
-                  if (hasQb) tasks.push(refreshQbittorrentData().catch((e) => console.log("qb err:", e)))
-                  tasks.push(refreshQxData().catch((e) => console.log("qx err:", e)))
-                  tasks.push(refreshVpnData().catch((e) => console.log("vpn err:", e)))
-                  tasks.push(refreshFuelData().catch((e) => console.log("fuel err:", e)))
-
+                  const refreshers: Record<string, () => Promise<any>> = {
+                    workbuddy: refreshWorkBuddyData, deepseek: refreshDeepSeekData,
+                    codex: refreshCodexData, antigravity: refreshAntigravityData,
+                    cpamp: refreshCpampData, magpie: refreshMagpieData,
+                    media: refreshEmbyData, qbittorrent: refreshQbittorrentData,
+                    qx: refreshQxData, qx_traffic: refreshQxData,
+                    loon: refreshLoonData, loon_traffic: refreshLoonData,
+                    cmcc: refreshCmccData, unicom: refreshUnicomData,
+                    vpn: refreshVpnData, fuel: refreshFuelData,
+                  }
+                  const tasks = enabledIds
+                    .map(id => refreshers[id])
+                    .filter(Boolean)
+                    .map(fn => fn().catch((e: any) => console.log("refresh err:", e)))
                   await Promise.all(tasks)
                   Widget.reloadAll()
-                  await gAlert("✓ 桌面小组件刷新完成！\n已同步更新数据源缓存并通知 iOS 桌面重新渲染。")
+                  await gAlert("✓ 已启用组件刷新完成！")
                 } catch (e: any) {
                   await gAlert(`刷新异常：${e?.message || e}`)
                 }
@@ -1932,189 +1858,21 @@ export default function ConfigView() {
         </Section>
 
         {/* 方案 A 使用说明 */}
-        <Section header={<Text>桌面多组件配置说明（方案 A）</Text>}>
+        <Section header={<Text>桌面小组件使用说明</Text>}>
           <VStack alignment="leading" spacing={6} padding={{ top: 4, bottom: 4 }}>
             <Text font={14} fontWeight="semibold" foregroundStyle={C_SECTION_HEADER}>
               如何在桌面添加不同组件？
             </Text>
             <Text font={12} foregroundStyle={C_SUBTITLE}>
-              1. 在手机桌面长按空白处 → 点击左上角「+」→ 找到「DashBoard-Kit」小组件。
+              1. 桌面长按空白处 → 左上角「+」→ 添加「DashBoard-Kit」小组件。
             </Text>
             <Text font={12} foregroundStyle={C_SUBTITLE}>
-              2. 长按已添加的小组件，点击「编辑小组件」。
+              2. 长按已添加的小组件 →「编辑小组件」。
             </Text>
             <Text font={12} foregroundStyle={C_SUBTITLE}>
-              3. 在「参数 (Parameter)」一栏输入下方对应的组件 ID（例如 deepseek、workbuddy 或 media）即可切换。
+              3. 在「参数 (Parameter)」填组件 ID（如 magpie、deepseek、media）即可切换。
             </Text>
           </VStack>
-        </Section>
-
-        {/* 各看板列表与预览入口 */}
-        <Section header={<Text>支持的看板模版（点击即刻预览）</Text>}>
-          {WIDGET_OPTIONS.map((opt) => (
-            <HStack
-              key={opt.id}
-              spacing={12}
-              padding={{ top: 6, bottom: 6 }}
-              alignment="center"
-            >
-              <ZStack
-                frame={{ width: 36, height: 36 }}
-                alignment="center"
-              >
-                <RoundedRectangle
-                  fill={BG_BOX}
-                  cornerRadius={10}
-                  frame={{ width: 36, height: 36 }}
-                />
-                <OptionBrandIcon id={opt.id} />
-              </ZStack>
-
-              <VStack alignment="leading" spacing={3}>
-                <HStack spacing={6}>
-                  <Text font={15} fontWeight="bold" foregroundStyle={C_TITLE}>
-                    {opt.name}
-                  </Text>
-                  <Text
-                    font={11}
-                    fontWeight="medium"
-                    foregroundStyle="#6366F1"
-                  >
-                    {`ID: ${opt.id}`}
-                  </Text>
-                </HStack>
-                <Text font={12} foregroundStyle={C_SUBTITLE}>
-                  {opt.desc}
-                </Text>
-              </VStack>
-              <Spacer />
-              <Button
-                title="预览"
-                buttonStyle="borderedProminent"
-                controlSize="small"
-                action={async () => {
-                  const paramOptions = Object.fromEntries(
-                    WIDGET_OPTIONS.map((o) => [o.name, o.id])
-                  )
-                  // 针对带账号的在线看板，在启动预览前触发一次数据准备
-                  if (opt.id === "antigravity") {
-                    await refreshAntigravityData().catch(() => null)
-                  } else if (opt.id === "codex") {
-                    await refreshCodexData().catch(() => null)
-                  } else if (opt.id === "deepseek") {
-                    await refreshDeepSeekData().catch(() => null)
-                  } else if (opt.id === "workbuddy") {
-                    await refreshWorkBuddyData().catch(() => null)
-                  } else if (opt.id === "cpamp") {
-                    await refreshCpampData().catch(() => null)
-                  } else if (opt.id === "magpie") {
-                    await refreshMagpieData().catch(() => null)
-                  } else if (opt.id === "vpn") {
-                    await refreshVpnData().catch(() => null)
-                  } else if (opt.id === "fuel") {
-                    await refreshFuelData().catch(() => null)
-                  } else if (opt.id === "qbittorrent") {
-                    await refreshQbittorrentData().catch(() => null)
-                  } else if (opt.id === "loon" || opt.id === "loon_traffic") {
-                    await refreshLoonData().catch(() => null)
-                  } else if (opt.id === "cmcc") {
-                    await refreshCmccData().catch(() => null)
-                  } else if (opt.id === "unicom") {
-                    await refreshUnicomData().catch(() => null)
-                  } else if (opt.id === "qx" || opt.id === "qx_traffic") {
-                    await refreshQxData().catch(() => null)
-                  } else if (opt.id === "media") {
-                    await refreshMediaData().catch(() => null)
-                  }
-
-                  // 保存当前预览卡片 ID 供预览渲染时优先读取
-                  try {
-                    Storage.set("dashboard_kit_preview_active_id", opt.id, { shared: true })
-                    Storage.set("dashboard_kit_preview_active_id", opt.id)
-                    FileManager.writeAsStringSync(
-                      FileManager.appGroupDocumentsDirectory + "/dashboard_kit_preview_active.txt",
-                      opt.id
-                    )
-                  } catch {}
-
-                  let previewFamily = opt.defaultFamily as any
-                  if (opt.id === "cmcc") {
-                    const chosen = await gActionSheet("请选择 中国移动 预览尺寸", [
-                      "中号组件 (话费/流量/积分 全面监控)",
-                      "小号组件 (话费余额 + 流量进度条)",
-                      "取消",
-                    ])
-                    if (!chosen || chosen === "取消") return
-                    previewFamily = chosen.includes("小号") ? "systemSmall" : "systemMedium"
-                  } else if (opt.id === "unicom") {
-                    const chosen = await gActionSheet("请选择 中国联通 预览尺寸", [
-                      "中号组件 (话费/流量/语音 全面监控)",
-                      "小号组件 (话费余额 + 流量进度条)",
-                      "取消",
-                    ])
-                    if (!chosen || chosen === "取消") return
-                    previewFamily = chosen.includes("小号") ? "systemSmall" : "systemMedium"
-                  } else if (opt.id === "loon") {
-                    const chosen = await gActionSheet("请选择 Loon 预览尺寸", [
-                      "中号组件 (流量监控 + 2x2 策略组桌面直切矩阵)",
-                      "小号组件 (精简模式切换 + 主力策略组 + 流量)",
-                      "取消",
-                    ])
-                    if (!chosen || chosen === "取消") return
-                    previewFamily = chosen.includes("小号") ? "systemSmall" : "systemMedium"
-                  } else if (opt.id === "loon_traffic") {
-                    const chosen = await gActionSheet("请选择 Loon (流量统计) 预览尺寸", [
-                      "中号组件 (上下行累计 + 四宫格核心指标)",
-                      "小号组件 (精简上下行累计 + 延迟)",
-                      "取消",
-                    ])
-                    if (!chosen || chosen === "取消") return
-                    previewFamily = chosen.includes("小号") ? "systemSmall" : "systemMedium"
-                  } else if (opt.id === "qx") {
-                    const chosen = await gActionSheet("请选择 Quantumult X 预览尺寸", [
-                      "中号组件 (流量监控 + 2x2 策略组桌面直切矩阵)",
-                      "小号组件 (精简模式切换 + 主力策略组 + 流量)",
-                      "取消",
-                    ])
-                    if (!chosen || chosen === "取消") return
-                    previewFamily = chosen.includes("小号") ? "systemSmall" : "systemMedium"
-                  } else if (opt.id === "qx_traffic") {
-                    const chosen = await gActionSheet("请选择 Quantumult X (流量统计) 预览尺寸", [
-                      "中号组件 (上下行累计 + 四宫格核心指标)",
-                      "小号组件 (精简上下行累计 + 延迟)",
-                      "取消",
-                    ])
-                    if (!chosen || chosen === "取消") return
-                    previewFamily = chosen.includes("小号") ? "systemSmall" : "systemMedium"
-                  } else if (opt.id === "fuel") {
-                    const chosen = await gActionSheet("请选择油价小组件预览尺寸", [
-                      "小号组件 (Shell 贝壳高光)",
-                      "中号组件 (4联卡片极简行情)",
-                      "取消",
-                    ])
-                    if (!chosen || chosen === "取消") return
-                    previewFamily = chosen.includes("中号") ? "systemMedium" : "systemSmall"
-                  } else if (opt.id === "qbittorrent") {
-                    const chosen = await gActionSheet("请选择 qBittorrent 预览尺寸", [
-                      "小号组件 (实时速率与任务)",
-                      "中号组件 (全面传输与磁盘监控)",
-                      "取消",
-                    ])
-                    if (!chosen || chosen === "取消") return
-                    previewFamily = chosen.includes("中号") ? "systemMedium" : "systemSmall"
-                  }
-
-                  await Widget.preview({
-                    family: previewFamily,
-                    parameters: {
-                      options: paramOptions,
-                      default: opt.name,
-                    },
-                  })
-                }}
-              />
-            </HStack>
-          ))}
         </Section>
 
         {/* 开源与作者信息 */}
@@ -2153,3 +1911,4 @@ async function run() {
 }
 
 run()
+
